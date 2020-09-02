@@ -997,7 +997,7 @@ WarpX::AllocLevelMFs (int lev, const BoxArray& ba, const DistributionMapping& dm
     }
     // Get the cell-centered box
     BoxArray realspace_ba = ba;  // Copy box
-    realspace_ba.enclosedCells(); // Make it cell-centered
+    realspace_ba.surroundingNodes(); // Make it nodal
     // Define spectral solver
 #   ifdef WARPX_DIM_RZ
     realspace_ba.grow(1, ngE[1]); // add guard cells only in z
@@ -1118,7 +1118,7 @@ WarpX::AllocLevelMFs (int lev, const BoxArray& ba, const DistributionMapping& dm
 #   endif
         // Get the cell-centered box, with guard cells
         BoxArray realspace_ba = cba;// Copy box
-        realspace_ba.enclosedCells(); // Make it cell-centered
+	realspace_ba.surroundingNodes(); // Make it cell-centered
         // Define spectral solver
 #   ifdef WARPX_DIM_RZ
         realspace_ba.grow(1, ngE[1]); // add guard cells only in z
