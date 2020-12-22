@@ -248,8 +248,12 @@ WarpXParticleContainer::DepositCurrent(WarpXParIter& pti,
     if (do_not_deposit) return;
 
     // Number of guard cells for local deposition of J
+#ifdef AMREX_USE_GPU
+    const int ng_J = jx->nGrow().max();
+#else
     WarpX& warpx = WarpX::GetInstance();
     const int ng_J = warpx.get_ng_depos_J().max();
+#endif
 
     // Extract deposition order (same order along all directions) and check that
     // particles shape fits within the guard cells.
@@ -450,8 +454,12 @@ WarpXParticleContainer::DepositCharge (WarpXParIter& pti, RealVector& wp,
     if (do_not_deposit) return;
 
     // Number of guard cells for local deposition of rho
+#ifdef AMREX_USE_GPU
+    const int ng_rho = rho->nGrow().max();
+#else
     WarpX& warpx = WarpX::GetInstance();
     const int ng_rho = warpx.get_ng_depos_rho().max();
+#endif
 
     // Extract deposition order (same order along all directions) and check that
     // particles shape fits within the guard cells.
