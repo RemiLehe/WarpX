@@ -50,13 +50,18 @@ he_ions.momentum_distribution_type = maxwell_boltzmann
 he_ions.theta = (kb*Tgas/(Mion*clight^2))
 
 collisions.collision_names = coll_elec coll_ion
+
 coll_ion.type = background_mcc
 coll_ion.species = he_ions
 coll_ion.background_density = Ngas
 coll_ion.background_temperature = Tgas
-coll_ion.scattering_processes = elastic back
+coll_ion.scattering_processes = elastic back ionization
 coll_ion.elastic_cross_section = ../../../../warpx-data/MCC_cross_sections/He/ion_scattering.dat
 coll_ion.back_cross_section = ../../../../warpx-data/MCC_cross_sections/He/ion_back_scatter.dat
+coll_ion.ionization_energy = 24.55
+coll_ion.ionization_cross_section = ../../../../warpx-data/MCC_cross_sections/He/ionization.dat
+coll_ion.ionization_species = he_ions
+coll_ion.electron_species = electrons
 
 coll_elec.type = background_mcc
 coll_elec.species = electrons
@@ -71,6 +76,7 @@ coll_elec.excitation2_cross_section = ../../../../warpx-data/MCC_cross_sections/
 coll_elec.ionization_energy = 24.55
 coll_elec.ionization_cross_section = ../../../../warpx-data/MCC_cross_sections/He/ionization.dat
 coll_elec.ionization_species = he_ions
+coll_elec.electron_species = electrons
 
 diagnostics.diags_names = diag1
 diag1.diag_type = Full

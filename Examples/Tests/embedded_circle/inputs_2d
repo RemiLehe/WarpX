@@ -80,12 +80,8 @@ coll_ar_ions.back_cross_section = ../../../../warpx-data/MCC_cross_sections/Ar/i
 coll_ar_ions.elastic_cross_section = ../../../../warpx-data/MCC_cross_sections/Ar/ion_scattering.dat
 coll_ar_ions.charge_exchange_cross_section = ../../../../warpx-data/MCC_cross_sections/Ar/charge_exchange.dat
 
-diagnostics.diags_names = diag1 diag3
+diagnostics.diags_names = diag1
 diag1.diag_type = Full
 diag1.format = plotfile
 diag1.intervals = 1
 diag1.fields_to_plot = phi rho_electrons rho_ar_ions
-
-diag3.diag_type = BoundaryScraping
-diag3.format = openpmd
-diag3.intervals = 5

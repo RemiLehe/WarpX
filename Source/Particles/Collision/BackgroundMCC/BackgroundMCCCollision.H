@@ -55,7 +55,7 @@ public:
      *
      * @param[in] lev the mesh-refinement level
      * @param[in,out] cost pointer to (load balancing) cost corresponding to box where present particles are ionized.
-     * @param[in,out] species1,species2 reference to species container used to inject
+     * @param[in,out] incident_species, ion_species, elec_species reference to species container used to inject
      * new particles
      * @param t current time
      *
@@ -63,8 +63,9 @@ public:
     void doBackgroundIonization (
                                  int lev,
                                  amrex::LayoutData<amrex::Real>* cost,
-                                 WarpXParticleContainer& species1,
-                                 WarpXParticleContainer& species2,
+                                 WarpXParticleContainer& incident_species,
+                                 WarpXParticleContainer& ion_species,
+                                 WarpXParticleContainer& elec_species,
                                  amrex::Real t
                                  );
 

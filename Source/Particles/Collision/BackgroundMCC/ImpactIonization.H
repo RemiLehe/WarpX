@@ -40,7 +40,7 @@ public:
     * or mixed precision builds of WarpX).
     *
     * @param[in] mcc_process an ScatteringProcess object associated with the ionization
-    * @param[in] mass colliding particle's mass (could also assume electron)
+    * @param[in] mass colliding particle's mass
     * @param[in] total_collision_prob total probability for a collision to occur
     * @param[in] nu_max maximum collision frequency
     * @param[in] n_a_func ParserExecutor<4> function to get the background
@@ -59,7 +59,7 @@ public:
         m_nu_max(nu_max), m_n_a_func(n_a_func), m_t(t) { }
 
     /**
-    * \brief Functor call. This method determines if a given (electron) particle
+    * \brief Functor call. This method determines if a given particle
     * should undergo an ionization collision.
     *
     * @param[in] ptd particle tile data
@@ -94,6 +94,9 @@ public:
         const ParticleReal uz = ptd.m_rdata[PIdx::uz][i];
 
         // calculate kinetic energy
+        // TODO: this should probably be generalized, to calculate the energy in the center-of-mass frame
+        // (The WarpX documentation for the `cross_section` data file specifies that "The energy column
+        // should represent the kinetic energy of the colliding particles in the center-of-mass frame.")
         const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
         ParticleUtils::getEnergy(u_coll2, m_mass, E_coll);
 
@@ -198,20 +201,26 @@ public:
         auto& i_uz = dst2.m_rdata[PIdx::uz][i_dst2];
 
         // calculate kinetic energy
+        // m_mass1 is the mass of the incident species
         const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
         ParticleUtils::getEnergy(u_coll2, m_mass1, E_coll);
 
-        // each electron gets half the energy (could change this later)
+        // the incident particle gets half of the available energy
+        // the ionized electron gets the other half of the available energy
+        // TODO: This should be changed to encode the correct physics
         const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) / 2.0_prt * PhysConst::q_e);
-
-        // precalculate often used value
         constexpr auto c2 = PhysConst::c * PhysConst::c;
-        const auto mc2 = m_mass1*c2;
 
+        // Corresponding momentum of the incident species
+        const auto mc2 = m_mass1 * c2;
         const amrex::ParticleReal up = sqrt(E_out * (E_out + 2.0_prt*mc2) / c2) / m_mass1;
-
-        // isotropically scatter electrons
+        // isotropically scatter incident species
         ParticleUtils::RandomizeVelocity(ux, uy, uz, up, engine);
+
+        // Corresponding momentum of the electron species
+        constexpr auto mc2_e = PhysConst::m_e * c2;
+        const amrex::ParticleReal up_e = sqrt(E_out * (E_out + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
+        // isotropically scatter incident species
         ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, up, engine);
 
         // get velocities for the ion from a Maxwellian distribution
