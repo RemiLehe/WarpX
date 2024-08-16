@@ -93,6 +93,7 @@ deuterium.density_function(x,y,z) = "nc*n0*(
 #################################
 # Laser Pulse Profile
 #
+my_constants.laser_spot = 4e-6
 lasers.names        = laser1
 laser1.position     = 0. 0. -4.0e-6     # point the laser plane (antenna)
 laser1.direction    = 0. 0. 1.          # the plane's (antenna's) normal direction
@@ -100,52 +101,20 @@ laser1.polarization = 1. 0. 0.          # the main polarization vector
 laser1.a0           = 16.0              # maximum amplitude of the laser field [V/m]
 laser1.wavelength   = 0.8e-6            # central wavelength of the laser pulse [m]
 laser1.profile      = Gaussian
-laser1.profile_waist = 4.e-6            # beam waist (E(w_0)=E_0/e) [m]
+laser1.profile_waist = laser_spot       # beam waist (E(w_0)=E_0/e) [m]
 laser1.profile_duration = 30.e-15       # pulse length (E(tau)=E_0/e; tau=tau_E=FWHM_I/1.17741) [s]
 laser1.profile_t_peak = 50.e-15         # time until peak intensity reached at the laser plane [s]
 laser1.profile_focal_distance = 4.0e-6  # focal distance from the antenna [m]
 
-# e_max = a0 * 3.211e12 / lambda_0[mu]
-#   a0 = 16, lambda_0 = 0.8mu -> e_max = 64.22 TV/m
-
-
 #################################
 # Diagnostics
 #
-diagnostics.diags_names = diag1 openPMDfw openPMDbw
+diagnostics.diags_names = diag1
 
-diag1.intervals = 100
+diag1.intervals = 1000
 diag1.diag_type = Full
 diag1.fields_to_plot = Ex Ey Ez Bx By Bz jx jy jz rho rho_electrons rho_deuterium
-# reduce resolution of output fields
-diag1.coarsening_ratio = 4 4
-# demonstration of a spatial and momentum filter
-diag1.electrons.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz>=0) * (x<1.0e-6) * (x>-1.0e-6)
-diag1.deuterium.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz>=0) * (x<1.0e-6) * (x>-1.0e-6)
 diag1.format = openpmd
-diag1.openpmd_backend = h5
-
-openPMDfw.intervals = 100
-openPMDfw.diag_type = Full
-openPMDfw.fields_to_plot = Ex Ey Ez Bx By Bz jx jy jz rho rho_electrons rho_deuterium
-# reduce resolution of output fields
-openPMDfw.coarsening_ratio = 4 4
-openPMDfw.format = openpmd
-openPMDfw.openpmd_backend = h5
-# demonstration of a spatial and momentum filter
-openPMDfw.electrons.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz>=0) * (x<1.0e-6) * (x>-1.0e-6)
-openPMDfw.deuterium.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz>=0) * (x<1.0e-6) * (x>-1.0e-6)
-
-openPMDbw.intervals = 100
-openPMDbw.diag_type = Full
-openPMDbw.fields_to_plot = rho_deuterium
-# reduce resolution of output fields
-openPMDbw.coarsening_ratio = 4 4
-openPMDbw.format = openpmd
-openPMDbw.openpmd_backend = h5
-# demonstration of a momentum filter
-openPMDbw.electrons.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz<0)
-openPMDbw.deuterium.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz<0)
 
 
 #################################
@@ -153,18 +122,18 @@ openPMDbw.deuterium.plot_filter_function(t,x,y,z,ux,uy,uz) = (uz<0)
 #
 
 # histograms with 2.0 degree acceptance angle in fw direction
-# 2 deg * pi / 180 : 0.03490658503 rad
+# 15 deg * pi / 180 : 0.03490658503 rad
 # half-angle +/-   : 0.017453292515 rad
-warpx.reduced_diags_names                   = histuH histue histuzAll FieldProbe_Z FieldProbe_ScatPoint FieldProbe_ScatLine LBC PhaseSpaceIons PhaseSpaceElectrons
+warpx.reduced_diags_names                   = histuD histue
 
-histuH.type                                 = ParticleHistogram
-histuH.intervals                            = 100
-histuH.species                              = deuterium
-histuH.bin_number                           = 1000
-histuH.bin_min                              =  0.0
-histuH.bin_max                              =  0.474  # 100 MeV protons
-histuH.histogram_function(t,x,y,z,ux,uy,uz) = "u2=ux*ux+uy*uy+uz*uz; if(u2>0, sqrt(u2), 0.0)"
-histuH.filter_function(t,x,y,z,ux,uy,uz) = "u2=ux*ux+uy*uy+uz*uz; if(u2>0, abs(acos(uz / sqrt(u2))) <= 0.017453, 0)"
+histuD.type                                 = ParticleHistogram
+histuD.intervals                            = 100
+histuD.species                              = deuterium
+histuD.bin_number                           = 1000
+histuD.bin_min                              =  0.0
+histuD.bin_max                              =  0.474  # 100 MeV protons
+histuD.histogram_function(t,x,y,z,ux,uy,uz) = "u2=ux*ux+uy*uy+uz*uz; sqrt(1+u2)-1"
+histuD.filter_function(t,x,y,z,ux,uy,uz) = "if(abs(x)<2*laser_spot and uz>0, 1, 0)"
 
 histue.type                                 = ParticleHistogram
 histue.intervals                            = 100
@@ -172,77 +141,8 @@ histue.species                              = electrons
 histue.bin_number                           = 1000
 histue.bin_min                              = 0.0
 histue.bin_max                              = 197  # 100 MeV electrons
-histue.histogram_function(t,x,y,z,ux,uy,uz) = "u2=ux*ux+uy*uy+uz*uz; if(u2>0, sqrt(u2), 0.0)"
-histue.filter_function(t,x,y,z,ux,uy,uz) = "u2=ux*ux+uy*uy+uz*uz; if(u2>0, abs(acos(uz / sqrt(u2))) <= 0.017453, 0)"
-
-# just a test entry to make sure that the histogram filter is purely optional:
-# this one just records uz of all deuterium ions, independent of their pointing
-histuzAll.type                                 = ParticleHistogram
-histuzAll.intervals                            = 100
-histuzAll.species                              = deuterium
-histuzAll.bin_number                           = 1000
-histuzAll.bin_min                              = -0.474
-histuzAll.bin_max                              =  0.474
-histuzAll.histogram_function(t,x,y,z,ux,uy,uz) = "uz"
-
-FieldProbe_Z.type = FieldProbe
-FieldProbe_Z.intervals = 100
-FieldProbe_Z.integrate = 0
-FieldProbe_Z.probe_geometry = Line
-FieldProbe_Z.x_probe = 0.0
-FieldProbe_Z.z_probe = -5.0e-6
-FieldProbe_Z.x1_probe = 0.0
-FieldProbe_Z.z1_probe = 25.0e-6
-FieldProbe_Z.resolution = 3712
-
-FieldProbe_ScatPoint.type = FieldProbe
-FieldProbe_ScatPoint.intervals = 1
-FieldProbe_ScatPoint.integrate = 0
-FieldProbe_ScatPoint.probe_geometry = Point
-FieldProbe_ScatPoint.x_probe = 0.0
-FieldProbe_ScatPoint.z_probe = 15e-6
-
-FieldProbe_ScatLine.type = FieldProbe
-FieldProbe_ScatLine.intervals = 100
-FieldProbe_ScatLine.integrate = 1
-FieldProbe_ScatLine.probe_geometry = Line
-FieldProbe_ScatLine.x_probe = -2.5e-6
-FieldProbe_ScatLine.z_probe = 15e-6
-FieldProbe_ScatLine.x1_probe = 2.5e-6
-FieldProbe_ScatLine.z1_probe = 15e-6
-FieldProbe_ScatLine.resolution = 201
-
-# check computational load per box
-LBC.type = LoadBalanceCosts
-LBC.intervals = 100
-
-PhaseSpaceIons.type                                 = ParticleHistogram2D
-PhaseSpaceIons.intervals                            = 100
-PhaseSpaceIons.species                              = deuterium
-PhaseSpaceIons.bin_number_abs                       = 1000
-PhaseSpaceIons.bin_number_ord                       = 1000
-PhaseSpaceIons.bin_min_abs                          = -5.e-6
-PhaseSpaceIons.bin_max_abs                          = 25.e-6
-PhaseSpaceIons.bin_min_ord                          = -0.474
-PhaseSpaceIons.bin_max_ord                          = 0.474
-PhaseSpaceIons.histogram_function_abs(t,x,y,z,ux,uy,uz,w) = "z"
-PhaseSpaceIons.histogram_function_ord(t,x,y,z,ux,uy,uz,w) = "uz"
-PhaseSpaceIons.value_function(t,x,y,z,ux,uy,uz,w) = "w"
-# PhaseSpaceIons.filter_function(t,x,y,z,ux,uy,uz,w) = "u2=ux*ux+uy*uy+uz*uz; if(u2>0, abs(acos(uz / sqrt(u2))) <= 0.017453, 0)"
-
-PhaseSpaceElectrons.type                                 = ParticleHistogram2D
-PhaseSpaceElectrons.intervals                            = 100
-PhaseSpaceElectrons.species                              = electrons
-PhaseSpaceElectrons.bin_number_abs                       = 1000
-PhaseSpaceElectrons.bin_number_ord                       = 1000
-PhaseSpaceElectrons.bin_min_abs                          = -5.e-6
-PhaseSpaceElectrons.bin_max_abs                          = 25.e-6
-PhaseSpaceElectrons.bin_min_ord                          = -197
-PhaseSpaceElectrons.bin_max_ord                          = 197
-PhaseSpaceElectrons.histogram_function_abs(t,x,y,z,ux,uy,uz,w) = "z"
-PhaseSpaceElectrons.histogram_function_ord(t,x,y,z,ux,uy,uz,w) = "uz"
-PhaseSpaceElectrons.value_function(t,x,y,z,ux,uy,uz,w) = "w"
-PhaseSpaceElectrons.filter_function(t,x,y,z,ux,uy,uz,w) = "sqrt(x*x+y*y) < 1e-6"
+histue.histogram_function(t,x,y,z,ux,uy,uz) = "u2=ux*ux+uy*uy+uz*uz; sqrt(1+u2)-1"
+histue.filter_function(t,x,y,z,ux,uy,uz) = "if(abs(x)<2*laser_spot and uz>0, 1, 0)"
 
 #################################
 # Physical Background
@@ -251,4 +151,4 @@ PhaseSpaceElectrons.filter_function(t,x,y,z,ux,uy,uz,w) = "sqrt(x*x+y*y) < 1e-6"
 #   [1] https://doi.org/10.1038/s41598-017-10589-3
 #   [2] https://arxiv.org/abs/1903.06428
 #
-authors = "Axel Huebl <axelhuebl@lbl.gov>"
+authors = "Olga Shapoval, Remi Lehe, Axel Huebl"
