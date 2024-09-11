@@ -551,6 +551,7 @@ void WarpX::SyncCurrentAndRho ()
             // even with current correction or Vay deposition
             if (current_deposition_algo == CurrentDepositionAlgo::Vay)
             {
+                auto J = ablastr::fields::va2vm(current_fp_vay);
                 // TODO Replace current_cp with current_cp_vay once Vay deposition is implemented with MR
                 SyncCurrent(current_fp_vay, current_cp, current_buf);
                 SyncRho();
