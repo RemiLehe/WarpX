@@ -826,7 +826,10 @@ PML::PML (const int lev, const BoxArray& grid_ba,
 
 #ifdef AMREX_USE_EB
     if (eb_enabled) {
+        auto const& warpx = WarpX::GetInstance();
+        auto const* eb_is = warpx.GetEBIndexSpace(lev);
         pml_field_factory = amrex::makeEBFabFactory(
+            eb_is,
             *geom,
             ba,
             dm,

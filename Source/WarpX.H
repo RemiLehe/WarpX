@@ -61,6 +61,7 @@
 #include <AMReX_Array.H>
 #include <AMReX_Config.H>
 #ifdef AMREX_USE_EB
+#   include <AMReX_EB2.H>
 #   include <AMReX_EBFabFactory.H>
 #endif
 #include <AMReX_GpuContainers.H>
@@ -952,6 +953,12 @@ public:
     //! This function is called in amrex::AmrCore::InitFromScratch.
     void PostProcessBaseGrids (amrex::BoxArray& ba0) const final;
 
+#ifdef AMREX_USE_EB
+    amrex::EB2::IndexSpace const* GetEBIndexSpace (int lev) const {
+        return (lev < m_eb_is.size()) ? m_eb_is[lev] : &(amrex::EB2::IndexSpace::top());
+    }
+#endif
+
 protected:
 
     /**
@@ -1622,6 +1629,10 @@ private:
      *        is set in WarpX::ReadParameters().
      */
     bool m_collisions_split_momentum_push;
+
+#ifdef AMREX_USE_EB
+    amrex::Vector<amrex::EB2::IndexSpace const*> m_eb_is;
+#endif
 };
 
 #endif
