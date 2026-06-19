@@ -413,6 +413,19 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     int j_cell = 0;
     int j_node_v = 0;
     int j_cell_v = 0;
+#if defined(WARPX_DIM_XZ)
+    // CPU-perf experiment (issue #6487): only Ex (galerkin shape) and Ez (full shape) are
+    // gathered in 2D-XZ electrostatic, so compute only their x shape factors (skip the
+    // Ey, Bx, By, Bz factors entirely).
+    if (ez_type[0] == NODE) { j_node = compute_shape_factor(sx_node, x); }
+    else                    { j_cell = compute_shape_factor(sx_cell, x - 0.5_rt); }
+    if (ex_type[0] == NODE) { j_node_v = compute_shape_factor_galerkin(sx_node_galerkin, x); }
+    else                    { j_cell_v = compute_shape_factor_galerkin(sx_cell_galerkin, x - 0.5_rt); }
+    const amrex::Real (&sx_ex)[depos_order + 1 - galerkin_interpolation] = ((ex_type[0] == NODE) ? sx_node_galerkin : sx_cell_galerkin);
+    const amrex::Real (&sx_ez)[depos_order + 1             ] = ((ez_type[0] == NODE) ? sx_node   : sx_cell  );
+    int const j_ex = ((ex_type[0] == NODE) ? j_node_v : j_cell_v);
+    int const j_ez = ((ez_type[0] == NODE) ? j_node   : j_cell  );
+#else
     if ((ey_type[0] == NODE) || (ez_type[0] == NODE) || (bx_type[0] == NODE)) {
         j_node = compute_shape_factor(sx_node, x);
     }
@@ -437,6 +450,7 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     int const j_bx = ((bx_type[0] == NODE) ? j_node   : j_cell  );
     int const j_by = ((by_type[0] == NODE) ? j_node_v : j_cell_v);
     int const j_bz = ((bz_type[0] == NODE) ? j_node_v : j_cell_v);
+#endif
 #endif
 
 #if defined(WARPX_DIM_3D)
@@ -488,6 +502,18 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     int l_cell = 0;
     int l_node_v = 0;
     int l_cell_v = 0;
+#if defined(WARPX_DIM_XZ)
+    // CPU-perf experiment (issue #6487): only Ex (full shape in z) and Ez (galerkin shape in z)
+    // are gathered, so compute only their z shape factors.
+    if (ex_type[zdir] == NODE) { l_node = compute_shape_factor(sz_node, z); }
+    else                       { l_cell = compute_shape_factor(sz_cell, z - 0.5_rt); }
+    if (ez_type[zdir] == NODE) { l_node_v = compute_shape_factor_galerkin(sz_node_v, z); }
+    else                       { l_cell_v = compute_shape_factor_galerkin(sz_cell_v, z - 0.5_rt); }
+    const amrex::Real (&sz_ex)[depos_order + 1             ] = ((ex_type[zdir] == NODE) ? sz_node   : sz_cell  );
+    const amrex::Real (&sz_ez)[depos_order + 1 - galerkin_interpolation] = ((ez_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
+    int const l_ex = ((ex_type[zdir] == NODE) ? l_node   : l_cell  );
+    int const l_ez = ((ez_type[zdir] == NODE) ? l_node_v : l_cell_v);
+#else
     if ((ex_type[zdir] == NODE) || (ey_type[zdir] == NODE) || (bz_type[zdir] == NODE)) {
         l_node = compute_shape_factor(sz_node, z);
     }
@@ -512,6 +538,7 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     int const l_bx = ((bx_type[zdir] == NODE) ? l_node_v : l_cell_v);
     int const l_by = ((by_type[zdir] == NODE) ? l_node_v : l_cell_v);
     int const l_bz = ((bz_type[zdir] == NODE) ? l_node   : l_cell  );
+#endif
 #endif
 
     // Each field is gathered in a separate block of
@@ -545,38 +572,23 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     }
 
 #elif defined(WARPX_DIM_XZ)
-    // Gather field on particle Eyp from field on grid ey_arr
-    for (int iz=0; iz<=depos_order; iz++){
-        for (int ix=0; ix<=depos_order; ix++){
-            Eyp += sx_ey[ix]*sz_ey[iz]*
-                ey_arr(lo.x+j_ey+ix, lo.y+l_ey+iz, 0, 0);
-        }
-    }
+    // CPU-performance experiment (issue #6487): in 2D-XZ electrostatic only Ex and Ez are
+    // non-zero, so gather just those two fields. The Ey, Bx, By, Bz gathers below are
+    // removed, which cuts the grid reads and stencil math by a factor ~3. Eyp, Bxp, Byp,
+    // Bzp keep their incoming (external/zero) values. This matches Warp, which gathers only
+    // Ex,Ez (l_get_fields_on_grid=True) or phi alone (False) in XZ geometry.
     // Gather field on particle Exp from field on grid ex_arr
-    // Gather field on particle Bzp from field on grid bz_arr
     for (int iz=0; iz<=depos_order; iz++){
         for (int ix=0; ix<=depos_order-galerkin_interpolation; ix++){
             Exp += sx_ex[ix]*sz_ex[iz]*
                 ex_arr(lo.x+j_ex+ix, lo.y+l_ex+iz, 0, 0);
-            Bzp += sx_bz[ix]*sz_bz[iz]*
-                bz_arr(lo.x+j_bz+ix, lo.y+l_bz+iz, 0, 0);
         }
     }
     // Gather field on particle Ezp from field on grid ez_arr
-    // Gather field on particle Bxp from field on grid bx_arr
     for (int iz=0; iz<=depos_order-galerkin_interpolation; iz++){
         for (int ix=0; ix<=depos_order; ix++){
             Ezp += sx_ez[ix]*sz_ez[iz]*
                 ez_arr(lo.x+j_ez+ix, lo.y+l_ez+iz, 0, 0);
-            Bxp += sx_bx[ix]*sz_bx[iz]*
-                bx_arr(lo.x+j_bx+ix, lo.y+l_bx+iz, 0, 0);
-        }
-    }
-    // Gather field on particle Byp from field on grid by_arr
-    for (int iz=0; iz<=depos_order-galerkin_interpolation; iz++){
-        for (int ix=0; ix<=depos_order-galerkin_interpolation; ix++){
-            Byp += sx_by[ix]*sz_by[iz]*
-                by_arr(lo.x+j_by+ix, lo.y+l_by+iz, 0, 0);
         }
     }
 
