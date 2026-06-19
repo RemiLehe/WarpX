@@ -578,14 +578,18 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     // Bzp keep their incoming (external/zero) values. This matches Warp, which gathers only
     // Ex,Ez (l_get_fields_on_grid=True) or phi alone (False) in XZ geometry.
     // Gather field on particle Exp from field on grid ex_arr
+    AMREX_UNROLL_LOOP(4)
     for (int iz=0; iz<=depos_order; iz++){
+        AMREX_UNROLL_LOOP(4)
         for (int ix=0; ix<=depos_order-galerkin_interpolation; ix++){
             Exp += sx_ex[ix]*sz_ex[iz]*
                 ex_arr(lo.x+j_ex+ix, lo.y+l_ex+iz, 0, 0);
         }
     }
     // Gather field on particle Ezp from field on grid ez_arr
+    AMREX_UNROLL_LOOP(4)
     for (int iz=0; iz<=depos_order-galerkin_interpolation; iz++){
+        AMREX_UNROLL_LOOP(4)
         for (int ix=0; ix<=depos_order; ix++){
             Ezp += sx_ez[ix]*sz_ez[iz]*
                 ez_arr(lo.x+j_ez+ix, lo.y+l_ez+iz, 0, 0);

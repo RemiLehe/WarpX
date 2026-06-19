@@ -1475,7 +1475,38 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
     int qed_runtime_flag = no_qed;
 #endif
 
-    // Loop over the particles and update their momentum.
+    // Two-pass restructure (issue #6487): split the gather and the push into two
+    // separate ParallelFor passes. The gather pass has no nested control flow, so GCC
+    // can vectorize it across particles (SIMD). Only Ex,Ez are gathered (2D-XZ ES), so
+    // only 2 per-particle buffers are needed instead of 6.
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> Exp_buf(np_to_push);
+    amrex::Gpu::DeviceVector<amrex::ParticleReal> Ezp_buf(np_to_push);
+    amrex::ParticleReal* const AMREX_RESTRICT Exp_ptr = Exp_buf.dataPtr();
+    amrex::ParticleReal* const AMREX_RESTRICT Ezp_ptr = Ezp_buf.dataPtr();
+
+    // Pass 1: gather Ex,Ez to per-particle buffers.
+    amrex::ParallelFor(np_to_push, [=] AMREX_GPU_DEVICE (long ip)
+    {
+        amrex::ParticleReal xp, yp, zp;
+        getPosition(ip, xp, yp, zp);
+        amrex::ParticleReal Exp = Ex_external_particle;
+        amrex::ParticleReal Eyp = Ey_external_particle;
+        amrex::ParticleReal Ezp = Ez_external_particle;
+        amrex::ParticleReal Bxp = Bx_external_particle;
+        amrex::ParticleReal Byp = By_external_particle;
+        amrex::ParticleReal Bzp = Bz_external_particle;
+        if (gather_fields) {
+            doGatherShapeN(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+                           ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
+                           ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
+                           dinv, xyzmin, lo, n_rz_azimuthal_modes,
+                           nox, galerkin_interpolation);
+        }
+        Exp_ptr[ip] = Exp;
+        Ezp_ptr[ip] = Ezp;
+    });
+
+    // Pass 2: read gathered Ex,Ez and update particle momentum and position.
     // Using this version of ParallelFor with compile time options
     // improves performance when qed or external EB are not used by reducing
     // register pressure.
@@ -1500,21 +1531,12 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 #endif
         }
 
-        amrex::ParticleReal Exp = Ex_external_particle;
+        amrex::ParticleReal Exp = Exp_ptr[ip];
         amrex::ParticleReal Eyp = Ey_external_particle;
-        amrex::ParticleReal Ezp = Ez_external_particle;
+        amrex::ParticleReal Ezp = Ezp_ptr[ip];
         amrex::ParticleReal Bxp = Bx_external_particle;
         amrex::ParticleReal Byp = By_external_particle;
         amrex::ParticleReal Bzp = Bz_external_particle;
-
-        if (gather_fields) {
-            // first gather E and B to the particle positions
-            doGatherShapeN(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
-                           ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
-                           ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
-                           dinv, xyzmin, lo, n_rz_azimuthal_modes,
-                           nox, galerkin_interpolation);
-        }
 
         [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
         if constexpr (exteb_control == has_exteb) {
