@@ -140,7 +140,8 @@ public:
 
         // The list of scattering processes, used to look up the type (and, further below, the
         // energy penalty) of the process selected for each pair via its index.
-        const ScatteringProcess::Executor* AMREX_RESTRICT processes = m_scattering_processes_data;
+        const ScatteringProcess::Executor* AMREX_RESTRICT processes =
+            m_scattering_processes_exe.data();
 
         // The following is used to calculate the appropriate offsets for
         // non-product producing collisions (i.e., not ionization, not two-product reaction).
@@ -618,10 +619,10 @@ private:
     int m_num_product_species;
     // The scattering processes, in the same order as the input list (and as the indices stored
     // in the per-pair selected-process array). Used to look up, for each pair, the process type
-    // and energy penalty. m_scattering_processes_data points into the device copy below.
+    // and energy penalty. m_scattering_processes keeps the host-side objects alive; the device
+    // executor array (m_scattering_processes_exe) is what the scatter kernel indexes into.
     amrex::Vector<ScatteringProcess> m_scattering_processes;
     amrex::Gpu::DeviceVector<ScatteringProcess::Executor> m_scattering_processes_exe;
-    const ScatteringProcess::Executor* m_scattering_processes_data = nullptr;
     // Vector of size m_num_product_species: for each product slot, the number of new particles
     // created per *reaction* event (ionization, two-product reaction, charge exchange).
     // Weight-split particles added to slots 0 and 1 during non-reaction events are NOT counted

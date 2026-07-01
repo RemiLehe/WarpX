@@ -36,7 +36,6 @@ SplitAndScatterFunc::SplitAndScatterFunc (const std::string& collision_name,
             m_scattering_processes_exe.push_back(p.executor());
         }
 #endif
-        m_scattering_processes_data = m_scattering_processes_exe.data();
 
         // Check if the scattering processes include reactions that produce macroparticles in new species
         // (i.e. not in the incident species list), i.e. if it contains ionization, charge exchange or two-product reaction
