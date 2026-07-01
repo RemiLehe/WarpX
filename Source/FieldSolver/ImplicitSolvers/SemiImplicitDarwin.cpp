@@ -438,10 +438,14 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
     auto const& period = m_WarpX->Geom(lev).periodicity();
     m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::current_fp, lev), lev, period);
 
-    // TODO: Handle boundary conditions for mass matrices...
     m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::MassMatrices_X, lev), lev, period);
     m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::MassMatrices_Y, lev), lev, period);
     m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::MassMatrices_Z, lev), lev, period);
+
+    // The deposit routine only fills half of each diagonal mass matrix's
+    // band (exploiting symmetry); mirror the other half back in now that
+    // deposition and boundary summation are complete.
+    FinishMassMatrices();
 }
 
 void SemiImplicitDarwin::CalculateSourceVector ()
@@ -481,10 +485,61 @@ void SemiImplicitDarwin::CalculateSourceVector ()
             *dAfield[lev][ii], PhysConst::mu0, *jfield[lev][ii], 0, 2.0, *dAfield[lev][ii], 0, 0, 1, 0
         );
     }
-
     // Copy calculated source to m_source
     m_source.Copy( FieldType::dA_fp, FieldType::None, true);
 }
+
+// void SemiImplicitDarwin::CalculateSourceVector ()
+// {
+//     // This function calculates the "b" vector for the linear MS equation,
+//     // i.e., the source vector.
+//     BL_PROFILE("SemiImplicitDarwin::CalculateSourceVector()");
+
+//     const int lev = 0;
+
+//     // Zero out existing source values
+//     m_source.zero();
+
+//     // Grab the magnetic field and current density
+//     ablastr::fields::MultiLevelVectorField Bfield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Bfield_fp, lev);
+//     ablastr::fields::MultiLevelVectorField jfield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::current_fp, lev);
+
+//     // Create temporary multifabs with B-staggering for storage
+//     amrex::MultiFab lapB_x(Bfield[lev][0]->boxArray(), Bfield[lev][0]->DistributionMap(),
+//                            Bfield[lev][0]->nComp(), Bfield[lev][0]->nGrowVect());
+//     amrex::MultiFab lapB_y(Bfield[lev][1]->boxArray(), Bfield[lev][1]->DistributionMap(),
+//                            Bfield[lev][1]->nComp(), Bfield[lev][1]->nGrowVect());
+//     amrex::MultiFab lapB_z(Bfield[lev][2]->boxArray(), Bfield[lev][2]->DistributionMap(),
+//                            Bfield[lev][2]->nComp(), Bfield[lev][2]->nGrowVect());
+//     ablastr::fields::VectorField lapB = {&lapB_x, &lapB_y, &lapB_z};
+
+//     amrex::MultiFab curlJ_x(Bfield[lev][0]->boxArray(), Bfield[lev][0]->DistributionMap(),
+//                             Bfield[lev][0]->nComp(), Bfield[lev][0]->nGrowVect());
+//     amrex::MultiFab curlJ_y(Bfield[lev][1]->boxArray(), Bfield[lev][1]->DistributionMap(),
+//                             Bfield[lev][1]->nComp(), Bfield[lev][1]->nGrowVect());
+//     amrex::MultiFab curlJ_z(Bfield[lev][2]->boxArray(), Bfield[lev][2]->DistributionMap(),
+//                             Bfield[lev][2]->nComp(), Bfield[lev][2]->nGrowVect());
+//     ablastr::fields::VectorField curlJ = {&curlJ_x, &curlJ_y, &curlJ_z};
+
+//     // Calculate the vector Laplacian of B and write result into first temporary MF
+//     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeVectorLaplacian(
+//         lapB, Bfield[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
+//     );
+
+//     // Calculate the curl of J and write result into second temporary MF
+//     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
+//         curlJ, jfield[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
+//     );
+
+//     // Calculate 2 * ∇² B + mu_0 ∇ x J and write result in m_source
+//     const auto& b = m_source.getArrayVec();
+//     for (int ii = 0; ii < 3; ii++)
+//     {
+//         amrex::MultiFab::LinComb(
+//             *b[lev][ii], PhysConst::mu0, *curlJ[ii], 0, 2.0, *lapB[ii], 0, 0, 1, 0
+//         );
+//     }
+// }
 
 void SemiImplicitDarwin::UpdateEandAfromdA ( int astep )
 {
