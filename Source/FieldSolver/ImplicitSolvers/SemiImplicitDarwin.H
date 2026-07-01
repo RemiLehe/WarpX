@@ -42,13 +42,13 @@ public:
     SemiImplicitDarwin(SemiImplicitDarwin&&) = delete;
     SemiImplicitDarwin& operator=(SemiImplicitDarwin&&) = delete;
 
-    void Define ( WarpX*  a_WarpX ) override;
+    void Define ( WarpX* a_WarpX, bool from_restart ) override;
 
     void PrintParameters () const override;
 
-    void OneStep ( amrex::Real  start_time,
-                   amrex::Real  a_dt,
-                   int          a_step ) override;
+    int OneStep ( amrex::Real  start_time,
+                  amrex::Real  a_dt,
+                  int          a_step ) override;
 
     void ComputeRHS ( WarpXSolverVec&  a_RHS,
                       const WarpXSolverVec&  a_dA,

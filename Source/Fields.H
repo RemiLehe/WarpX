@@ -94,7 +94,7 @@ namespace warpx::fields
         Venl,
         global_debye_length,
         xi_fp,  /**< Used with the semi-implicit Darwin solver to divergence clean the projected current */
-        dA_fp   /**< Used by the Darwin solver; the change in vector potential over one step */
+        dA_fp,   /**< Used by the Darwin solver; the change in vector potential over one step */
         effective_potential_sigma  /**< Only used with effective potential ES solver. Stores the Poisson equation dressing */
     );
 

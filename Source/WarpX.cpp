@@ -734,7 +734,7 @@ WarpX::ReadParameters ()
             evolve_scheme != EvolveScheme::Semi_Implicit_Darwin) {
             electromagnetic_solver_id = ElectromagneticSolverAlgo::None;
         }
-        else if (evolve_scheme == EvolveScheme::SemiImplicitDarwin) {
+        else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee,
                 "Only the Yee electromagnetic solver can be used with Darwin");
         }
@@ -1272,7 +1272,7 @@ WarpX::ReadParameters ()
         else if (evolve_scheme == EvolveScheme::Strang_Implicit_Spectral_EM) {
             m_implicit_solver = std::make_unique<StrangImplicitSpectralEM>();
         }
-        else if (evolve_scheme == EvolveScheme::SemiImplicitDarwin) {
+        else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
             m_implicit_solver = std::make_unique<SemiImplicitDarwin>();
         }
 

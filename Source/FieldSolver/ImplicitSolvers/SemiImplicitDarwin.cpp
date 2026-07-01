@@ -14,8 +14,9 @@
 using warpx::fields::FieldType;
 using namespace amrex::literals;
 
-void SemiImplicitDarwin::Define ( WarpX*  a_WarpX )
+void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
 {
+    amrex::ignore_unused(from_restart);
     BL_PROFILE("SemiImplicitDarwin::Define()");
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -111,9 +112,9 @@ void SemiImplicitDarwin::PrintParameters () const
     amrex::Print() << "-----------------------------------------------------------\n\n";
 }
 
-void SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
-                                                    amrex::Real  a_dt,
-                                                    int          a_step )
+int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
+                                                   amrex::Real  a_dt,
+                                                   int          a_step )
 {
     BL_PROFILE("SemiImplicitDarwin::OneStep()");
 
@@ -143,7 +144,8 @@ void SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
             *m_WarpX->m_fields.get(FieldType::Efield_fp, Direction{2}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev),
-            *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev)
+            *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev),
+            MomentumPushType::Full
         );
     }
 
@@ -164,6 +166,14 @@ void SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // Solve MS equation
     m_linear_solver->solve(m_dA, m_source, m_linsol_rtol, m_linsol_atol);
 
+    // AMReX's GMRES::getStatus() returns 0 on convergence and a positive
+    // value (e.g. 1 if the iteration count was exceeded) otherwise. Map
+    // that onto the negative-means-failure convention used by the caller.
+    const int exit_status = (m_linear_solver->getStatus() == 0) ? 0 : -1;
+    if (exit_status < 0) {
+        return exit_status;
+    }
+
     // Update E to E = -dA/dt and A to A += dA (recall that B is updated after Poisson solve)
     UpdateEandAfromdA(a_step);
 
@@ -182,7 +192,8 @@ void SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
             *m_WarpX->m_fields.get(FieldType::Efield_fp, Direction{2}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev),
-            *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev)
+            *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev),
+            MomentumPushType::Full
         );
     }
 
@@ -192,6 +203,8 @@ void SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
 
     // Push particle positions forward (velocities are already updated)
     m_WarpX->GetPartContainer().PushX(m_dt);
+
+    return exit_status;
 }
 
 void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
@@ -388,6 +401,7 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
 
         // TODO: Add omp support
         const int thread_num = 0;
+        const auto dt = m_dt;
 
         for (WarpXParIter pti(*pc, lev); pti.isValid(); ++pti)
         {
@@ -398,6 +412,12 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
             auto& uyp = attribs[PIdx::uy];
             auto& uzp = attribs[PIdx::uz];
 
+            int* AMREX_RESTRICT ion_lev = nullptr;
+            if (pc->DoFieldIonization())
+            {
+                ion_lev = pti.GetiAttribs("ionizationLevel").dataPtr();
+            }
+
             const long np = pti.numParticles();
 
             // Data on the grid
@@ -405,10 +425,13 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
             amrex::FArrayBox const* byfab = &By[pti];
             amrex::FArrayBox const* bzfab = &Bz[pti];
 
-            pc->DepositCurrentAndMassMatrices(pti, wp, uxp, uyp, uzp, jx, jy, jz,
-                            Sxx, Sxy, Sxz, Syx, Syy, Syz, Szx, Szy, Szz,
-                            bxfab, byfab, bzfab, 0, np, thread_num, lev, lev, m_dt);
+            // pc->DepositCurrentAndMassMatrices(pti, wp, uxp, uyp, uzp, jx, jy, jz,
+            //                 Sxx, Sxy, Sxz, Syx, Syy, Syz, Szx, Szy, Szz,
+            //                 bxfab, byfab, bzfab, 0, np, thread_num, lev, lev, m_dt);
+            pc->DepositCurrent(pti, wp, uxp, uyp, uzp, ion_lev, jx, jy, jz,
+                               0, np, thread_num, lev, lev, dt, 0.0, PushType::Implicit);
         }
+        pc->DepositMassMatrices(m_WarpX->m_fields, lev, m_dt);
     }
 
     // Sum boundaries for current
@@ -597,6 +620,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
 
     const int ncomps = 1;
     const int finest_level = 0;
+    const auto dt = m_dt;
 
     for (int lev = 0; lev <= finest_level; ++lev) {
 
@@ -731,7 +755,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                     }
                 }
 
-                Fx(i,j,k,n) += 2._prt * PhysConst::mu0 / m_dt * (SxxdAx + SxydAy + SxzdAz);
+                Fx(i,j,k,n) += 2._prt * PhysConst::mu0 / dt * (SxxdAx + SxydAy + SxzdAz);
             });
             amrex::ParallelFor(
             dAby, ncomps, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -791,7 +815,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                     }
                 }
 
-                Fy(i,j,k,n) += 2._prt * PhysConst::mu0 / m_dt * (SyxdAx + SyydAy + SyzdAz);
+                Fy(i,j,k,n) += 2._prt * PhysConst::mu0 / dt * (SyxdAx + SyydAy + SyzdAz);
             });
             amrex::ParallelFor(
             dAbz, ncomps, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -851,7 +875,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                     }
                 }
 
-                Fz(i,j,k,n) += 2._prt * PhysConst::mu0 / m_dt * (SzxdAx + SzydAy + SzzdAz);
+                Fz(i,j,k,n) += 2._prt * PhysConst::mu0 / dt * (SzxdAx + SzydAy + SzzdAz);
             });
         }
 

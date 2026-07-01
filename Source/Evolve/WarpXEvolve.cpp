@@ -306,7 +306,7 @@ WarpX::Evolve (int numsteps)
                     // B field.  Time varying A contribution to E field is neglected.
                     // This is currently a lab frame calculation.
                     ComputeMagnetostaticField();
-                } else if (evolve_scheme == EvolveScheme::SemiImplicitDarwin) {
+                } else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
                     // Set magnetic field equal to curl of A since it was reset
                     // above.
                     ablastr::fields::MultiLevelVectorField Bfield_fp =
