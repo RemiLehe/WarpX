@@ -25,8 +25,9 @@
  * @param[in] dt is the time step length between two collision calls.
  * @param[in] dV is the volume of the corresponding cell.
  * @param[in] pair_index is the index of the colliding pair.
- * @param[out] p_mask is a mask that will be set to a non-zero integer if a
- *             collision occurs. The integer encodes the scattering process.
+ * @param[out] p_selected_process for each pair, set to the index of the selected
+ *             scattering process (0-based, in the order of the scattering_processes
+ *             array) if a collision occurs, or -1 if no collision occurs.
  * @param[out] p_pair_reaction_weight stores the weight of the product particles.
  * @param[in] multiplier factor by which the collision probability is increased to
  *            account for all other possible binary collision partners.
@@ -42,7 +43,7 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
                           const amrex::ParticleReal m1, const amrex::ParticleReal m2,
                           const amrex::ParticleReal w1, const amrex::ParticleReal w2,
                           const amrex::Real dt, const amrex::ParticleReal dV, const int pair_index,
-                          index_type* AMREX_RESTRICT p_mask,
+                          index_type* AMREX_RESTRICT p_selected_process,
                           amrex::ParticleReal* AMREX_RESTRICT p_pair_reaction_weight,
                           const int multiplier,
                           const int process_count,
@@ -74,13 +75,11 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
 
     // Evaluate the cross-section for each scattering process to determine
     // the total collision probability.
-    // The size of the arrays below is a compile-time constant (template parameter)
+    // The size of the array below is a compile-time constant (template parameter)
     // for performance reasons: it avoids dynamic memory allocation on the GPU.
-    int coll_type[max_process_count] = {0};
     amrex::ParticleReal sigma_sums[max_process_count] = {0._prt};
     for (int ii = 0; ii < process_count; ii++) {
         auto const& scattering_process = scattering_processes[ii];
-        coll_type[ii] = int(scattering_process.m_type);
         const amrex::ParticleReal sigma = scattering_process.getCrossSection(E_coll);
         sigma_sums[ii] = sigma + ((ii == 0) ? 0._prt : sigma_sums[ii-1]);
     }
@@ -105,7 +104,10 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
         for (int ii = 0; ii < process_count; ii++) {
             if (random_number <= sigma_sums[ii] / sigma_tot)
             {
-                p_mask[pair_index] = coll_type[ii];
+                // Store the index of the selected scattering process. This is later used
+                // (in SplitAndScatterFunc) to look up the process type and energy penalty
+                // for this pair.
+                p_selected_process[pair_index] = static_cast<index_type>(ii);
                 p_pair_reaction_weight[pair_index] = w_min;
                 break;
             }
@@ -113,7 +115,8 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
     }
     else
     {
-        p_mask[pair_index] = false;
+        // No collision occurs for this pair.
+        p_selected_process[pair_index] = index_type(-1);
     }
 }
 
