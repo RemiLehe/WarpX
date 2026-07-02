@@ -135,8 +135,9 @@ public:
         if (n_total_pairs == 0) { return amrex::Vector<int>(m_num_product_species, 0); }
 
         // The list of scattering processes, used to look up the type (and, further below, the
-        // energy penalty) of the process selected for each pair via its index.
-        const ScatteringProcess::Executor* AMREX_RESTRICT processes =
+        // energy penalty) of the process selected for each pair via its index. (Named as in
+        // BackgroundMCCCollision, which uses the same ScatteringProcess::Executor objects.)
+        const ScatteringProcess::Executor* AMREX_RESTRICT scattering_processes =
             m_scattering_processes_exe.data();
 
         // The following is used to calculate the appropriate offsets for
@@ -148,7 +149,8 @@ public:
         auto const no_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
                 if (selected_process[i] == 0) { return 0; }
-                const auto type = processes[selected_process[i] - 1].m_type;
+                auto const& scattering_process = scattering_processes[selected_process[i] - 1];
+                const auto type = scattering_process.m_type;
                 return ((type != ScatteringProcessType::IONIZATION) &&
                         (type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
                         (type != ScatteringProcessType::CHARGE_EXCHANGE)) ? 1 : 0;
@@ -175,7 +177,8 @@ public:
         auto const with_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
                 if (selected_process[i] == 0) { return 0; }
-                const auto type = processes[selected_process[i] - 1].m_type;
+                auto const& scattering_process = scattering_processes[selected_process[i] - 1];
+                const auto type = scattering_process.m_type;
                 return ((type == ScatteringProcessType::IONIZATION) ||
                         (type == ScatteringProcessType::TWOPRODUCT_REACTION) ||
                         (type == ScatteringProcessType::CHARGE_EXCHANGE)) ? 1 : 0;
@@ -246,13 +249,14 @@ public:
         amrex::ParallelForRNG(n_total_pairs,
         [=] AMREX_GPU_DEVICE (int i, amrex::RandomEngine const& engine) noexcept
         {
-            // Look up the type of the scattering process selected for this pair
-            // (INVALID if no collision occurred, i.e. selected_process[i] == 0).
-            const auto type = (selected_process[i] > 0)
-                ? processes[selected_process[i] - 1].m_type : ScatteringProcessType::INVALID;
+            // Skip pairs for which no collision occurred.
+            if (selected_process[i] == 0) { return; }
 
-            if ((type != ScatteringProcessType::INVALID) &&
-                (type != ScatteringProcessType::IONIZATION) &&
+            // The scattering process selected for this pair, and its type.
+            auto const& scattering_process = scattering_processes[selected_process[i] - 1];
+            const auto type = scattering_process.m_type;
+
+            if ((type != ScatteringProcessType::IONIZATION) &&
                 (type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
                 (type != ScatteringProcessType::CHARGE_EXCHANGE))
             {
@@ -387,7 +391,7 @@ public:
                     soa_products_data[3].m_rdata[PIdx::ux][slot3_idx],
                     soa_products_data[3].m_rdata[PIdx::uy][slot3_idx],
                     soa_products_data[3].m_rdata[PIdx::uz][slot3_idx], mass_slot3,
-                    -processes[selected_process[i] - 1].m_energy_penalty*PhysConst::q_e,
+                    -scattering_process.m_energy_penalty*PhysConst::q_e,
                     // TwoProductComputeProductMomenta expects the *released* energy here, hence the negative sign
                     // We also convert from eV to Joules
                     ScatteringAngleModel::Forward,
@@ -475,7 +479,7 @@ public:
                 const amrex::ParticleReal E_coll = 0.5_prt * p_non_target_in * p_non_target_in * (1.0_prt/m0 + 1.0_prt/m1);
                 // subtract the energy cost for ionization (converted from eV to J)
                 const amrex::ParticleReal E_out =
-                    E_coll - processes[selected_process[i] - 1].m_energy_penalty * PhysConst::q_e;
+                    E_coll - scattering_process.m_energy_penalty * PhysConst::q_e;
 
                 // The kinematics of the ionization event (i.e. how the energy and momentum are
                 // distributed among the products) depend on the nature of the incident particle
