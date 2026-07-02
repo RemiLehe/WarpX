@@ -28,8 +28,6 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_Random.H>
 
-#include <type_traits>
-
 /**
  * \brief This class performs DSMC (direct simulation Monte Carlo) collisions
  * within a cell. Particles are paired up and for each pair a stochastic process
@@ -44,9 +42,6 @@ class DSMCFunc
     using ParticleTileDataType = ParticleTileType::ParticleTileDataType;
     using ParticleBins = amrex::DenseBins<ParticleTileDataType>;
     using index_type = ParticleBins::index_type;
-    // Signed integer used for the per-pair selected-process array (see operator() below):
-    // it holds the index of the selected scattering process, or -1 when no collision occurs.
-    using selection_type = std::make_signed_t<index_type>;
     using SoaData_type = WarpXParticleContainer::ParticleTileType::ParticleTileDataType;
 
 public:
@@ -72,7 +67,7 @@ public:
          * \brief Executor of the DSMCFunc class. Performs DSMC collisions at the cell level.
          * Note that this function does not yet create the product particles, but
          * instead fills an array p_selected_process that stores, for each pair, the index of
-         * the selected scattering process (or -1 if no collision occurs for that pair).
+         * the selected scattering process plus one (or 0 if no collision occurs for that pair).
          *
          * @param[in] I1s,I2s is the start index for I1,I2 (inclusive).
          * @param[in] I1e,I2e is the stop index for I1,I2 (exclusive).
@@ -84,8 +79,8 @@ public:
          * @param[in] coll_idx is the collision index offset.
          * @param[in] cell_start_pair is the start index of the pairs in that cell.
          * @param[out] p_selected_process stores, for each pair, the index of the selected
-         * scattering process (or -1 if no collision occurs). It is only needed here to store
-         * information that will be used later on when actually creating the product particles.
+         * scattering process plus one (or 0 if no collision occurs). It is only needed here to
+         * store information used later when actually creating the product particles.
          * @param[out] p_pair_indices_1,p_pair_indices_2 arrays that store the indices of the
          * particles of a given pair. They are only needed here to store information that will be used
          * later on when actually creating the product particles.
@@ -108,7 +103,7 @@ public:
             amrex::ParticleReal const  /*q1*/, amrex::ParticleReal const  /*q2*/,
             amrex::ParticleReal const  m1, amrex::ParticleReal const  m2,
             amrex::Real const  dt, amrex::Real const dV, index_type coll_idx,
-            index_type const cell_start_pair, selection_type* AMREX_RESTRICT p_selected_process,
+            index_type const cell_start_pair, index_type* AMREX_RESTRICT p_selected_process,
             index_type* AMREX_RESTRICT p_pair_indices_1, index_type* AMREX_RESTRICT p_pair_indices_2,
             amrex::ParticleReal* AMREX_RESTRICT p_pair_reaction_weight,
             amrex::ParticleReal* /*p_product_data*/,
@@ -148,7 +143,7 @@ public:
                 // reduced to zero from a previous collision
                 if (idcpu1[ I1[i1] ]==amrex::ParticleIdCpus::Invalid ||
                     idcpu2[ I2[i2] ]==amrex::ParticleIdCpus::Invalid ) {
-                    p_selected_process[pair_index] = selection_type(-1);
+                    p_selected_process[pair_index] = index_type(0);
                 } else {
 
                     const int max_process_count = 4; // Pre-defined value, for performance reasons
@@ -164,7 +159,7 @@ public:
                         m_process_count, m_scattering_processes_data, engine);
 
                     // Remove pair reaction weight from the colliding particles' weights
-                    if (p_selected_process[pair_index] >= 0) {
+                    if (p_selected_process[pair_index] > 0) {
                         BinaryCollisionUtils::remove_weight_from_colliding_particle(
                             w1[ I1[i1] ], idcpu1[ I1[i1] ], p_pair_reaction_weight[pair_index]);
                         BinaryCollisionUtils::remove_weight_from_colliding_particle(

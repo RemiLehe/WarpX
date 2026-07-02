@@ -59,7 +59,6 @@
 
 #include <cmath>
 #include <string>
-#include <type_traits>
 
 /**
  * \brief This class performs generic binary collisions.
@@ -81,15 +80,6 @@ class BinaryCollision final
     using ParticleTileDataType = ParticleTileType::ParticleTileDataType;
     using ParticleBins = amrex::DenseBins<ParticleTileDataType>;
     using index_type = ParticleBins::index_type;
-
-    // For DSMC, the per-pair selection array does not just flag whether a collision occurred:
-    // it stores the *index* of the selected scattering process (with -1 meaning "no collision"),
-    // so that SplitAndScatterFunc can look up the process type and energy penalty. This requires
-    // a signed integer. For all other collision types the array is a plain 0/1 particle-creation
-    // mask, so the unsigned index_type is used.
-    static constexpr bool stores_process_index = std::is_same_v<CollisionFunctor, DSMCFunc>;
-    using selection_type = std::conditional_t<stores_process_index,
-                                              std::make_signed_t<index_type>, index_type>;
 
 public:
     /**
@@ -439,11 +429,10 @@ public:
             index_type* AMREX_RESTRICT p_coll_offsets = coll_offsets.dataPtr();
             ABLASTR_PROFILE_VAR_STOP(prof_computeNumberOfPairs);
 
-            // mask: for DSMC, the index of the selected scattering process (-1 = no collision);
+            // mask: for DSMC, the index+1 of the selected scattering process (0 = no collision);
             // for other collision types, 1 if particle creation occurs, 0 otherwise
-            amrex::Gpu::DeviceVector<selection_type> mask(
-                n_total_pairs, stores_process_index ? selection_type(-1) : selection_type(0));
-            selection_type* AMREX_RESTRICT p_mask = mask.dataPtr();
+            amrex::Gpu::DeviceVector<index_type> mask(n_total_pairs, index_type(0));
+            index_type* AMREX_RESTRICT p_mask = mask.dataPtr();
             // Will be filled with the index of the first particle of a given pair
             amrex::Gpu::DeviceVector<index_type> pair_indices_1(n_total_pairs);
             index_type* AMREX_RESTRICT p_pair_indices_1 = pair_indices_1.dataPtr();
@@ -927,11 +916,10 @@ public:
             index_type* AMREX_RESTRICT p_coll_offsets = coll_offsets.dataPtr();
             ABLASTR_PROFILE_VAR_STOP(prof_computeNumberOfPairs);
 
-            // mask: for DSMC, the index of the selected scattering process (-1 = no collision);
+            // mask: for DSMC, the index+1 of the selected scattering process (0 = no collision);
             // for other collision types, 1 if particle creation occurs, 0 otherwise
-            amrex::Gpu::DeviceVector<selection_type> mask(
-                n_total_pairs, stores_process_index ? selection_type(-1) : selection_type(0));
-            selection_type* AMREX_RESTRICT p_mask = mask.dataPtr();
+            amrex::Gpu::DeviceVector<index_type> mask(n_total_pairs, index_type(0));
+            index_type* AMREX_RESTRICT p_mask = mask.dataPtr();
             // Will be filled with the index of the first particle of a given pair
             amrex::Gpu::DeviceVector<index_type> pair_indices_1(n_total_pairs);
             index_type* AMREX_RESTRICT p_pair_indices_1 = pair_indices_1.dataPtr();
