@@ -310,6 +310,18 @@ public:
                     ux1 = -ux0 * m0 / m1;
                     uy1 = -uy0 * m0 / m1;
                     uz1 = -uz0 * m0 / m1;
+                } else if (process_type == ScatteringProcessType::EXCITATION) {
+                    // Like elastic, but subtract the excitation energy penalty from the
+                    // total COM kinetic energy first, then randomly rotate.
+                    // Total KE in COM frame = 0.5 * m0 * u0^2 * (m0+m1)/m1
+                    const auto u0_sq = ux0*ux0 + uy0*uy0 + uz0*uz0;
+                    const auto E_com = 0.5_prt * m0 * u0_sq * (m0 + m1) / m1;
+                    const auto E_out = E_com - scattering_process.m_energy_penalty * PhysConst::q_e;
+                    const auto u0_new = std::sqrt(u0_sq * E_out / E_com);
+                    ParticleUtils::RandomizeVelocity(ux0, uy0, uz0, u0_new, engine);
+                    ux1 = -ux0 * m0 / m1;
+                    uy1 = -uy0 * m0 / m1;
+                    uz1 = -uz0 * m0 / m1;
                 } else if (process_type == ScatteringProcessType::BACK) {
                     // reverse the velocity vectors of both particles
                     ux0 *= -1.0_prt;

@@ -147,7 +147,11 @@ The process is the same as for elastic scattering above except the scattering an
 Excitation
 ^^^^^^^^^^
 
-The process is also the same as for elastic scattering except the excitation energy cost is subtracted from the particle energy. This is done by reducing the velocity before a scattering angle is chosen.
+The process is also the same as for elastic scattering except the excitation energy cost is subtracted from the kinetic energy before a scattering angle is chosen.
+
+For **MCC** (background Monte Carlo Collisions), the excitation energy penalty is subtracted from the projectile kinetic energy in the neutral's rest frame, reducing the projectile velocity, before the COM frame transformation and isotropic scattering.
+
+For **DSMC** (Direct Simulation Monte Carlo), the excitation energy penalty is subtracted from the total center-of-mass kinetic energy after transforming to the COM frame. The speeds of both particles in the COM frame are then scaled accordingly before the direction is randomized isotropically.
 
 Forward scattering
 ^^^^^^^^^^^^^^^^^^
