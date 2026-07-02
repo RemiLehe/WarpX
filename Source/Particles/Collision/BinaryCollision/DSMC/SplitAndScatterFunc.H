@@ -78,7 +78,7 @@ public:
      *                                      appended to each tile.
      * @param[in]     m0                    rest mass of the first reactant species (slot 0).
      * @param[in]     m1                    rest mass of the other reactant species (slot 1).
-     * @param[in]     selected_process      per-pair index of the selected scattering process
+     * @param[in]     mask                  per-pair index of the selected scattering process
      *                                      plus one (1-based, in the order of the process list),
      *                                      or 0 if no collision occurred for that pair.
      * @param[in,out] products_np           macroparticle count of each product tile; updated in this
@@ -104,7 +104,7 @@ public:
         ParticleTileType** AMREX_RESTRICT tile_products,
         const amrex::ParticleReal m0, const amrex::ParticleReal m1,
         const amrex::Vector<amrex::ParticleReal>& /*products_mass*/,
-        const index_type* AMREX_RESTRICT selected_process,
+        const index_type* AMREX_RESTRICT mask,
         amrex::Vector<index_type>& products_np,
         const SmartCopy* AMREX_RESTRICT copy_species0,
         const SmartCopy* AMREX_RESTRICT copy_species1,
@@ -148,8 +148,8 @@ public:
         index_type* AMREX_RESTRICT no_product_offsets_data = no_product_offsets.data();
         auto const no_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
-                if (selected_process[i] == 0) { return 0; }
-                auto const& scattering_process = scattering_processes[selected_process[i] - 1];
+                if (mask[i] == 0) { return 0; }
+                auto const& scattering_process = scattering_processes[mask[i] - 1];
                 const auto type = scattering_process.m_type;
                 return ((type != ScatteringProcessType::IONIZATION) &&
                         (type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
@@ -176,8 +176,8 @@ public:
         index_type* AMREX_RESTRICT with_product_offsets_data = with_product_offsets.data();
         auto const with_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
-                if (selected_process[i] == 0) { return 0; }
-                auto const& scattering_process = scattering_processes[selected_process[i] - 1];
+                if (mask[i] == 0) { return 0; }
+                auto const& scattering_process = scattering_processes[mask[i] - 1];
                 const auto type = scattering_process.m_type;
                 return ((type == ScatteringProcessType::IONIZATION) ||
                         (type == ScatteringProcessType::TWOPRODUCT_REACTION) ||
@@ -250,10 +250,10 @@ public:
         [=] AMREX_GPU_DEVICE (int i, amrex::RandomEngine const& engine) noexcept
         {
             // Skip pairs for which no collision occurred.
-            if (selected_process[i] == 0) { return; }
+            if (mask[i] == 0) { return; }
 
             // The scattering process selected for this pair, and its type.
-            auto const& scattering_process = scattering_processes[selected_process[i] - 1];
+            auto const& scattering_process = scattering_processes[mask[i] - 1];
             const auto type = scattering_process.m_type;
 
             if ((type != ScatteringProcessType::IONIZATION) &&
@@ -617,8 +617,8 @@ public:
 private:
     // How many different type of species the collision produces
     int m_num_product_species;
-    // The scattering processes, in the same order as the input list (and as the indices stored
-    // in the per-pair selected-process array). Used to look up, for each pair, the process type
+    // The scattering processes, in the same order as the input list (and as the indices encoded
+    // in the per-pair mask). Used to look up, for each pair, the process type
     // and energy penalty. m_scattering_processes keeps the host-side objects alive; the device
     // executor array (m_scattering_processes_exe) is what the scatter kernel indexes into.
     amrex::Vector<ScatteringProcess> m_scattering_processes;

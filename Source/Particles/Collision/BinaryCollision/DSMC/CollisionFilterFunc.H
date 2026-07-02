@@ -25,7 +25,7 @@
  * @param[in] dt is the time step length between two collision calls.
  * @param[in] dV is the volume of the corresponding cell.
  * @param[in] pair_index is the index of the colliding pair.
- * @param[out] p_selected_process for each pair, set to the index of the selected
+ * @param[out] p_mask for each pair, set to the index of the selected
  *             scattering process plus one (i.e. 1-based, in the order of the
  *             scattering_processes array) if a collision occurs, or 0 if no
  *             collision occurs.
@@ -44,7 +44,7 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
                           const amrex::ParticleReal m1, const amrex::ParticleReal m2,
                           const amrex::ParticleReal w1, const amrex::ParticleReal w2,
                           const amrex::Real dt, const amrex::ParticleReal dV, const int pair_index,
-                          index_type* AMREX_RESTRICT p_selected_process,
+                          index_type* AMREX_RESTRICT p_mask,
                           amrex::ParticleReal* AMREX_RESTRICT p_pair_reaction_weight,
                           const int multiplier,
                           const int process_count,
@@ -108,7 +108,7 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
                 // Store the index of the selected scattering process, plus one (0 is
                 // reserved to mean "no collision"). SplitAndScatterFunc subtracts one
                 // to look up the process type and energy penalty for this pair.
-                p_selected_process[pair_index] = static_cast<index_type>(ii + 1);
+                p_mask[pair_index] = static_cast<index_type>(ii + 1);
                 p_pair_reaction_weight[pair_index] = w_min;
                 break;
             }
@@ -117,7 +117,7 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
     else
     {
         // No collision occurs for this pair.
-        p_selected_process[pair_index] = index_type(0);
+        p_mask[pair_index] = index_type(0);
     }
 }
 
