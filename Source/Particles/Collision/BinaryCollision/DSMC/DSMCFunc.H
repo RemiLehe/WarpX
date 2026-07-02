@@ -79,7 +79,7 @@ public:
          * @param[in] coll_idx is the collision index offset.
          * @param[in] cell_start_pair is the start index of the pairs in that cell.
          * @param[out] p_mask for each pair: 0 if no collision occurs ;
-         * index+1 of the selected process for that pair if a collision occurs, 
+         * index+1 of the selected process for that pair if a collision occurs,
          * where `index` is the index of the process in the `m_scattering_processes_data` array.
          * @param[out] p_pair_indices_1,p_pair_indices_2 arrays that store the indices of the
          * particles of a given pair. They are only needed here to store information that will be used

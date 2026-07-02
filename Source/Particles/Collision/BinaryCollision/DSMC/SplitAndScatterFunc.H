@@ -79,7 +79,7 @@ public:
      * @param[in]     m0                    rest mass of the first reactant species (slot 0).
      * @param[in]     m1                    rest mass of the other reactant species (slot 1).
      * @param[in]     mask                  for each pair: 0 if no collision occurs ;
-     *                                      index+1 of the selected process for that pair if a collision occurs, 
+     *                                      index+1 of the selected process for that pair if a collision occurs,
      *                                      where `index` is the index of the process in the `m_scattering_processes_exe` array.
      * @param[in,out] products_np           macroparticle count of each product tile; updated in this
      *                                      kernel to reflect the number of new macroparticles added in each species.

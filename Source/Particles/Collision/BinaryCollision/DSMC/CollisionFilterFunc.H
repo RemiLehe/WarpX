@@ -26,7 +26,7 @@
  * @param[in] dV is the volume of the corresponding cell.
  * @param[in] pair_index is the index of the colliding pair.
  * @param[out] p_mask for each pair: 0 if no collision occurs ;
- *             index+1 of the selected process for that pair if a collision occurs, 
+ *             index+1 of the selected process for that pair if a collision occurs,
  *             where `index` is the index of the process in the `scattering_processes` array.
  * @param[out] p_pair_reaction_weight stores the weight of the product particles.
  * @param[in] multiplier factor by which the collision probability is increased to
@@ -104,8 +104,8 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
         for (int ii = 0; ii < process_count; ii++) {
             if (random_number <= sigma_sums[ii] / sigma_tot)
             {
-                // Store index+1 of the selected scattering process 
-                // (0 is reserved to mean "no collision"), where `index` 
+                // Store index+1 of the selected scattering process
+                // (0 is reserved to mean "no collision"), where `index`
                 // is the index of the selected process in the `scattering_processes` array.
                 p_mask[pair_index] = static_cast<index_type>(ii + 1);
                 p_pair_reaction_weight[pair_index] = w_min;
