@@ -148,11 +148,12 @@ public:
         auto const no_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
                 if (mask[i] == 0) { return 0; }
-                auto const& scattering_process = scattering_processes[mask[i] - 1];
-                const auto type = scattering_process.m_type;
-                return ((type != ScatteringProcessType::IONIZATION) &&
-                        (type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
-                        (type != ScatteringProcessType::CHARGE_EXCHANGE)) ? 1 : 0;
+                const auto selected_process_index = mask[i] - 1;
+                auto const& scattering_process = scattering_processes[selected_process_index];
+                const auto process_type = scattering_process.m_type;
+                return ((process_type != ScatteringProcessType::IONIZATION) &&
+                        (process_type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
+                        (process_type != ScatteringProcessType::CHARGE_EXCHANGE)) ? 1 : 0;
             },
             [=] AMREX_GPU_DEVICE (index_type i, index_type s) { no_product_offsets_data[i] = s; },
             amrex::Scan::Type::exclusive, amrex::Scan::retSum
@@ -176,11 +177,12 @@ public:
         auto const with_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
                 if (mask[i] == 0) { return 0; }
-                auto const& scattering_process = scattering_processes[mask[i] - 1];
-                const auto type = scattering_process.m_type;
-                return ((type == ScatteringProcessType::IONIZATION) ||
-                        (type == ScatteringProcessType::TWOPRODUCT_REACTION) ||
-                        (type == ScatteringProcessType::CHARGE_EXCHANGE)) ? 1 : 0;
+                const auto selected_process_index = mask[i] - 1;
+                auto const& scattering_process = scattering_processes[selected_process_index];
+                const auto process_type = scattering_process.m_type;
+                return ((process_type == ScatteringProcessType::IONIZATION) ||
+                        (process_type == ScatteringProcessType::TWOPRODUCT_REACTION) ||
+                        (process_type == ScatteringProcessType::CHARGE_EXCHANGE)) ? 1 : 0;
             },
             [=] AMREX_GPU_DEVICE (index_type i, index_type s) { with_product_offsets_data[i] = s; },
             amrex::Scan::Type::exclusive, amrex::Scan::retSum
@@ -252,12 +254,13 @@ public:
             if (mask[i] == 0) { return; }
 
             // The scattering process selected for this pair, and its type.
-            auto const& scattering_process = scattering_processes[mask[i] - 1];
-            const auto type = scattering_process.m_type;
+            const auto selected_process_index = mask[i] - 1;
+            auto const& scattering_process = scattering_processes[selected_process_index];
+            const auto process_type = scattering_process.m_type;
 
-            if ((type != ScatteringProcessType::IONIZATION) &&
-                (type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
-                (type != ScatteringProcessType::CHARGE_EXCHANGE))
+            if ((process_type != ScatteringProcessType::IONIZATION) &&
+                (process_type != ScatteringProcessType::TWOPRODUCT_REACTION) &&
+                (process_type != ScatteringProcessType::CHARGE_EXCHANGE))
             {
                 const auto slot0_idx = products_np_data[0] + no_product_offsets_data[i];
                 // Make a copy of the particle from the first reactant species
@@ -297,7 +300,7 @@ public:
                 uy1 -= uCOM_y;
                 uz1 -= uCOM_z;
 
-                if (type == ScatteringProcessType::ELASTIC) {
+                if (process_type == ScatteringProcessType::ELASTIC) {
                     // randomly rotate the velocity vector for the first particle
                     ParticleUtils::RandomizeVelocity(
                         ux0, uy0, uz0, std::sqrt(ux0*ux0 + uy0*uy0 + uz0*uz0), engine
@@ -307,7 +310,7 @@ public:
                     ux1 = -ux0 * m0 / m1;
                     uy1 = -uy0 * m0 / m1;
                     uz1 = -uz0 * m0 / m1;
-                } else if (type == ScatteringProcessType::BACK) {
+                } else if (process_type == ScatteringProcessType::BACK) {
                     // reverse the velocity vectors of both particles
                     ux0 *= -1.0_prt;
                     uy0 *= -1.0_prt;
@@ -315,7 +318,7 @@ public:
                     ux1 *= -1.0_prt;
                     uy1 *= -1.0_prt;
                     uz1 *= -1.0_prt;
-                } else if (type == ScatteringProcessType::FORWARD) {
+                } else if (process_type == ScatteringProcessType::FORWARD) {
                     amrex::Abort("Forward scattering with DSMC not implemented yet.");
                 }
                 else {
@@ -332,8 +335,8 @@ public:
             }
 
             // Next perform all product-producing collisions
-            else if ((type == ScatteringProcessType::TWOPRODUCT_REACTION) ||
-                     (type == ScatteringProcessType::CHARGE_EXCHANGE))
+            else if ((process_type == ScatteringProcessType::TWOPRODUCT_REACTION) ||
+                     (process_type == ScatteringProcessType::CHARGE_EXCHANGE))
             {
                 // create a copy of the first product species at the location of the first reactant species
                 const auto src0_idx = static_cast<int>(p_pair_indices_0[i]);
@@ -354,7 +357,7 @@ public:
                 // For charge exchange, swap positions at which the products are created
                 // to ensure local charge conservation. For instance in the reaction
                 // `A+ + B -> A + B+`, B+ will be created at the position of A+, instead of that of B.
-                if (type == ScatteringProcessType::CHARGE_EXCHANGE) {
+                if (process_type == ScatteringProcessType::CHARGE_EXCHANGE) {
                     // The SoA components that define the positions depend on the geometry.
 #if defined(WARPX_DIM_1D_Z)
                     constexpr std::array<int, 1> position_indices = {PIdx::z};
@@ -398,7 +401,7 @@ public:
                     // as that of the reactant particle, in the center-of-mass frame
                     engine);
             }
-            else if (type == ScatteringProcessType::IONIZATION)
+            else if (process_type == ScatteringProcessType::IONIZATION)
             {
                 const auto slot0_idx = products_np_data[0] + no_product_total + with_product_offsets_data[i];
                 // Make a copy of the particle from the first reactant species (slot 0)
