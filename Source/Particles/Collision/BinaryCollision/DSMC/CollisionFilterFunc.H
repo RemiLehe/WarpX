@@ -109,7 +109,7 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
                 // is the index of the selected process in the `scattering_processes` array.
                 p_mask[pair_index] = static_cast<index_type>(ii + 1);
                 p_pair_reaction_weight[pair_index] = w_min;
-                return;
+                break;
             }
         }
     } else {
