@@ -620,7 +620,7 @@ private:
     // How many different type of species the collision produces
     int m_num_product_species;
     // The scattering processes, in the same order as the input list (and as the indices encoded
-    // in the per-pair mask). Used to look up, for each pair, the process type and energy penalty. 
+    // in the per-pair mask). Used to look up, for each pair, the process type and energy penalty.
     amrex::Vector<ScatteringProcess> m_scattering_processes;
     amrex::Gpu::DeviceVector<ScatteringProcess::Executor> m_scattering_processes_exe;
     // Vector of size m_num_product_species: for each product slot, the number of new particles
