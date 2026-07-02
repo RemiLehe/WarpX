@@ -78,9 +78,9 @@ public:
      *                                      appended to each tile.
      * @param[in]     m0                    rest mass of the first reactant species (slot 0).
      * @param[in]     m1                    rest mass of the other reactant species (slot 1).
-     * @param[in]     mask                  per-pair index of the selected scattering process
-     *                                      plus one (1-based, in the order of the process list),
-     *                                      or 0 if no collision occurred for that pair.
+     * @param[in]     mask                  for each pair: 0 if no collision occurs ;
+     *                                      index+1 of the selected process for that pair if a collision occurs, 
+     *                                      where `index` is the index of the process in the `m_scattering_processes_exe` array.
      * @param[in,out] products_np           macroparticle count of each product tile; updated in this
      *                                      kernel to reflect the number of new macroparticles added in each species.
      * @param[in]     copy_species0         array of SmartCopy functors (size m_num_product_species);
@@ -135,8 +135,7 @@ public:
         if (n_total_pairs == 0) { return amrex::Vector<int>(m_num_product_species, 0); }
 
         // The list of scattering processes, used to look up the type (and, further below, the
-        // energy penalty) of the process selected for each pair via its index. (Named as in
-        // BackgroundMCCCollision, which uses the same ScatteringProcess::Executor objects.)
+        // energy penalty) of the process selected for each pair via its index.
         const ScatteringProcess::Executor* AMREX_RESTRICT scattering_processes =
             m_scattering_processes_exe.data();
 

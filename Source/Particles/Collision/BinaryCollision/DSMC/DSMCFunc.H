@@ -78,9 +78,9 @@ public:
          * @param[in] dV is the volume of the corresponding cell.
          * @param[in] coll_idx is the collision index offset.
          * @param[in] cell_start_pair is the start index of the pairs in that cell.
-         * @param[out] p_mask stores, for each pair, the index of the selected
-         * scattering process plus one (or 0 if no collision occurs). It is only needed here to
-         * store information used later when actually creating the product particles.
+         * @param[out] p_mask for each pair: 0 if no collision occurs ;
+         * index+1 of the selected process for that pair if a collision occurs, 
+         * where `index` is the index of the process in the `m_scattering_processes_data` array.
          * @param[out] p_pair_indices_1,p_pair_indices_2 arrays that store the indices of the
          * particles of a given pair. They are only needed here to store information that will be used
          * later on when actually creating the product particles.
@@ -159,7 +159,7 @@ public:
                         m_process_count, m_scattering_processes_data, engine);
 
                     // Remove pair reaction weight from the colliding particles' weights
-                    if (p_mask[pair_index] > 0) {
+                    if (p_mask[pair_index]) {
                         BinaryCollisionUtils::remove_weight_from_colliding_particle(
                             w1[ I1[i1] ], idcpu1[ I1[i1] ], p_pair_reaction_weight[pair_index]);
                         BinaryCollisionUtils::remove_weight_from_colliding_particle(

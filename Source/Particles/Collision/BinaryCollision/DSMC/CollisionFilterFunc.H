@@ -25,10 +25,9 @@
  * @param[in] dt is the time step length between two collision calls.
  * @param[in] dV is the volume of the corresponding cell.
  * @param[in] pair_index is the index of the colliding pair.
- * @param[out] p_mask for each pair, set to the index of the selected
- *             scattering process plus one (i.e. 1-based, in the order of the
- *             scattering_processes array) if a collision occurs, or 0 if no
- *             collision occurs.
+ * @param[out] p_mask for each pair: 0 if no collision occurs ;
+ *             index+1 of the selected process for that pair if a collision occurs, 
+ *             where `index` is the index of the process in the `scattering_processes` array.
  * @param[out] p_pair_reaction_weight stores the weight of the product particles.
  * @param[in] multiplier factor by which the collision probability is increased to
  *            account for all other possible binary collision partners.
@@ -105,17 +104,15 @@ void CollisionPairFilter (const amrex::ParticleReal u1x, const amrex::ParticleRe
         for (int ii = 0; ii < process_count; ii++) {
             if (random_number <= sigma_sums[ii] / sigma_tot)
             {
-                // Store the index of the selected scattering process, plus one (0 is
-                // reserved to mean "no collision"). SplitAndScatterFunc subtracts one
-                // to look up the process type and energy penalty for this pair.
+                // Store index+1 of the selected scattering process 
+                // (0 is reserved to mean "no collision"), where `index` 
+                // is the index of the selected process in the `scattering_processes` array.
                 p_mask[pair_index] = static_cast<index_type>(ii + 1);
                 p_pair_reaction_weight[pair_index] = w_min;
-                break;
+                return;
             }
         }
-    }
-    else
-    {
+    } else {
         // No collision occurs for this pair.
         p_mask[pair_index] = index_type(0);
     }
