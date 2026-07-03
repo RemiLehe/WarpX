@@ -133,6 +133,15 @@ public:
         // zeros, indicating that for all the "product" species, there were no new macroparticles added.
         if (n_total_pairs == 0) { return amrex::Vector<int>(m_num_product_species, 0); }
 
+        // Returns true if the given mask value corresponds to a process that creates new product
+        // particles (ionization, charge exchange, two-product reaction). This mirrors
+        // ScatteringProcess::Executor::m_produces_products.
+        auto const produces_products = [] AMREX_GPU_DEVICE (int mask_val) -> bool {
+            return (mask_val == int(ScatteringProcessType::IONIZATION)) ||
+                   (mask_val == int(ScatteringProcessType::TWOPRODUCT_REACTION)) ||
+                   (mask_val == int(ScatteringProcessType::CHARGE_EXCHANGE));
+        };
+
         // The following is used to calculate the appropriate offsets for
         // non-product producing collisions (i.e., not ionization, not two-product reaction).
         // Note that a standard cummulative sum is not appropriate since the
@@ -142,10 +151,7 @@ public:
         index_type* AMREX_RESTRICT no_product_offsets_data = no_product_offsets.data();
         auto const no_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
-                return ((mask[i] > 0) &&
-                        (mask[i] != int(ScatteringProcessType::IONIZATION)) &&
-                        (mask[i] != int(ScatteringProcessType::TWOPRODUCT_REACTION)) &&
-                        (mask[i] != int(ScatteringProcessType::CHARGE_EXCHANGE))) ? 1 : 0;
+                return (mask[i] > 0 && !produces_products(mask[i])) ? 1 : 0;
             },
             [=] AMREX_GPU_DEVICE (index_type i, index_type s) { no_product_offsets_data[i] = s; },
             amrex::Scan::Type::exclusive, amrex::Scan::retSum
@@ -169,9 +175,7 @@ public:
         index_type* AMREX_RESTRICT with_product_offsets_data = with_product_offsets.data();
         auto const with_product_total = amrex::Scan::PrefixSum<index_type>(n_total_pairs,
             [=] AMREX_GPU_DEVICE (index_type i) -> index_type {
-                return ((mask[i] == int(ScatteringProcessType::IONIZATION)) |
-                        (mask[i] == int(ScatteringProcessType::TWOPRODUCT_REACTION)) |
-                        (mask[i] == int(ScatteringProcessType::CHARGE_EXCHANGE))) ? 1 : 0;
+                return produces_products(mask[i]) ? 1 : 0;
             },
             [=] AMREX_GPU_DEVICE (index_type i, index_type s) { with_product_offsets_data[i] = s; },
             amrex::Scan::Type::exclusive, amrex::Scan::retSum
@@ -240,7 +244,7 @@ public:
         amrex::ParallelForRNG(n_total_pairs,
         [=] AMREX_GPU_DEVICE (int i, amrex::RandomEngine const& engine) noexcept
         {
-            if ((mask[i] > 0) && (mask[i] != int(ScatteringProcessType::IONIZATION)) && (mask[i] != int(ScatteringProcessType::TWOPRODUCT_REACTION)) && (mask[i] != int(ScatteringProcessType::CHARGE_EXCHANGE)))
+            if (mask[i] > 0 && !produces_products(mask[i]))
             {
                 const auto slot0_idx = products_np_data[0] + no_product_offsets_data[i];
                 // Make a copy of the particle from the first reactant species
@@ -315,8 +319,7 @@ public:
             }
 
             // Next perform all product-producing collisions
-            else if ((mask[i] == int(ScatteringProcessType::TWOPRODUCT_REACTION)) ||
-                     (mask[i] == int(ScatteringProcessType::CHARGE_EXCHANGE)))
+            else if (produces_products(mask[i]) && mask[i] != int(ScatteringProcessType::IONIZATION))
             {
                 // create a copy of the first product species at the location of the first reactant species
                 const auto src0_idx = static_cast<int>(p_pair_indices_0[i]);
