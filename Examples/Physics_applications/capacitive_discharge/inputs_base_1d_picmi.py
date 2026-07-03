@@ -297,13 +297,7 @@ class CapacitiveDischargeExample(object):
                 name="coll_elec_dsmc",
                 species=[self.electrons, self.neutrals],
                 product_species=[self.electrons, self.ions],
-                # This collision now includes excitation, which is a frequent
-                # process (unlike ionization alone). Supercycling it would make
-                # the per-call collision probability too large for the
-                # null-collision method (which allows at most one collision per
-                # pair per call), distorting the excitation/ionization rates.
-                # Run every step, matching the cadence excitation uses in MCC.
-                ndt_supercycle=1,
+                ndt_supercycle=4,
                 scattering_processes=dsmc_processes,
             )
             electron_colls_mcc = picmi.MCCCollisions(
