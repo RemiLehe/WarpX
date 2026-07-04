@@ -161,21 +161,6 @@ class CapacitiveDischargeExample(object):
     # Time (in seconds) between diagnostic evaluations
     diag_interval = 32 / freq
 
-    # Number of RF cycles simulated in the short "test" mode. This is much
-    # shorter than the full benchmark run above, but long enough for the ion
-    # density to converge to the Turner et al. (2013) benchmark profile, which
-    # is what analysis_1d.py checks.
-    test_cycles = 320
-    # Number of cells used in the short "test" mode. This is coarser than the
-    # full benchmark run (128 cells for case 1), which further reduces the CI
-    # cost while still reproducing the Turner ion-density profile to a few
-    # percent (see analysis_1d.py).
-    test_ncells = 32
-    # Seed particles per cell used in the short "test" mode. Fewer than the
-    # full benchmark run (512 for case 1); this reduces the CI cost at the cost
-    # of some extra statistical noise in the time-averaged density.
-    test_nppc = 256
-
     def __init__(self, n=0, test=False, pythonsolver=False, dsmc=False):
         """Get input parameters for the specific case (n) desired."""
         self.n = n
@@ -197,24 +182,19 @@ class CapacitiveDischargeExample(object):
         self.diag_steps = int(self.diag_interval / self.dt)
 
         if self.test:
-            # Run for a reduced number of RF cycles (see test_cycles above) on
-            # a coarser grid (see test_ncells above), still averaging the ion
-            # density over the last self.diag_interval (= 32 RF cycles) for the
-            # comparison against the Turner benchmark in analysis_1d.py.
-            self.nz = self.test_ncells
-            self.seed_nppc = self.test_nppc
-            # Use a 2x larger PIC timestep with no collision supercycling
-            # (mcc_subcycling_steps = None). The collision timestep is then
-            # equal to the PIC timestep, i.e. the same collision timestep as
-            # the original configuration (dt with 2x supercycling), while the
-            # number of field/particle-push steps is halved.
+            # In test mode we obtain essentially the same case-1 ion density
+            # profile as the Turner et al. (2013) benchmark (checked by
+            # analysis_1d.py) in a much shorter time, by using a coarser
+            # resolution than the original Turner benchmark (fewer cells, fewer
+            # particles per cell and a larger timestep) and by stopping early
+            # in time, at a point where the ion density has already converged.
+            self.nz = 32
+            self.seed_nppc = 256
             self.dt = 2 * self.dt
-            self.max_steps = int(self.test_cycles / self.freq / self.dt)
+            self.max_steps = int(320 / self.freq / self.dt)  # 320 RF cycles
             self.diag_steps = int(self.diag_interval / self.dt)
-            self.mcc_subcycling_steps = None
             self.rng = np.random.default_rng(23094290)
         else:
-            self.mcc_subcycling_steps = None
             self.rng = np.random.default_rng()
 
         self.ion_density_array = np.zeros(self.nz + 1)
@@ -329,7 +309,6 @@ class CapacitiveDischargeExample(object):
                 background_density=self.gas_density,
                 background_temperature=self.gas_temp,
                 background_mass=self.ions.mass,
-                ndt_supercycle=self.mcc_subcycling_steps,
                 scattering_processes=electron_scattering_processes,
             )
             electron_colls = [electron_colls_mcc, electron_colls_dsmc]
@@ -340,7 +319,6 @@ class CapacitiveDischargeExample(object):
                 background_density=self.gas_density,
                 background_temperature=self.gas_temp,
                 background_mass=self.ions.mass,
-                ndt_supercycle=self.mcc_subcycling_steps,
                 scattering_processes=electron_scattering_processes,
             )
             electron_colls = [electron_colls_mcc]
@@ -363,7 +341,6 @@ class CapacitiveDischargeExample(object):
                 species=self.ions,
                 background_density=self.gas_density,
                 background_temperature=self.gas_temp,
-                ndt_supercycle=self.mcc_subcycling_steps,
                 scattering_processes=ion_scattering_processes,
             )
         ion_colls = [ion_colls]
