@@ -198,9 +198,15 @@ class CapacitiveDischargeExample(object):
             # density over the last self.diag_interval (= 32 RF cycles) for the
             # comparison against the Turner benchmark in analysis_1d.py.
             self.nz = self.test_ncells
+            # Use a 2x larger PIC timestep with no collision supercycling
+            # (mcc_subcycling_steps = None). The collision timestep is then
+            # equal to the PIC timestep, i.e. the same collision timestep as
+            # the original configuration (dt with 2x supercycling), while the
+            # number of field/particle-push steps is halved.
+            self.dt = 2 * self.dt
             self.max_steps = int(self.test_cycles / self.freq / self.dt)
             self.diag_steps = int(self.diag_interval / self.dt)
-            self.mcc_subcycling_steps = 2
+            self.mcc_subcycling_steps = None
             self.rng = np.random.default_rng(23094290)
         else:
             self.mcc_subcycling_steps = None
