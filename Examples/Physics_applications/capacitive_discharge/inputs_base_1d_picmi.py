@@ -171,6 +171,10 @@ class CapacitiveDischargeExample(object):
     # cost while still reproducing the Turner ion-density profile to a few
     # percent (see analysis_1d.py).
     test_ncells = 32
+    # Seed particles per cell used in the short "test" mode. Fewer than the
+    # full benchmark run (512 for case 1); this reduces the CI cost at the cost
+    # of some extra statistical noise in the time-averaged density.
+    test_nppc = 256
 
     def __init__(self, n=0, test=False, pythonsolver=False, dsmc=False):
         """Get input parameters for the specific case (n) desired."""
@@ -198,6 +202,7 @@ class CapacitiveDischargeExample(object):
             # density over the last self.diag_interval (= 32 RF cycles) for the
             # comparison against the Turner benchmark in analysis_1d.py.
             self.nz = self.test_ncells
+            self.seed_nppc = self.test_nppc
             # Use a 2x larger PIC timestep with no collision supercycling
             # (mcc_subcycling_steps = None). The collision timestep is then
             # equal to the PIC timestep, i.e. the same collision timestep as
