@@ -58,14 +58,18 @@ ref_density = np.array([
 density_data = np.load("ion_density_case_1.npy")
 print(repr(density_data))
 
-# Grid: nz = 128 cells over the 6.7 cm gap, so nz + 1 = 129 nodes.
+# The Turner benchmark above is tabulated on a 129-node grid (128 cells over
+# the 6.7 cm gap). The test may run on a coarser grid, so interpolate the
+# benchmark onto the simulation nodes before comparing.
 gap = 0.067
 z = np.linspace(0.0, gap, density_data.size)
+z_ref = np.linspace(0.0, gap, ref_density.size)
+ref_on_grid = np.interp(z, z_ref, ref_density)
 
 # Plot the simulated ion density profile against the Turner benchmark.
 plt.figure()
-plt.plot(z, ref_density, "k-", label="Turner et al. (2013)")
-plt.plot(z, density_data, "r--", label="WarpX")
+plt.plot(z_ref, ref_density, "k-", label="Turner et al. (2013)")
+plt.plot(z, density_data, "r--o", markersize=3, label="WarpX")
 plt.xlabel("z (m)")
 plt.ylabel(r"Ion density (m$^{-3}$)")
 plt.title("Capacitive discharge (case 1): time-averaged ion density")
@@ -78,7 +82,7 @@ plt.savefig("ion_density_case_1.png")
 # density there is a grid artifact (~half the physical value) rather than a
 # physical disagreement with the (cell-averaged) benchmark.
 interior = slice(1, -1)
-rel_err = np.abs(density_data[interior] - ref_density[interior]) / ref_density[interior]
+rel_err = np.abs(density_data[interior] - ref_on_grid[interior]) / ref_on_grid[interior]
 rms_rel_err = np.sqrt(np.mean(rel_err**2))
 print(f"Max relative error (interior): {rel_err.max() * 100:.2f} %")
 print(f"RMS relative error (interior): {rms_rel_err * 100:.2f} %")

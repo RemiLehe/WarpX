@@ -166,6 +166,11 @@ class CapacitiveDischargeExample(object):
     # density to converge to the Turner et al. (2013) benchmark profile, which
     # is what analysis_1d.py checks.
     test_cycles = 320
+    # Number of cells used in the short "test" mode. This is coarser than the
+    # full benchmark run (128 cells for case 1), which further reduces the CI
+    # cost while still reproducing the Turner ion-density profile to a few
+    # percent (see analysis_1d.py).
+    test_ncells = 32
 
     def __init__(self, n=0, test=False, pythonsolver=False, dsmc=False):
         """Get input parameters for the specific case (n) desired."""
@@ -188,10 +193,11 @@ class CapacitiveDischargeExample(object):
         self.diag_steps = int(self.diag_interval / self.dt)
 
         if self.test:
-            # Run for a reduced number of RF cycles (see test_cycles above),
-            # still averaging the ion density over the last self.diag_interval
-            # (= 32 RF cycles) for the comparison against the Turner benchmark
-            # in analysis_1d.py.
+            # Run for a reduced number of RF cycles (see test_cycles above) on
+            # a coarser grid (see test_ncells above), still averaging the ion
+            # density over the last self.diag_interval (= 32 RF cycles) for the
+            # comparison against the Turner benchmark in analysis_1d.py.
+            self.nz = self.test_ncells
             self.max_steps = int(self.test_cycles / self.freq / self.dt)
             self.diag_steps = int(self.diag_interval / self.dt)
             self.mcc_subcycling_steps = 2
