@@ -161,6 +161,12 @@ class CapacitiveDischargeExample(object):
     # Time (in seconds) between diagnostic evaluations
     diag_interval = 32 / freq
 
+    # Number of RF cycles simulated in the short "test" mode. This is much
+    # shorter than the full benchmark run above, but long enough for the ion
+    # density to converge to the Turner et al. (2013) benchmark profile, which
+    # is what analysis_1d.py checks.
+    test_cycles = 320
+
     def __init__(self, n=0, test=False, pythonsolver=False, dsmc=False):
         """Get input parameters for the specific case (n) desired."""
         self.n = n
@@ -182,8 +188,12 @@ class CapacitiveDischargeExample(object):
         self.diag_steps = int(self.diag_interval / self.dt)
 
         if self.test:
-            self.max_steps = 50
-            self.diag_steps = 5
+            # Run for a reduced number of RF cycles (see test_cycles above),
+            # still averaging the ion density over the last self.diag_interval
+            # (= 32 RF cycles) for the comparison against the Turner benchmark
+            # in analysis_1d.py.
+            self.max_steps = int(self.test_cycles / self.freq / self.dt)
+            self.diag_steps = int(self.diag_interval / self.dt)
             self.mcc_subcycling_steps = 2
             self.rng = np.random.default_rng(23094290)
         else:
