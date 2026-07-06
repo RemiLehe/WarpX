@@ -150,7 +150,7 @@ public:
                 if (mask[i] == 0) { return 0; }
                 const auto selected_process_index = mask[i] - 1;
                 auto const& scattering_process = scattering_processes[selected_process_index];
-                return (!scattering_process.m_produces_products) ? 1 : 0;
+                return !scattering_process.m_produces_products;
             },
             [=] AMREX_GPU_DEVICE (index_type i, index_type s) { no_product_offsets_data[i] = s; },
             amrex::Scan::Type::exclusive, amrex::Scan::retSum
@@ -176,7 +176,7 @@ public:
                 if (mask[i] == 0) { return 0; }
                 const auto selected_process_index = mask[i] - 1;
                 auto const& scattering_process = scattering_processes[selected_process_index];
-                return (scattering_process.m_produces_products) ? 1 : 0;
+                return scattering_process.m_produces_products;
             },
             [=] AMREX_GPU_DEVICE (index_type i, index_type s) { with_product_offsets_data[i] = s; },
             amrex::Scan::Type::exclusive, amrex::Scan::retSum
