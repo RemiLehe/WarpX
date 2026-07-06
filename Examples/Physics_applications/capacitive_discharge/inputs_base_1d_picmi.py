@@ -305,7 +305,7 @@ class CapacitiveDischargeExample(object):
                 name="coll_elec_dsmc",
                 species=[self.electrons, self.neutrals],
                 product_species=[self.electrons, self.ions],
-                ndt_supercycle=4,
+                ndt_supercycle=self.dsmc_ndt_supercycle,
                 scattering_processes=dsmc_processes,
             )
             electron_colls_mcc = picmi.MCCCollisions(
