@@ -146,9 +146,9 @@ public:
                     p_mask[pair_index] = index_type(0);
                 } else {
 
-                    const int max_process_count = 4; // Pre-defined value, for performance reasons
+                    const int max_process_count = 5; // Pre-defined value, for performance reasons
                     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-                        (m_process_count < max_process_count), "Too many scattering processes in DSMC routine (hardcoded to only allow 4). Update the max_process_count value in source code to allow more scattering processes."
+                        (m_process_count < max_process_count), "Too many scattering processes in DSMC routine (hardcoded to only allow up to 4). Update the max_process_count value in source code to allow more scattering processes."
                     );
                     CollisionPairFilter<max_process_count>(
                         u1x[ I1[i1] ], u1y[ I1[i1] ], u1z[ I1[i1] ],
