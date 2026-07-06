@@ -296,8 +296,6 @@ class CapacitiveDischargeExample(object):
             },
         }
         if self.dsmc:
-            # DSMC supports all of the electron scattering processes, so the
-            # electrons are handled purely with DSMC (no MCC collisions).
             electron_scattering_processes["ionization"]["target_species"] = (
                 self.neutrals
             )
