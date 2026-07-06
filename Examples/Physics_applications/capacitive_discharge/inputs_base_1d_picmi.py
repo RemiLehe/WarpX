@@ -167,6 +167,7 @@ class CapacitiveDischargeExample(object):
         self.test = test
         self.pythonsolver = pythonsolver
         self.dsmc = dsmc
+        self.dsmc_ndt_supercycle = 4
 
         # Case specific input parameters
         self.voltage = f"{self.voltage[n]}*sin(2*pi*{self.freq:.5e}*t)"
@@ -191,6 +192,7 @@ class CapacitiveDischargeExample(object):
             self.nz = 32
             self.seed_nppc = 256
             self.dt = 2 * self.dt
+            self.dsmc_ndt_supercycle = self.dsmc_ndt_supercycle / 2
             self.max_steps = int(
                 320 / self.freq / self.dt
             )  # 320 RF cycles instead of 1280
