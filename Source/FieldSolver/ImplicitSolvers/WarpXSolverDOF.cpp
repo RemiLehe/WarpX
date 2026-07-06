@@ -38,8 +38,6 @@ void WarpXSolverDOF::Define ( WarpX* const        a_WarpX,
 
     if (a_scalar_type_name=="phi_fp") {
         m_scalar_type = FieldType::phi_fp;
-    } else if (a_scalar_type_name=="xi_fp") {
-        m_scalar_type = FieldType::xi_fp;
     } else if (a_scalar_type_name!="none") {
         WARPX_ABORT_WITH_MESSAGE(a_scalar_type_name+" "
                     +"is not a valid option for scalar type used in Defining "

@@ -51,7 +51,7 @@ public:
                   int          a_step ) override;
 
     void ComputeRHS ( WarpXSolverVec&  a_RHS,
-                      const WarpXSolverVec&  a_dA,
+                      const WarpXSolverVec&  a_Z,
                       amrex::Real      start_time,
                       int              a_nl_iter,
                       bool             a_from_jacobian ) override;
@@ -76,7 +76,7 @@ private:
     /**
      * \brief Solver vectors for delta A
      */
-    WarpXSolverVec m_dA, m_source;
+    WarpXSolverVec m_Z, m_source;
 
     /**
      * \brief The linear function used by linear solver to compute A*v.

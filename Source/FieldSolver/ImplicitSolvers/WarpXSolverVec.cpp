@@ -62,13 +62,10 @@ void WarpXSolverVec::Define ( WarpX*  a_WarpX,
     if (m_scalar_type_name=="phi_fp") {
         m_scalar_type = FieldType::phi_fp;
     }
-    else if (m_scalar_type_name=="xi_fp") {
-        m_scalar_type = FieldType::xi_fp;
-    }
     else if (m_scalar_type_name!="none") {
         WARPX_ABORT_WITH_MESSAGE(a_scalar_type_name+" "
                     +"is not a valid option for scalar type used in Definining "
-                    +"a WarpXSolverVec. Valid scalar types are: phi_fp and xi_fp");
+                    +"a WarpXSolverVec. Valid scalar types are: phi_fp");
     }
 
     m_array_vec.resize(m_num_amr_levels);

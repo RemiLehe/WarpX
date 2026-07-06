@@ -3646,9 +3646,6 @@ WarpX::getFieldDotMaskPointer ( FieldType field_type, int lev, ablastr::fields::
         case FieldType::phi_fp :
             ::SetDotMask( phi_dotMask[lev], m_fields.get("phi_fp", lev), periodicity);
             return phi_dotMask[lev].get();
-        case FieldType::xi_fp :
-            ::SetDotMask( phi_dotMask[lev], m_fields.get("phi_fp", lev), periodicity);
-            return phi_dotMask[lev].get();
         default:
             WARPX_ABORT_WITH_MESSAGE("Invalid field type for dotMask");
             return Efield_dotMask[lev][dir].get();
