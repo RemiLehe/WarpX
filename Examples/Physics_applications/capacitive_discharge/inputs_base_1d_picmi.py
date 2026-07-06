@@ -182,12 +182,20 @@ class CapacitiveDischargeExample(object):
         self.diag_steps = int(self.diag_interval / self.dt)
 
         if self.test:
-            self.max_steps = 50
-            self.diag_steps = 5
-            self.mcc_subcycling_steps = 2
+            assert n == 0  # The parameters below were chosen specifically for case 1.
+            # In test mode, we obtain essentially the same ion density
+            # profile as the Turner et al. (2013) benchmark, but at lower
+            # computational cost, by using a coarser resolution (fewer cells, fewer
+            # particles per cell and a larger timestep) and by stopping early
+            # in time, at a point where the ion density has already converged.
+            self.nz = 32
+            self.seed_nppc = 256
+            self.dt = 2 * self.dt
+            self.max_steps = int(
+                320 / self.freq / self.dt
+            )  # 320 RF cycles instead of 1280
             self.rng = np.random.default_rng(23094290)
         else:
-            self.mcc_subcycling_steps = None
             self.rng = np.random.default_rng()
 
         self.ion_density_array = np.zeros(self.nz + 1)
@@ -306,7 +314,6 @@ class CapacitiveDischargeExample(object):
                 background_density=self.gas_density,
                 background_temperature=self.gas_temp,
                 background_mass=self.ions.mass,
-                ndt_supercycle=self.mcc_subcycling_steps,
                 scattering_processes=electron_scattering_processes,
             )
             electron_colls = [electron_colls_mcc, electron_colls_dsmc]
@@ -317,7 +324,6 @@ class CapacitiveDischargeExample(object):
                 background_density=self.gas_density,
                 background_temperature=self.gas_temp,
                 background_mass=self.ions.mass,
-                ndt_supercycle=self.mcc_subcycling_steps,
                 scattering_processes=electron_scattering_processes,
             )
             electron_colls = [electron_colls_mcc]
@@ -340,7 +346,6 @@ class CapacitiveDischargeExample(object):
                 species=self.ions,
                 background_density=self.gas_density,
                 background_temperature=self.gas_temp,
-                ndt_supercycle=self.mcc_subcycling_steps,
                 scattering_processes=ion_scattering_processes,
             )
         ion_colls = [ion_colls]
