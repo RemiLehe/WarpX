@@ -296,29 +296,20 @@ class CapacitiveDischargeExample(object):
             },
         }
         if self.dsmc:
-            dsmc_processes = {
-                "ionization": electron_scattering_processes.pop("ionization"),
-                "excitation1": electron_scattering_processes.pop("excitation1"),
-                "excitation2": electron_scattering_processes.pop("excitation2"),
-            }
-            dsmc_processes["ionization"]["target_species"] = self.neutrals
-            dsmc_processes["ionization"].pop("species")
+            # DSMC supports all of the electron scattering processes, so the
+            # electrons are handled purely with DSMC (no MCC collisions).
+            electron_scattering_processes["ionization"]["target_species"] = (
+                self.neutrals
+            )
+            electron_scattering_processes["ionization"].pop("species")
             electron_colls_dsmc = picmi.DSMCCollisions(
                 name="coll_elec_dsmc",
                 species=[self.electrons, self.neutrals],
                 product_species=[self.electrons, self.ions],
                 ndt_supercycle=self.dsmc_ndt_supercycle,
-                scattering_processes=dsmc_processes,
-            )
-            electron_colls_mcc = picmi.MCCCollisions(
-                name="coll_elec",
-                species=self.electrons,
-                background_density=self.gas_density,
-                background_temperature=self.gas_temp,
-                background_mass=self.ions.mass,
                 scattering_processes=electron_scattering_processes,
             )
-            electron_colls = [electron_colls_mcc, electron_colls_dsmc]
+            electron_colls = [electron_colls_dsmc]
         else:
             electron_colls_mcc = picmi.MCCCollisions(
                 name="coll_elec",
