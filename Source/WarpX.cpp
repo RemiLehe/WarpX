@@ -1255,7 +1255,8 @@ WarpX::ReadParameters ()
         //       because its default depends on the solver selection
         if (electromagnetic_solver_id == ElectromagneticSolverAlgo::PSATD ||
             electromagnetic_solver_id == ElectromagneticSolverAlgo::HybridPIC ||
-            electrostatic_solver_id != ElectrostaticSolverAlgo::None) {
+            electrostatic_solver_id != ElectrostaticSolverAlgo::None ||
+            evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
             current_deposition_algo = CurrentDepositionAlgo::Direct;
         }
         pp_algo.query_enum_case_insensitive("current_deposition", current_deposition_algo);
@@ -3638,9 +3639,6 @@ WarpX::getFieldDotMaskPointer ( FieldType field_type, int lev, ablastr::fields::
             ::SetDotMask( Bfield_dotMask[lev][dir], m_fields.get("Bfield_fp", dir, lev), periodicity);
             return Bfield_dotMask[lev][dir].get();
         case FieldType::vector_potential_fp :
-            ::SetDotMask( Afield_dotMask[lev][dir], m_fields.get("vector_potential_fp", dir, lev), periodicity);
-            return Afield_dotMask[lev][dir].get();
-        case FieldType::dA_fp :
             ::SetDotMask( Afield_dotMask[lev][dir], m_fields.get("vector_potential_fp", dir, lev), periodicity);
             return Afield_dotMask[lev][dir].get();
         case FieldType::phi_fp :

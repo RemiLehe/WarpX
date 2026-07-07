@@ -286,9 +286,25 @@ WarpX::Evolve (int numsteps)
             ExecutePythonCallback("aftercollisions");
         }
 
-        // Field solve step for electrostatic or hybrid-PIC solvers
+        // Lambda function to set magnetic field equal to curl of A (used by the
+        // Darwin solver, since B is not itself evolved).
+        auto const SyncDarwinBFromA = [&]() {
+            ablastr::fields::MultiLevelVectorField Bfield_fp =
+                m_fields.get_mr_levels_alldirs("Bfield_fp", finestLevel());
+            ablastr::fields::MultiLevelVectorField Afield_fp =
+                m_fields.get_mr_levels_alldirs("vector_potential_fp", finestLevel());
+            for (int lev = 0; lev <= finestLevel(); ++lev) {
+                get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
+                    Bfield_fp[lev], Afield_fp[lev],
+                    GetEBUpdateBFlag()[lev],
+                    lev);
+            }
+            FillBoundaryB(getngEB(), true);
+        };
+
+        // Field solve step for electrostatic, hybrid-PIC, or Darwin solvers
         if( electrostatic_solver_id != ElectrostaticSolverAlgo::None ||
-            electromagnetic_solver_id == ElectromagneticSolverAlgo::HybridPIC )
+            evolve_scheme == EvolveScheme::Semi_Implicit_Darwin )
         {
             ExecutePythonCallback("beforeEsolve");
 
@@ -306,34 +322,32 @@ WarpX::Evolve (int numsteps)
                     // B field.  Time varying A contribution to E field is neglected.
                     // This is currently a lab frame calculation.
                     ComputeMagnetostaticField();
-                } else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
-                    // Set magnetic field equal to curl of A since it was reset
-                    // above.
-                    ablastr::fields::MultiLevelVectorField Bfield_fp =
-                        m_fields.get_mr_levels_alldirs("Bfield_fp", finestLevel());
-                    ablastr::fields::MultiLevelVectorField Afield_fp =
-                        m_fields.get_mr_levels_alldirs("vector_potential_fp", finestLevel());
-                    for (int lev = 0; lev <= finestLevel(); ++lev) {
-                        get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
-                            Bfield_fp[lev], Afield_fp[lev],
-                            GetEBUpdateBFlag()[lev],
-                            lev);
-                    }
-                    FillBoundaryB(getngEB(), true);
                 }
-                // Since the fields were reset above, the external fields are added
-                // back on to the fine patch fields. This make it so that the net fields
-                // are the sum of the field solution and any external field.
-                for (int lev = 0; lev <= max_level; ++lev) {
-                    AddExternalFields(lev);
-                }
-            } else if (electromagnetic_solver_id == ElectromagneticSolverAlgo::HybridPIC) {
-                // Hybrid-PIC case:
-                // The particles are now at p^{n+1/2} and x^{n+1}. The fields
-                // are updated according to the hybrid-PIC scheme (Ohm's law
-                // and Ampere's law).
-                HybridPICEvolveFields();
             }
+            // Darwin case: The magnetic field is calculated based on the
+            // updated vector potential (A)
+            if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin &&
+                electrostatic_solver_id != ElectrostaticSolverAlgo::LabFrameElectroMagnetostatic ) {
+                // Set magnetic field equal to curl of A.
+                SyncDarwinBFromA();
+            }
+            // The external fields are added back on to the fine patch fields
+            // (which are overwritten by electrostatic / magnetostatic solvers).
+            // The net fields are then the sum of the field solutions and any
+            // external field.
+            for (int lev = 0; lev <= max_level; ++lev) {
+                AddExternalFields(lev);
+            }
+            ExecutePythonCallback("afterEsolve");
+        }
+
+        // Hybrid-PIC case
+        if (electromagnetic_solver_id == ElectromagneticSolverAlgo::HybridPIC) {
+            ExecutePythonCallback("beforeEsolve");
+            // The particles are now at p^{n+1/2} and x^{n+1}. The fields
+            // are updated according to the hybrid-PIC scheme (Ohm's law
+            // and Ampere's law).
+            HybridPICEvolveFields();
             ExecutePythonCallback("afterEsolve");
         }
 

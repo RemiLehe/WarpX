@@ -40,15 +40,6 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
         m_WarpX->m_fields.alloc_init(FieldType::vector_potential_fp, Direction{0}, lev, ba_Ex, dm_E, 1, nge, 0.0_rt);
         m_WarpX->m_fields.alloc_init(FieldType::vector_potential_fp, Direction{1}, lev, ba_Ey, dm_E, 1, nge, 0.0_rt);
         m_WarpX->m_fields.alloc_init(FieldType::vector_potential_fp, Direction{2}, lev, ba_Ez, dm_E, 1, nge, 0.0_rt);
-
-        const auto& ba_Bx = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev)->boxArray();
-        const auto& ba_By = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev)->boxArray();
-        const auto& ba_Bz = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev)->boxArray();
-        const auto& dm_B = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev)->DistributionMap();
-        const amrex::IntVect ngb = m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev)->nGrowVect();
-        m_WarpX->m_fields.alloc_init(FieldType::Z_fp, Direction{0}, lev, ba_Bx, dm_B, 1, ngb, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::Z_fp, Direction{1}, lev, ba_By, dm_B, 1, ngb, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::Z_fp, Direction{2}, lev, ba_Bz, dm_B, 1, ngb, 0.0_rt);
     }
 
     // Define WarpXSolverVec instances for the MS equation solution (dA) and
@@ -57,6 +48,29 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
     m_Z.zero();
     m_source.Define(m_Z);
     m_source.zero();
+
+    // Scratch space used by ComputeRHS(), allocated once here (every
+    // iterate of m_Z shares this same layout) rather than on every
+    // GMRES iteration.
+    {
+        const auto& Zvec = m_Z.getArrayVec();
+        const int lev = 0;
+        m_lapZ_x.define(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
+                        Zvec[lev][0]->nComp(), Zvec[lev][0]->nGrowVect());
+        m_lapZ_y.define(Zvec[lev][1]->boxArray(), Zvec[lev][1]->DistributionMap(),
+                        Zvec[lev][1]->nComp(), Zvec[lev][1]->nGrowVect());
+        m_lapZ_z.define(Zvec[lev][2]->boxArray(), Zvec[lev][2]->DistributionMap(),
+                        Zvec[lev][2]->nComp(), Zvec[lev][2]->nGrowVect());
+
+        const amrex::IntVect biharmonic_ng =
+            amrex::elemwiseMax(Zvec[lev][0]->nGrowVect(), amrex::IntVect(2));
+        m_Zscratch_x.define(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
+                            Zvec[lev][0]->nComp(), biharmonic_ng);
+        m_Zscratch_y.define(Zvec[lev][1]->boxArray(), Zvec[lev][1]->DistributionMap(),
+                            Zvec[lev][1]->nComp(), biharmonic_ng);
+        m_Zscratch_z.define(Zvec[lev][2]->boxArray(), Zvec[lev][2]->DistributionMap(),
+                            Zvec[lev][2]->nComp(), biharmonic_ng);
+    }
 
     // Parse implicit solver parameters
     // const amrex::ParmParse pp("implicit_evolve");
@@ -231,33 +245,18 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     auto dA_fp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::dA_fp, lev);
     auto E_temp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
 
-    // Scratch space, reused below to hold curl(chi(curl(Z))).
-    amrex::MultiFab lapZ_x(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
-                           Zvec[lev][0]->nComp(), Zvec[lev][0]->nGrowVect());
-    amrex::MultiFab lapZ_y(Zvec[lev][1]->boxArray(), Zvec[lev][1]->DistributionMap(),
-                           Zvec[lev][1]->nComp(), Zvec[lev][1]->nGrowVect());
-    amrex::MultiFab lapZ_z(Zvec[lev][2]->boxArray(), Zvec[lev][2]->DistributionMap(),
-                           Zvec[lev][2]->nComp(), Zvec[lev][2]->nGrowVect());
-    ablastr::fields::VectorField lapZ = {&lapZ_x, &lapZ_y, &lapZ_z};
+    // Scratch space (allocated once in Define()), reused below to hold curl(chi(curl(Z))).
+    ablastr::fields::VectorField lapZ = {&m_lapZ_x, &m_lapZ_y, &m_lapZ_z};
 
     // GMRES builds intermediate Krylov candidates via WarpXSolverVec's
     // arithmetic (linComb/increment/Saxpy), which only ever touch the valid
     // region (nghost=0), so a_Z's own guard cells cannot be trusted here.
-    // Copy the candidate into a B-staggered scratch and FillBoundary on that
-    // scratch, which derives its guard cells from its own (just-copied)
-    // valid-region data via the periodic halo exchange.
-    // Zscratch is a local MultiFab, not a_Z's own storage, so its ghost width
-    // isn't tied to a_Z's own native ghost width (which is 0, by design - see
-    // note above) - the direct nabla^4 stencil below reads i-2..i+2, so at
-    // least 2 ghost cells are requested here regardless.
-    const amrex::IntVect biharmonic_ng = amrex::elemwiseMax(Zvec[lev][0]->nGrowVect(), amrex::IntVect(2));
-    amrex::MultiFab Zscratch_x(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
-                               Zvec[lev][0]->nComp(), biharmonic_ng);
-    amrex::MultiFab Zscratch_y(Zvec[lev][1]->boxArray(), Zvec[lev][1]->DistributionMap(),
-                               Zvec[lev][1]->nComp(), biharmonic_ng);
-    amrex::MultiFab Zscratch_z(Zvec[lev][2]->boxArray(), Zvec[lev][2]->DistributionMap(),
-                               Zvec[lev][2]->nComp(), biharmonic_ng);
-    ablastr::fields::VectorField Zscratch = {&Zscratch_x, &Zscratch_y, &Zscratch_z};
+    // Copy the candidate into a B-staggered scratch (allocated once in
+    // Define(), with >=2 ghost cells for the nabla^4 stencil below, which
+    // reads i-2..i+2) and FillBoundary on that scratch, which derives its
+    // guard cells from its own (just-copied) valid-region data via the
+    // periodic halo exchange.
+    ablastr::fields::VectorField Zscratch = {&m_Zscratch_x, &m_Zscratch_y, &m_Zscratch_z};
     for (int ii = 0; ii < 3; ii++)
     {
         amrex::MultiFab::Copy(*Zscratch[ii], *Zvec[lev][ii], 0, 0, ncomps, 0);
@@ -765,7 +764,9 @@ void SemiImplicitDarwin::ApplySusceptibility (
     BL_PROFILE("SemiImplicitDarwin::ApplySusceptibility()");
     // This function applies the susceptibility matrices to the given dA.
     // The functionality is copied from the ``ImplicitSolver::ComputeJfromMassMatrices``
-    // function.
+    // function rather than calling it directly, since that function is hardcoded to
+    // the registered current_fp/Efield_fp/Efield_fp_save fields, whereas this one
+    // must operate on the caller-supplied rhs/dA vectors used inside the GMRES matvec.
 
     using namespace amrex::literals;
 

@@ -10,6 +10,9 @@
 #define LinearFunctionMF_H_
 
 #include "LinearFunction.H"
+#include "CurlCurlMLMGPC.H"
+#include "MatrixPC.H"
+#include "JacobiPC.H"
 #include "Utils/TextMsg.H"
 
 #include <AMReX_Config.H>
@@ -136,8 +139,8 @@ class LinearFunctionMF : public LinearFunction<T,Ops>
     bool m_is_linear = false;
     bool m_usePreCond = false;
     RT m_epsJFNK = RT(1.0e-6);
-    RT m_normY0;
-    RT m_cur_time, m_dt;
+    RT m_normY0 = RT(0.0);
+    RT m_cur_time = RT(0.0), m_dt = RT(0.0);
 
     PreconditionerType m_pc_type = PreconditionerType::none;
 
@@ -163,6 +166,14 @@ void LinearFunctionMF<T,Ops>::define ( const T& a_U,
     m_usePreCond = (a_pc_type != PreconditionerType::none);
     if (m_usePreCond) {
         m_pc_type = a_pc_type;
+        if (m_pc_type == PreconditionerType::pc_curl_curl_mlmg) {
+            m_preCond = std::make_unique<CurlCurlMLMGPC<T,Ops>>();
+        } else if (m_pc_type == PreconditionerType::pc_jacobi) {
+            m_preCond = std::make_unique<JacobiPC<T,Ops>>();
+        } else {
+            m_preCond = std::make_unique<MatrixPC<T,Ops>>();
+            m_preCond->setName(amrex::getEnumNameString(m_pc_type));
+        }
         m_preCond->Define(a_U, a_ops);
     }
 
@@ -192,17 +203,19 @@ void LinearFunctionMF<T,Ops>::apply (T& a_dF, const T& a_dU)
 {
     BL_PROFILE("LinearFunctionMF::apply()");
     using namespace amrex::literals;
-    RT const normY = this->norm2(a_dU); // always 1 when called from GMRES
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         isDefined(),
         "JacobianFunction::apply() called on undefined JacobianFunction");
 
-    if (normY < 1.0e-15) { a_dF.zero(); }
-    else {
+    // a_dU is always unit-norm when called from GMRES with no preconditioner,
+    // so only pay for the norm2() reduction when a preconditioner could have
+    // produced a near-zero a_dU.
+    if (m_usePreCond && this->norm2(a_dU) < 1.0e-15) {
+        a_dF.zero();
+    } else {
         m_ops->ComputeRHS(a_dF, a_dU, m_cur_time, -1, true );
     }
-
 }
 
 #endif

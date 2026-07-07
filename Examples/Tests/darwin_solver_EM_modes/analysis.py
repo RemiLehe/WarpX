@@ -58,7 +58,6 @@ def get_analytic_R_mode(w):
 
 
 def get_analytic_L_mode(w):
-    print(w, w / np.sqrt(1.0 - abs(w)))
     return w / np.sqrt(1.0 - abs(w))
 
 

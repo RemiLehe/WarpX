@@ -2134,6 +2134,12 @@ class SemiImplicitDarwinEvolveScheme(picmistandard.base._ClassWithInit):
         self,
         linear_solver,
     ):
+        if not isinstance(linear_solver, GMRESLinearSolver):
+            raise TypeError(
+                "SemiImplicitDarwinEvolveScheme only supports GMRESLinearSolver "
+                "as its linear_solver (there is no nonlinear solver for the "
+                "linear solver to attach to, which PETScKSPLinearSolver requires)"
+            )
         self.linear_solver = linear_solver
 
     def solver_scheme_initialize_inputs(self):

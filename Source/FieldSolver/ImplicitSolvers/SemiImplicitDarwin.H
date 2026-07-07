@@ -9,13 +9,10 @@
 #ifndef SEMI_IMPLICIT_DARWIN_H_
 #define SEMI_IMPLICIT_DARWIN_H_
 
-// #include "NonlinearSolvers/LinearSolverLibrary.H"
 #include "NonlinearSolvers/LinearFunctionMF.H"
-// #include "NonlinearSolvers/NonlinearSolverLibrary.H"
 #include "WarpXSolverVec.H"
 
 #include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceSolver.H"
-#include "Initialization/DivCleaner/ProjectionDivCleaner.H"
 #include "Particles/MultiParticleContainer.H"
 
 #include <AMReX_Array.H>
@@ -25,7 +22,8 @@
 #include "ImplicitSolver.H"
 
 /** @file
- *  INSERT DESCRIPTION!
+ *  Semi-implicit Darwin field solver: advances the vector potential A
+ *  (through an auxiliary variable Z) and derives E and B from it each step.
  */
 
 class SemiImplicitDarwin : public ImplicitSolver
@@ -79,6 +77,14 @@ private:
     WarpXSolverVec m_Z, m_source;
 
     /**
+     * \brief Scratch space used by ComputeRHS(), allocated once here rather
+     *  than on every GMRES iteration since every iterate of m_Z shares the
+     *  same layout.
+     */
+    amrex::MultiFab m_lapZ_x, m_lapZ_y, m_lapZ_z;
+    amrex::MultiFab m_Zscratch_x, m_Zscratch_y, m_Zscratch_z;
+
+    /**
      * \brief The linear function used by linear solver to compute A*v.
      */
     std::unique_ptr<LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>> m_linear_function;
@@ -92,11 +98,6 @@ private:
      * \brief The linear solver object.
      */
     std::unique_ptr<LinearSolver<WarpXSolverVec,LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>>> m_linear_solver;
-
-    /**
-     * \brief Projection divergence cleaner to get solenoidal current.
-     */
-    // warpx::initialization::ProjectionDivCleaner m_div_cleaner;
 
     // Linear solver defaults
     int m_linsol_verbose_int = 2;

@@ -94,7 +94,6 @@ namespace warpx::fields
         Venl,
         global_debye_length,
         dA_fp,   /**< Used by the Darwin solver; the change in vector potential over one step */
-        Z_fp,    /**< Used by the Darwin solver; auxiliary potential field such that dA = curl x Z */
         effective_potential_sigma  /**< Only used with effective potential ES solver. Stores the Poisson equation dressing */
     );
 
