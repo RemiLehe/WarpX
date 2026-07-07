@@ -480,11 +480,6 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
     Szy->setVal(0.0);
     Szz->setVal(0.0);
 
-    // Grab B-field MFs since it is needed for the susceptibility
-    amrex::MultiFab & Bx = *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev);
-    amrex::MultiFab & By = *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev);
-    amrex::MultiFab & Bz = *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev);
-
     // loop over particle containers
     for (auto const& pc : m_WarpX->GetPartContainer()) {
 
@@ -509,14 +504,6 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
 
             const long np = pti.numParticles();
 
-            // Data on the grid
-            amrex::FArrayBox const* bxfab = &Bx[pti];
-            amrex::FArrayBox const* byfab = &By[pti];
-            amrex::FArrayBox const* bzfab = &Bz[pti];
-
-            // pc->DepositCurrentAndMassMatrices(pti, wp, uxp, uyp, uzp, jx, jy, jz,
-            //                 Sxx, Sxy, Sxz, Syx, Syy, Syz, Szx, Szy, Szz,
-            //                 bxfab, byfab, bzfab, 0, np, thread_num, lev, lev, m_dt);
             pc->DepositCurrent(pti, wp, uxp, uyp, uzp, ion_lev, jx, jy, jz,
                                0, np, thread_num, lev, lev, dt, 0.0, PushType::Implicit);
         }

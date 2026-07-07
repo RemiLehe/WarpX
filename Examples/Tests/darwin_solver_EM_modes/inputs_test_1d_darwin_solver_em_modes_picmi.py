@@ -101,9 +101,8 @@ class EMModes(object):
             self.total_steps = int(self.LT * self.t_ci / self.dt)
         else:
             # if this is a test case run for only a small number of steps
-            self.total_steps = 500
-        # output diagnostics every 0.01 ion cyclotron periods
-        self.diag_steps = 4
+            self.total_steps = 50
+        self.diag_steps = 3
 
         # calculate SIPIC modified plasma quantities
         sipic_factor = np.sqrt(1.0 + self.C_SI * (self.w_pe * self.dt) ** 2 / 4.0)
@@ -239,8 +238,10 @@ class EMModes(object):
         simulation.verbose = self.verbose
         simulation.current_deposition_algo = "direct"
         simulation.evolve_scheme = picmi.SemiImplicitDarwinEvolveScheme(
-            linear_solver=picmi.GMRESLinearSolver(max_iterations=32),
-            projection_div_cleaner_rtol=1e-6,
+            linear_solver=picmi.GMRESLinearSolver(
+                relative_tolerance=5e-5, max_iterations=2048,
+                verbose_int=(2 if self.test else 0)
+            ),
         )
 
         #######################################################################

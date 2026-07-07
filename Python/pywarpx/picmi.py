@@ -2126,32 +2126,18 @@ class SemiImplicitDarwinEvolveScheme(picmistandard.base._ClassWithInit):
     """
     Sets up the semi-implicit Darwin evolve scheme.
 
-    projection_div_cleaner_atol: float
-        Controls the absolute tolerance used in the divergence cleaner solve.
-
-    projection_div_cleaner_rtol: float
-        Controls the relative tolerance used in the divergence cleaner solve.
+    linear_solver:
+        GMRESLinearSolver instance.
     """
 
     def __init__(
         self,
         linear_solver,
-        projection_div_cleaner_atol=None,
-        projection_div_cleaner_rtol=None,
     ):
         self.linear_solver = linear_solver
-        self.div_cleaner_atol = projection_div_cleaner_atol
-        self.div_cleaner_rtol = projection_div_cleaner_rtol
 
     def solver_scheme_initialize_inputs(self):
         pywarpx.algo.evolve_scheme = "semi_implicit_darwin"
-
-        pywarpx.warpx.add_new_group_attr(
-            "projection_div_cleaner", "atol", self.div_cleaner_atol
-        )
-        pywarpx.warpx.add_new_group_attr(
-            "projection_div_cleaner", "rtol", self.div_cleaner_rtol
-        )
         self.linear_solver.linear_solver_initialize_inputs()
 
 
