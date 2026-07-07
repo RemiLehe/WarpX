@@ -239,8 +239,9 @@ class EMModes(object):
         simulation.current_deposition_algo = "direct"
         simulation.evolve_scheme = picmi.SemiImplicitDarwinEvolveScheme(
             linear_solver=picmi.GMRESLinearSolver(
-                relative_tolerance=5e-5, max_iterations=2048,
-                verbose_int=(2 if self.test else 0)
+                relative_tolerance=5e-5,
+                max_iterations=2048,
+                verbose_int=(2 if self.test else 0),
             ),
         )
 
