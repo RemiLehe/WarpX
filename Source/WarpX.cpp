@@ -727,7 +727,7 @@ WarpX::ReadParameters ()
         pp_warpx.query("maxlevel_extEMfield_init", maxlevel_extEMfield_init);
 
         // query_enum_sloppy with "-" needed to map "labframe-electromagnetostatic" to "LabFrameElectroMagnetostatic"
-        pp_warpx.query_enum_sloppy("do_electrostatic", electrostatic_solver_id, "-_");
+        pp_warpx.query_enum_sloppy("do_electrostatic", electrostatic_solver_id, "-");
         // if an electrostatic solver is used, set the electromagnetic solver to None,
         // unless Darwin is used in which case the Yee solver must be used
         if (electrostatic_solver_id != ElectrostaticSolverAlgo::None &&

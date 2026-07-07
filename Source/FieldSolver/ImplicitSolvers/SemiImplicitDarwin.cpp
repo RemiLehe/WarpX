@@ -580,7 +580,7 @@ void SemiImplicitDarwin::CalculateSourceVector ()
         curlJ, jfield[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Calculate 2 * ∇² B + mu_0 ∇ x J and write result in m_source
+    // Calculate 2 * ∇^2 B + mu_0 ∇ x J and write result in m_source
     const auto& b = m_source.getArrayVec();
     for (int ii = 0; ii < 3; ii++)
     {
