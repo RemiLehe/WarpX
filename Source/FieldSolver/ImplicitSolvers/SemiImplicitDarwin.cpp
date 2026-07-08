@@ -886,7 +886,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_xx[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_xx[0],
                                    + ncomp_xx[0]*( jj+offset_xx[1] ),
                                    + ncomp_xx[0]*ncomp_xx[1]*( kk+offset_xx[2] ) );
                             SxxdAx += Sxx(i,j,k,Nc)*dAx(i+ii,j+jj,k+kk,n);
@@ -903,7 +903,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_xy[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_xy[0],
                                    + ncomp_xy[0]*( jj+offset_xy[1] ),
                                    + ncomp_xy[0]*ncomp_xy[1]*( kk+offset_xy[2] ) );
                             SxydAy += Sxy(i,j,k,Nc)*dAy(i+ii,j+jj,k+kk,n);
@@ -920,7 +920,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_xz[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_xz[0],
                                    + ncomp_xz[0]*( jj+offset_xz[1] ),
                                    + ncomp_xz[0]*ncomp_xz[1]*( kk+offset_xz[2] ) );
                             SxzdAz += Sxz(i,j,k,Nc)*dAz(i+ii,j+jj,k+kk,n);
@@ -946,7 +946,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_yx[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_yx[0],
                                    + ncomp_yx[0]*( jj+offset_yx[1] ),
                                    + ncomp_yx[0]*ncomp_yx[1]*( kk+offset_yx[2] ) );
                             SyxdAx += Syx(i,j,k,Nc)*dAx(i+ii,j+jj,k+kk,n);
@@ -963,7 +963,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_yy[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_yy[0],
                                    + ncomp_yy[0]*( jj+offset_yy[1] ),
                                    + ncomp_yy[0]*ncomp_yy[1]*( kk+offset_yy[2] ) );
                             SyydAy += Syy(i,j,k,Nc)*dAy(i+ii,j+jj,k+kk,n);
@@ -980,7 +980,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_yz[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_yz[0],
                                    + ncomp_yz[0]*( jj+offset_yz[1] ),
                                    + ncomp_yz[0]*ncomp_yz[1]*( kk+offset_yz[2] ) );
                             SyzdAz += Syz(i,j,k,Nc)*dAz(i+ii,j+jj,k+kk,n);
@@ -1006,7 +1006,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_zx[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_zx[0],
                                    + ncomp_zx[0]*( jj+offset_zx[1] ),
                                    + ncomp_zx[0]*ncomp_zx[1]*( kk+offset_zx[2] ) );
                             SzxdAx += Szx(i,j,k,Nc)*dAx(i+ii,j+jj,k+kk,n);
@@ -1023,7 +1023,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_zy[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_zy[0],
                                    + ncomp_zy[0]*( jj+offset_zy[1] ),
                                    + ncomp_zy[0]*ncomp_zy[1]*( kk+offset_zy[2] ) );
                             SzydAy += Szy(i,j,k,Nc)*dAy(i+ii,j+jj,k+kk,n);
@@ -1040,7 +1040,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
                 for (int ii = index_min[0]; ii <= index_max[0]; ++ii) {
                     for (int jj = index_min[1]; jj <= index_max[1]; ++jj) {
                         for (int kk = index_min[2]; kk <= index_max[2]; ++kk) {
-                            int Nc = AMREX_D_TERM( ii+offset_zz[0],
+                            const int Nc = AMREX_D_TERM( ii+offset_zz[0],
                                    + ncomp_zz[0]*( jj+offset_zz[1] ),
                                    + ncomp_zz[0]*ncomp_zz[1]*( kk+offset_zz[2] ) );
                             SzzdAz += Szz(i,j,k,Nc)*dAz(i+ii,j+jj,k+kk,n);
