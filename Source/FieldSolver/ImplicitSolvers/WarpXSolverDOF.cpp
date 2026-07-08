@@ -25,15 +25,13 @@ void WarpXSolverDOF::Define ( WarpX* const        a_WarpX,
         m_array_type = FieldType::Efield_fp;
     } else if (a_vector_type_name=="Bfield_fp") {
         m_array_type = FieldType::Bfield_fp;
-    } else if (a_vector_type_name=="dA_fp") {
-        m_array_type = FieldType::dA_fp;
     } else if (a_vector_type_name=="vector_potential_fp_nodal") {
         m_array_type = FieldType::vector_potential_fp;
     } else if (a_vector_type_name!="none") {
         WARPX_ABORT_WITH_MESSAGE(a_vector_type_name+" "
                     +"is not a valid option for array type used in Definining "
                     +"a WarpXSolverDOF. Valid array types are: Efield_fp, Bfield_fp, "
-                    +"dA_fp, and vector_potential_fp_nodal");
+                    +"and vector_potential_fp_nodal");
     }
 
     if (a_scalar_type_name=="phi_fp") {
@@ -41,7 +39,7 @@ void WarpXSolverDOF::Define ( WarpX* const        a_WarpX,
     } else if (a_scalar_type_name!="none") {
         WARPX_ABORT_WITH_MESSAGE(a_scalar_type_name+" "
                     +"is not a valid option for scalar type used in Defining "
-                    +"a WarpXSolverDOF. Valid scalar types are: phi_fp and xi_fp");
+                    +"a WarpXSolverDOF. Valid scalar types are: phi_fp");
     }
 
     m_array.resize(a_num_amr_levels);

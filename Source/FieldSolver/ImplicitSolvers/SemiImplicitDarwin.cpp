@@ -495,13 +495,11 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
         pc->DepositMassMatrices(m_WarpX->m_fields, lev, m_dt);
     }
 
-    // Sum boundaries for current
-    auto const& period = m_WarpX->Geom(lev).periodicity();
-    m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::current_fp, lev), lev, period);
+    // Sync current (filter and sum boundaries)
+    m_WarpX->SyncCurrent("current_fp");
 
-    m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::MassMatrices_X, lev), lev, period);
-    m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::MassMatrices_Y, lev), lev, period);
-    m_WarpX->SumBoundaryJ(m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::MassMatrices_Z, lev), lev, period);
+    // Sum boundaries for mass matrices
+    m_WarpX->SyncMassMatrices();
 
     // The deposit routine only fills half of each diagonal mass matrix's
     // band (exploiting symmetry); mirror the other half back in now that
