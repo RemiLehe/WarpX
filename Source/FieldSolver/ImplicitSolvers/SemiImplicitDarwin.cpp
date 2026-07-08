@@ -26,6 +26,17 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
     // Retain a pointer back to main WarpX class
     m_WarpX = a_WarpX;
 
+    // The guard-cell handling throughout this solver (SumBoundaryJ and
+    // FillBoundaryAndSync calls using the domain periodicity) and the GMRES
+    // operator in ComputeRHS() assume periodic boundaries; with conducting
+    // (PEC) walls the run would proceed but give wrong results near the walls.
+    for (int lev = 0; lev < m_num_amr_levels; ++lev) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_WarpX->Geom(lev).isAllPeriodic(),
+            "The semi-implicit Darwin solver requires periodic field boundary "
+            "conditions in all directions.");
+    }
+
     // Define dA and xi MultiFabs
     using ablastr::fields::Direction;
     for (int lev = 0; lev < m_num_amr_levels; ++lev) {
