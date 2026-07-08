@@ -452,9 +452,6 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
 
     const int lev = 0;
 
-    amrex::MultiFab * jx = m_WarpX->m_fields.get(FieldType::current_fp, Direction{0}, lev);
-    amrex::MultiFab * jy = m_WarpX->m_fields.get(FieldType::current_fp, Direction{1}, lev);
-    amrex::MultiFab * jz = m_WarpX->m_fields.get(FieldType::current_fp, Direction{2}, lev);
     amrex::MultiFab * Sxx = m_WarpX->m_fields.get(FieldType::MassMatrices_X, Direction{0}, lev);
     amrex::MultiFab * Sxy = m_WarpX->m_fields.get(FieldType::MassMatrices_X, Direction{1}, lev);
     amrex::MultiFab * Sxz = m_WarpX->m_fields.get(FieldType::MassMatrices_X, Direction{2}, lev);
@@ -466,9 +463,6 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
     amrex::MultiFab * Szz = m_WarpX->m_fields.get(FieldType::MassMatrices_Z, Direction{2}, lev);
 
     // clear MultiFabs in preparation for new deposit
-    jx->setVal(0.0);
-    jy->setVal(0.0);
-    jz->setVal(0.0);
     Sxx->setVal(0.0);
     Sxy->setVal(0.0);
     Sxz->setVal(0.0);
@@ -479,33 +473,14 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
     Szy->setVal(0.0);
     Szz->setVal(0.0);
 
-    // loop over particle containers
+    // Deposit the current density from all species, using the time-centered
+    // particle velocities as appropriate for the implicit push. This also
+    // resets the current MultiFabs before depositing.
+    m_WarpX->GetPartContainer().DepositCurrent(
+        m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::current_fp, lev),
+        m_dt, 0.0_rt, PushType::Implicit);
+
     for (auto const& pc : m_WarpX->GetPartContainer()) {
-
-        // TODO: Add omp support
-        const int thread_num = 0;
-        const auto dt = m_dt;
-
-        for (WarpXParIter pti(*pc, lev); pti.isValid(); ++pti)
-        {
-            // Extract particle data
-            auto& attribs = pti.GetAttribs();
-            auto&  wp = attribs[PIdx::w];
-            auto& uxp = attribs[PIdx::ux];
-            auto& uyp = attribs[PIdx::uy];
-            auto& uzp = attribs[PIdx::uz];
-
-            int* AMREX_RESTRICT ion_lev = nullptr;
-            if (pc->DoFieldIonization())
-            {
-                ion_lev = pti.GetiAttribs("ionizationLevel").dataPtr();
-            }
-
-            const long np = pti.numParticles();
-
-            pc->DepositCurrent(pti, wp, uxp, uyp, uzp, ion_lev, jx, jy, jz,
-                               0, np, thread_num, lev, lev, dt, 0.0, PushType::Implicit);
-        }
         pc->DepositMassMatrices(m_WarpX->m_fields, lev, m_dt);
     }
 

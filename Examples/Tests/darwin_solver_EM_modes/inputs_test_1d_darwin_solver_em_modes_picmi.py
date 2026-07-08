@@ -332,7 +332,7 @@ class EMModes(object):
             )
             simulation.add_diagnostic(field_diag)
 
-        if self.B_dir == "z" or self.dim == 1:
+        if self.dim == 1:
             line_diag = picmi.ReducedDiagnostic(
                 diag_type="FieldProbe",
                 probe_geometry="Line",
@@ -392,9 +392,9 @@ class EMModes(object):
         if step % self.diag_steps != 0:
             return
 
-        Bx_warpx = fields.BxWrapper()[...]
-        By_warpx = fields.ByWrapper()[...]
-        Ez_warpx = fields.EzWrapper()[...]
+        Bx_warpx = simulation.fields.get("Bfield_aux", dir='x', level=0)[...]
+        By_warpx = simulation.fields.get("Bfield_aux", dir='y', level=0)[...]
+        Ez_warpx = simulation.fields.get("Efield_aux", dir='z', level=0)[...]
 
         if libwarpx.amr.ParallelDescriptor.MyProc() != 0:
             return

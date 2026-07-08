@@ -17,14 +17,14 @@ matplotlib.rcParams.update({"font.size": 20})
 with open("sim_parameters.dpkl", "rb") as f:
     sim = dill.load(f)
 
-if sim.B_dir == "z":
+if sim.dim == 1:
     field_idx_dict = {"z": 4, "Ez": 7, "Bx": 8, "By": 9}
+else:
+    field_idx_dict = {"z": 2, "Ez": 3, "Bx": 4, "By": 5}
+
+if sim.B_dir == "z":
     data = np.loadtxt("diags/par_field_data.txt", skiprows=1)
 else:
-    if sim.dim == 1:
-        field_idx_dict = {"z": 4, "Ez": 7, "Bx": 8, "By": 9}
-    else:
-        field_idx_dict = {"z": 2, "Ez": 3, "Bx": 4, "By": 5}
     data = np.loadtxt("diags/perp_field_data.txt", skiprows=1)
 
 # step, t, z, Ez, Bx, By = raw_data.T
