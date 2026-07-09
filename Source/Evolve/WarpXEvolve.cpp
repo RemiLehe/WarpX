@@ -151,6 +151,7 @@ WarpX::Evolve (int numsteps)
     ABLASTR_PROFILE("WarpX::Evolve()");
 
     using ablastr::fields::Direction;
+    using warpx::fields::FieldType;
 
     Real cur_time = t_new[0];
 
@@ -322,6 +323,19 @@ WarpX::Evolve (int numsteps)
                     // B field.  Time varying A contribution to E field is neglected.
                     // This is currently a lab frame calculation.
                     ComputeMagnetostaticField();
+                }
+            }
+            else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
+                // Darwin without an electrostatic solver: the electrostatic component of E
+                // is zero by definition, but SemiImplicitDarwin::OneStep() assumes on entry
+                // that Efield_fp holds only that (electrostatic) component. Without an
+                // electrostatic solver to refresh it every step, Efield_fp would otherwise
+                // still hold the previous step's inductive field (E = -dA/dt), computed at
+                // the end of that step's OneStep() call.
+                for (int lev = 0; lev <= max_level; ++lev) {
+                    for (int comp = 0; comp < 3; ++comp) {
+                        m_fields.get(FieldType::Efield_fp, Direction{comp}, lev)->setVal(0);
+                    }
                 }
             }
             // Darwin case: The magnetic field is calculated based on the
