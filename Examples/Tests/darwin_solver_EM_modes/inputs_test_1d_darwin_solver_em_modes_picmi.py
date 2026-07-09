@@ -74,11 +74,12 @@ class EMModes(object):
     DT = 10.0  # Time step (electron plasma periods)
     C_SI = 4.0
 
-    def __init__(self, test, dim, B_dir, verbose):
+    def __init__(self, test, dim, B_dir, include_es_solver, verbose):
         """Get input parameters for the specific case desired."""
         self.test = test
         self.dim = int(dim)
         self.B_dir = B_dir
+        self.include_es_solver = include_es_solver
         self.verbose = verbose or self.test
 
         # sanity check
@@ -284,13 +285,14 @@ class EMModes(object):
         # Field solver and external field                                     #
         #######################################################################
 
-        if self.B_dir != "z":
+        if self.include_es_solver:
             self.solver = picmi.ElectrostaticSolver(
                 grid=self.grid,
                 required_precision=1e-6,
                 warpx_effective_potential=True,
                 warpx_effective_potential_factor=self.C_SI,
-                warpx_self_fields_verbosity=0,
+                warpx_effective_potential_density_floor=self.n_plasma * 0.01,
+                warpx_self_fields_verbosity=self.test,
             )
         else:
             self.solver = DummyES_Solver(self.grid)
@@ -441,6 +443,12 @@ parser.add_argument(
     default="z",
 )
 parser.add_argument(
+    "--include_es_solver",
+    help="Include the electrostatic (effective potential) solver alongside the "
+    "Darwin field solver, instead of the no-op dummy solver",
+    action="store_true",
+)
+parser.add_argument(
     "-v",
     "--verbose",
     help="Verbose output",
@@ -449,5 +457,11 @@ parser.add_argument(
 args, left = parser.parse_known_args()
 sys.argv = sys.argv[:1] + left
 
-run = EMModes(test=args.test, dim=args.dim, B_dir=args.bdir, verbose=args.verbose)
+run = EMModes(
+    test=args.test,
+    dim=args.dim,
+    B_dir=args.bdir,
+    include_es_solver=args.include_es_solver,
+    verbose=args.verbose,
+)
 simulation.step()

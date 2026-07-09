@@ -10,3 +10,13 @@ add_warpx_test(
     "analysis_default_regression.py --path diags/field_diag000050"  # checksum
     OFF  # dependency
 )
+
+add_warpx_test(
+    test_2d_darwin_solver_em_modes_es_picmi  # name
+    2  # dims
+    2  # nprocs
+    "inputs_test_1d_darwin_solver_em_modes_picmi.py --test --dim 2 --bdir z --include_es_solver"  # inputs
+    "analysis.py"  # analysis
+    "analysis_default_regression.py --path diags/field_diag000050"  # checksum
+    OFF  # dependency
+)
