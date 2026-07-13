@@ -81,9 +81,9 @@ struct Reflect {
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
                      amrex::RandomEngine const& /*engine*/) const noexcept
     {
-        amrex::ParticleReal ux = ptd.m_rdata[PIdx::ux][i];
-        amrex::ParticleReal uy = ptd.m_rdata[PIdx::uy][i];
-        amrex::ParticleReal uz = ptd.m_rdata[PIdx::uz][i];
+        amrex::ParticleReal const ux = ptd.m_rdata[PIdx::ux][i];
+        amrex::ParticleReal const uy = ptd.m_rdata[PIdx::uy][i];
+        amrex::ParticleReal const uz = ptd.m_rdata[PIdx::uz][i];
 
         // Step 1: Bisect along trajectory to find the fraction of dt
         // to walk backward from end-of-step to reach the EB surface.
@@ -127,16 +127,22 @@ struct Reflect {
             ux * amrex::ParticleReal(n[0]) +
             uy * amrex::ParticleReal(n[1]) +
             uz * amrex::ParticleReal(n[2]);
-        ux -= amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[0]);
-        uy -= amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[1]);
-        uz -= amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[2]);
+        amrex::ParticleReal const ux_refl =
+            ux - amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[0]);
+        amrex::ParticleReal const uy_refl =
+            uy - amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[1]);
+        amrex::ParticleReal const uz_refl =
+            uz - amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[2]);
 #elif defined(WARPX_DIM_XZ)
         // normal is (n_x, n_z). uy is out-of-plane, unaffected.
         amrex::ParticleReal const v_dot_n =
             ux * amrex::ParticleReal(n[0]) +
             uz * amrex::ParticleReal(n[1]);
-        ux -= amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[0]);
-        uz -= amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[1]);
+        amrex::ParticleReal const ux_refl =
+            ux - amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[0]);
+        amrex::ParticleReal const uy_refl = uy;
+        amrex::ParticleReal const uz_refl =
+            uz - amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[1]);
 #elif defined(WARPX_DIM_RZ)
         // normal is (n_r, n_z). Convert to 3D Cartesian using
         // the particle theta at the contact point.
@@ -151,24 +157,30 @@ struct Reflect {
             amrex::ParticleReal(n[1]);
         amrex::ParticleReal const v_dot_n =
             ux * n3d_x + uy * n3d_y + uz * n3d_z;
-        ux -= amrex::ParticleReal(2.0) * v_dot_n * n3d_x;
-        uy -= amrex::ParticleReal(2.0) * v_dot_n * n3d_y;
-        uz -= amrex::ParticleReal(2.0) * v_dot_n * n3d_z;
+        amrex::ParticleReal const ux_refl =
+            ux - amrex::ParticleReal(2.0) * v_dot_n * n3d_x;
+        amrex::ParticleReal const uy_refl =
+            uy - amrex::ParticleReal(2.0) * v_dot_n * n3d_y;
+        amrex::ParticleReal const uz_refl =
+            uz - amrex::ParticleReal(2.0) * v_dot_n * n3d_z;
 #elif defined(WARPX_DIM_1D_Z)
         amrex::ParticleReal const v_dot_n =
             uz * amrex::ParticleReal(n[0]);
-        uz -= amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[0]);
+        amrex::ParticleReal const ux_refl = ux;
+        amrex::ParticleReal const uy_refl = uy;
+        amrex::ParticleReal const uz_refl =
+            uz - amrex::ParticleReal(2.0) * v_dot_n * amrex::ParticleReal(n[0]);
 #endif
 
         // Step 5: Store reflected velocity
-        ptd.m_rdata[PIdx::ux][i] = ux;
-        ptd.m_rdata[PIdx::uy][i] = uy;
-        ptd.m_rdata[PIdx::uz][i] = uz;
+        ptd.m_rdata[PIdx::ux][i] = ux_refl;
+        ptd.m_rdata[PIdx::uy][i] = uy_refl;
+        ptd.m_rdata[PIdx::uz][i] = uz_refl;
 
         // Step 6: Advance from contact point with reflected velocity
         // for the remaining fraction of the timestep
         amrex::ParticleReal x_new = x_c, y_new = y_c, z_new = z_c;
-        UpdatePosition(x_new, y_new, z_new, ux, uy, uz,
+        UpdatePosition(x_new, y_new, z_new, ux_refl, uy_refl, uz_refl,
                        dt_fraction * dt, mass);
 
         // Step 7: Write final position back to particle (manual RZ conversion)
