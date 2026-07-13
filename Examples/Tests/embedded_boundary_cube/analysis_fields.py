@@ -22,7 +22,6 @@ from scipy.constants import c, mu_0, pi
 
 test_name = os.path.split(os.getcwd())[1]
 
-# Fine patch geometry (matches the original non-MR test domain and resolution)
 hi = [0.8, 0.8, 0.8]
 lo = [-0.8, -0.8, -0.8]
 ncells = [48, 48, 48]
