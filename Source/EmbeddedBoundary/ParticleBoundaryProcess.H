@@ -180,7 +180,7 @@ struct Reflect {
         ptd.m_rdata[PIdx::x][i] = x_new;
         ptd.m_rdata[PIdx::z][i] = z_new;
 #elif defined(WARPX_DIM_RZ)
-        ptd.m_rdata[PIdx::x][i] = std::sqrt(x_new*x_new + y_new*y_new);
+        ptd.m_rdata[PIdx::r][i] = std::sqrt(x_new*x_new + y_new*y_new);
         ptd.m_rdata[PIdx::z][i] = z_new;
         ptd.m_rdata[PIdx::theta][i] = std::atan2(y_new, x_new);
 #elif defined(WARPX_DIM_1D_Z)
