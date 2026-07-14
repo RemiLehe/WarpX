@@ -120,16 +120,7 @@ struct FindEmbeddedBoundaryIntersection {
         UpdatePosition(x_temp, y_temp, z_temp, ux, uy, uz, -dt_fraction*m_dt, m_mass);
 
         // record the components of the normal on the destination
-        int i, j, k;
-        amrex::Real W[AMREX_SPACEDIM][2];
-        ablastr::particles::compute_weights<amrex::IndexType::NODE>(
-            x_temp, y_temp, z_temp, plo, dxi, i, j, k, W);
-        int ic, jc, kc; // Cell-centered indices
-        amrex::Real Wc[AMREX_SPACEDIM][2]; // Cell-centered weight
-        ablastr::particles::compute_weights<amrex::IndexType::CELL>(
-            x_temp, y_temp, z_temp, plo, dxi, ic, jc, kc, Wc);
-        amrex::RealVect normal = DistanceToEB::interp_normal(i, j, k, W, ic, jc, kc, Wc, phiarr, dxi);
-        DistanceToEB::normalize(normal);
+        amrex::RealVect normal = DistanceToEB::interp_normal(x_temp, y_temp, z_temp, plo, dxi, phiarr);
 
 #if (defined WARPX_DIM_3D)
         dst.m_rdata[PIdx::x][dst_i] = x_temp;
