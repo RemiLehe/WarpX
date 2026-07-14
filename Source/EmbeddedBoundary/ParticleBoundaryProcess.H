@@ -104,7 +104,6 @@ struct Reflect {
 
         // Step 3: Compute normal at the contact point
         amrex::RealVect n = DistanceToEB::interp_normal(x_c, y_c, z_c, plo, dxi, distance_to_eb);
-        DistanceToEB::normalize(n);
 
         // Step 4: Specular velocity reflection  v = v - 2(v.n)n
         // Normal is in reduced-dimension coordinates;

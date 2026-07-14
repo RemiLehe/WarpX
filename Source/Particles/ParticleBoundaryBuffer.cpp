@@ -121,7 +121,6 @@ struct FindEmbeddedBoundaryIntersection {
 
         // record the components of the normal on the destination
         amrex::RealVect normal = DistanceToEB::interp_normal(x_temp, y_temp, z_temp, plo, dxi, phiarr);
-        DistanceToEB::normalize(normal);
 
 #if (defined WARPX_DIM_3D)
         dst.m_rdata[PIdx::x][dst_i] = x_temp;
