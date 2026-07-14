@@ -29,7 +29,7 @@ struct NoOp {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (const PData& /*ptd*/, int /*i*/,
                      amrex::ParticleReal /*xp*/, amrex::ParticleReal /*yp*/, amrex::ParticleReal /*zp*/,
-                     amrex::Array4<const amrex::Real> const& /*phi*/,
+                     amrex::Array4<const amrex::Real> const& /*distance_to_eb*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*plo*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*dxi*/,
                      amrex::RandomEngine const& /*engine*/) const noexcept
@@ -41,7 +41,7 @@ struct Absorb {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (PData& ptd, int i,
                      amrex::ParticleReal /*xp*/, amrex::ParticleReal /*yp*/, amrex::ParticleReal /*zp*/,
-                     amrex::Array4<const amrex::Real> const& /*phi*/,
+                     amrex::Array4<const amrex::Real> const& /*distance_to_eb*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*plo*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*dxi*/,
                      amrex::RandomEngine const& /*engine*/) const noexcept
@@ -52,16 +52,16 @@ struct Absorb {
 
 /** \brief Specular reflection off the embedded boundary using bisection.
  *
- *  For each particle that has crossed into the EB (phi < 0), this functor:
+ *  For each particle that has crossed into the EB (distance_to_eb < 0), this functor:
  *  1. Bisects along the particle trajectory to find the contact point on
- *     the EB surface (where phi = 0).
+ *     the EB surface (where distance_to_eb = 0).
  *  2. Computes the surface normal at the exact contact point.
  *  3. Performs specular velocity reflection: v_new = v - 2*(v . n)*n.
  *  4. Advances the particle from the contact point with the reflected
  *     velocity for the remaining fraction of the timestep.
  *
- *  This handles curved EB surfaces correctly, unlike the simpler phi-based
- *  approximation (x_new = x - 2*phi*n) which is only exact for planar
+ *  This handles curved EB surfaces correctly, unlike the simpler distance_to_eb-based
+ *  approximation (x_new = x - 2*distance_to_eb*n) which is only exact for planar
  *  surfaces.
  */
 struct Reflect {
@@ -72,7 +72,7 @@ struct Reflect {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (PData& ptd, int i,
                      amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
-                     amrex::Array4<const amrex::Real> const& phi,
+                     amrex::Array4<const amrex::Real> const& distance_to_eb,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
                      amrex::RandomEngine const& /*engine*/) const noexcept
@@ -95,7 +95,7 @@ struct Reflect {
                 ablastr::particles::compute_weights<amrex::IndexType::NODE>(
                     x_temp, y_temp, z_temp, plo, dxi, bi, bj, bk, bW);
                 return ablastr::particles::interp_field_nodal(
-                    bi, bj, bk, bW, phi);
+                    bi, bj, bk, bW, distance_to_eb);
             });
 
         // Step 2: Move to contact point on the EB surface
@@ -103,16 +103,7 @@ struct Reflect {
         UpdatePosition(x_c, y_c, z_c, ux, uy, uz, -dt_fraction * dt, mass);
 
         // Step 3: Compute normal at the contact point
-        int ci, cj, ck;
-        amrex::Real cW[AMREX_SPACEDIM][2];
-        ablastr::particles::compute_weights<amrex::IndexType::NODE>(
-            x_c, y_c, z_c, plo, dxi, ci, cj, ck, cW);
-        int cci, ccj, cck;
-        amrex::Real ccW[AMREX_SPACEDIM][2];
-        ablastr::particles::compute_weights<amrex::IndexType::CELL>(
-            x_c, y_c, z_c, plo, dxi, cci, ccj, cck, ccW);
-        amrex::RealVect n = DistanceToEB::interp_normal(
-            ci, cj, ck, cW, cci, ccj, cck, ccW, phi, dxi);
+        amrex::RealVect n = DistanceToEB::interp_normal(x_c, y_c, z_c, plo, dxi, distance_to_eb);
         DistanceToEB::normalize(n);
 
         // Step 4: Specular velocity reflection  v = v - 2(v.n)n

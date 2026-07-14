@@ -9,10 +9,13 @@
 
 #include "Utils/TextMsg.H"
 
+#include <ablastr/particles/NodalFieldGather.H>
+
 #include <AMReX.H>
+#include <AMReX_Array.H>
+#include <AMReX_Array4.H>
 #include <AMReX_REAL.H>
 #include <AMReX_RealVect.H>
-#include <AMReX_Array.H>
 
 namespace DistanceToEB
 {
@@ -131,6 +134,28 @@ amrex::RealVect interp_normal (int i, int j, int k, const amrex::Real W[AMREX_SP
 
 #endif
     return normal;
+}
+
+// Convenience overload that computes the interpolation weights internally.
+// Given a particle position (xp, yp, zp) and the geometry (plo, dxi), this
+// interpolates the (un-normalized) normal to the embedded boundary from the
+// signed distance function distance_to_eb. Call normalize() on the result to
+// obtain a unit normal.
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+amrex::RealVect interp_normal (amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
+                               amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& plo,
+                               amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& dxi,
+                               amrex::Array4<const amrex::Real> const& distance_to_eb) noexcept
+{
+    int i, j, k; // Nodal indices
+    amrex::Real W[AMREX_SPACEDIM][2]; // Nodal weights
+    ablastr::particles::compute_weights<amrex::IndexType::NODE>(
+        xp, yp, zp, plo, dxi, i, j, k, W);
+    int ic, jc, kc; // Cell-centered indices
+    amrex::Real Wc[AMREX_SPACEDIM][2]; // Cell-centered weights
+    ablastr::particles::compute_weights<amrex::IndexType::CELL>(
+        xp, yp, zp, plo, dxi, ic, jc, kc, Wc);
+    return interp_normal(i, j, k, W, ic, jc, kc, Wc, distance_to_eb, dxi);
 }
 }
 #endif // WARPX_DISTANCETOEB_H_

@@ -56,13 +56,13 @@
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
- *                         amrex::Array4<const amrex::Real> const& phi,
+ *                         amrex::Array4<const amrex::Real> const& distance_to_eb,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, phi the signed distance
+ *        xp/yp/zp the Cartesian particle position, distance_to_eb the signed distance
  *        array, plo/dxi the geometry data, and engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
@@ -102,13 +102,13 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
- *                         amrex::Array4<const amrex::Real> const& phi,
+ *                         amrex::Array4<const amrex::Real> const& distance_to_eb,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, phi the signed distance
+ *        xp/yp/zp the Cartesian particle position, distance_to_eb the signed distance
  *        array, plo/dxi the geometry data, and engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
@@ -150,13 +150,13 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
- *                         amrex::Array4<const amrex::Real> const& phi,
+ *                         amrex::Array4<const amrex::Real> const& distance_to_eb,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, phi the signed distance
+ *        xp/yp/zp the Cartesian particle position, distance_to_eb the signed distance
  *        array, plo/dxi the geometry data, and engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
@@ -179,7 +179,7 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
             auto& tile = pti.GetParticleTile();
             auto ptd = tile.getParticleTileData();
             const auto np = tile.numParticles();
-            auto phi = (*distance_to_eb[lev])[pti].array();  // signed distance function
+            auto distance_to_eb_arr = (*distance_to_eb[lev])[pti].array();  // signed distance function
             amrex::ParallelForRNG( np,
             [=] AMREX_GPU_DEVICE (const int ip, amrex::RandomEngine const& engine) noexcept
             {
@@ -193,11 +193,11 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
                 amrex::Real W[AMREX_SPACEDIM][2];
                 ablastr::particles::compute_weights<amrex::IndexType::NODE>(
                     xp, yp, zp, plo, dxi, i, j, k, W);
-                amrex::Real const phi_value = ablastr::particles::interp_field_nodal(i, j, k, W, phi);
+                amrex::Real const distance_to_eb_value = ablastr::particles::interp_field_nodal(i, j, k, W, distance_to_eb_arr);
 
-                if (phi_value < 0.0)
+                if (distance_to_eb_value < 0.0)
                 {
-                    f(ptd, ip, xp, yp, zp, phi, plo, dxi, engine);
+                    f(ptd, ip, xp, yp, zp, distance_to_eb_arr, plo, dxi, engine);
                 }
             });
         }
