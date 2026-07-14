@@ -1013,9 +1013,7 @@ additionally define the electric potential at the embedded boundary with an anal
 
     * ``Absorbing``: Particles that reach the embedded boundary are deleted. This is the default behavior.
 
-    * ``Reflecting``: Particles that reach the embedded boundary are specularly reflected back into the simulation domain,
-      i.e. the component of the velocity normal to the surface is reversed while the tangential component is unchanged.
-      The exact point of contact on the (possibly curved) surface is found by bisection, so that the reflection is accurate even for curved boundaries.
+    * ``Reflecting``: Particles that reach the embedded boundary are specularly reflected back into the simulation domain
 
 .. _param-particle-thermalizer:
 
