@@ -29,8 +29,6 @@ struct NoOp {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (const PData& /*ptd*/, int /*i*/,
                      amrex::ParticleReal /*xp*/, amrex::ParticleReal /*yp*/, amrex::ParticleReal /*zp*/,
-                     const amrex::RealVect& /*normal*/,
-                     amrex::Real /*phi_value*/,
                      amrex::Array4<const amrex::Real> const& /*phi*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*plo*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*dxi*/,
@@ -43,7 +41,6 @@ struct Absorb {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (PData& ptd, int i,
                      amrex::ParticleReal /*xp*/, amrex::ParticleReal /*yp*/, amrex::ParticleReal /*zp*/,
-                     const amrex::RealVect& /*normal*/, amrex::Real /*phi_value*/,
                      amrex::Array4<const amrex::Real> const& /*phi*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*plo*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*dxi*/,
@@ -75,7 +72,6 @@ struct Reflect {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (PData& ptd, int i,
                      amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
-                     const amrex::RealVect& /*normal*/, amrex::Real /*phi_value*/,
                      amrex::Array4<const amrex::Real> const& phi,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,

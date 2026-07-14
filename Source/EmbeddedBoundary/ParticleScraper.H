@@ -56,15 +56,13 @@
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
- *                         const amrex::RealVect& normal, amrex::Real phi_value,
  *                         amrex::Array4<const amrex::Real> const& phi,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, normal the boundary normal vector,
- *        phi_value the signed distance at the particle position, phi the signed distance
+ *        xp/yp/zp the Cartesian particle position, phi the signed distance
  *        array, plo/dxi the geometry data, and engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
@@ -104,15 +102,13 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
- *                         const amrex::RealVect& normal, amrex::Real phi_value,
  *                         amrex::Array4<const amrex::Real> const& phi,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, normal the boundary normal vector,
- *        phi_value the signed distance at the particle position, phi the signed distance
+ *        xp/yp/zp the Cartesian particle position, phi the signed distance
  *        array, plo/dxi the geometry data, and engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
@@ -154,15 +150,13 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
- *                         const amrex::RealVect& normal, amrex::Real phi_value,
  *                         amrex::Array4<const amrex::Real> const& phi,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dxi,
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, normal the boundary normal vector,
- *        phi_value the signed distance at the particle position, phi the signed distance
+ *        xp/yp/zp the Cartesian particle position, phi the signed distance
  *        array, plo/dxi the geometry data, and engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
@@ -203,14 +197,7 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
 
                 if (phi_value < 0.0)
                 {
-                    int ic, jc, kc; // Cell-centered indices
-                    amrex::Real Wc[AMREX_SPACEDIM][2]; // Cell-centered weights
-                    ablastr::particles::compute_weights<amrex::IndexType::CELL>(
-                        xp, yp, zp, plo, dxi, ic, jc, kc, Wc);
-                    amrex::RealVect normal = DistanceToEB::interp_normal(i, j, k, W, ic, jc, kc, Wc, phi, dxi);
-                    DistanceToEB::normalize(normal);
-                    f(ptd, ip, xp, yp, zp, normal, phi_value, phi, plo, dxi, engine);
-
+                    f(ptd, ip, xp, yp, zp, phi, plo, dxi, engine);
                 }
             });
         }
