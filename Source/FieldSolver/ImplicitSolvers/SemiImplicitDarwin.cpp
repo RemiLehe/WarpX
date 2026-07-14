@@ -395,8 +395,20 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
 void SemiImplicitDarwin::PrepareCurrentDeposition ()
 {
     BL_PROFILE("SemiImplicitDarwin::PrepareCurrentDeposition()");
-    // This function sets the particle velocity pids to twice the intermediate
-    // velocity values, i.e., the sum of the values currently stored in u and u_n
+    // On entry, u holds the velocity after the electrostatic-only push
+    // (PushP in OneStep()) and u_n holds the velocity saved at the start of
+    // the step (SaveParticlesAtImplicitStepStart()). This function sets u to
+    // the time-centered average of the two, which is what
+    // GetImplicitGammaInverse() and setMassMatricesKernels() (shared with
+    // the electromagnetic implicit schemes) expect as the deposition-time
+    // velocity to compute a correct relativistic gamma factor from.
+    // u_n is left holding the electrostatic-only velocity (the u value at the
+    // start of this function) rather than the step-start value, since
+    // FinishVelocityUpdate() later reads u_n to recombine the electrostatic
+    // and inductive velocity contributions; GetImplicitGammaInverse()'s
+    // reconstruction is symmetric under swapping which of the two sampled
+    // velocities is treated as "u_n" vs "u_nph", so this substitution does
+    // not affect the deposition-time physics.
 
     for (auto const& pc : m_WarpX->GetPartContainer()) {
 
@@ -423,15 +435,17 @@ void SemiImplicitDarwin::PrepareCurrentDeposition ()
 
                 amrex::ParallelFor( np, [=] AMREX_GPU_DEVICE (long ip)
                 {
-                    // swap old and new values then add new value to old
-                    std::swap(ux[ip], ux_n[ip]);
-                    ux[ip] += ux_n[ip];
+                    const amrex::ParticleReal ux_es = ux[ip];
+                    ux[ip] = 0.5_prt*(ux_es + ux_n[ip]);
+                    ux_n[ip] = ux_es;
 
-                    std::swap(uy[ip], uy_n[ip]);
-                    uy[ip] += uy_n[ip];
+                    const amrex::ParticleReal uy_es = uy[ip];
+                    uy[ip] = 0.5_prt*(uy_es + uy_n[ip]);
+                    uy_n[ip] = uy_es;
 
-                    std::swap(uz[ip], uz_n[ip]);
-                    uz[ip] += uz_n[ip];
+                    const amrex::ParticleReal uz_es = uz[ip];
+                    uz[ip] = 0.5_prt*(uz_es + uz_n[ip]);
+                    uz_n[ip] = uz_es;
                 });
             }
         }
@@ -563,12 +577,12 @@ void SemiImplicitDarwin::CalculateSourceVector ()
         curlJ, jfield[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Calculate 2 * ∇^2 B + mu_0 ∇ x J and write result in m_source
+    // Calculate 2 * ∇^2 B + 2 * mu_0 ∇ x J and write result in m_source
     const auto& b = m_source.getArrayVec();
     for (int ii = 0; ii < 3; ii++)
     {
         amrex::MultiFab::LinComb(
-            *b[lev][ii], PhysConst::mu0, *curlJ[ii], 0, 2.0, *lapB[ii], 0, 0, 1, 0
+            *b[lev][ii], 2.0*PhysConst::mu0, *curlJ[ii], 0, 2.0, *lapB[ii], 0, 0, 1, 0
         );
     }
 
