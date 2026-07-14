@@ -1004,6 +1004,19 @@ additionally define the electric potential at the embedded boundary with an anal
     inside the embedded boundary. For this reason, it is important to define
     this function in such a way that it is constant inside the embedded boundary.
 
+.. pp:param:: boundary.particle_eb
+    :type: ``string``
+    :default: ``Absorbing``
+    :optional:
+
+    The boundary condition applied to the particles when they reach the surface of the embedded boundary. Options are:
+
+    * ``Absorbing``: Particles that reach the embedded boundary are deleted. This is the default behavior.
+
+    * ``Reflecting``: Particles that reach the embedded boundary are specularly reflected back into the simulation domain,
+      i.e. the component of the velocity normal to the surface is reversed while the tangential component is unchanged.
+      The exact point of contact on the (possibly curved) surface is found by bisection, so that the reflection is accurate even for curved boundaries.
+
 .. _param-particle-thermalizer:
 
 Particle thermalizer

@@ -292,19 +292,19 @@ void WarpX::MakeWarpX ()
 
     // Parse embedded boundary particle boundary condition
     if (EB::enabled()) {
-        amrex::ParmParse const pp_warpx("warpx");
-        if (pp_warpx.contains("eb_particle_boundary_condition")) {
-            pp_warpx.query_enum_sloppy(
-                "eb_particle_boundary_condition", eb_particle_boundary, "-_");
+        amrex::ParmParse const pp_boundary("boundary");
+        if (pp_boundary.contains("particle_eb")) {
+            pp_boundary.query_enum_sloppy(
+                "particle_eb", eb_particle_boundary, "-_");
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 eb_particle_boundary == ParticleBoundaryType::Absorbing ||
                 eb_particle_boundary == ParticleBoundaryType::Reflecting,
-                "warpx.eb_particle_boundary_condition must be Absorbing or Reflecting");
+                "boundary.particle_eb must be Absorbing or Reflecting");
         } else {
             eb_particle_boundary = ParticleBoundaryType::Absorbing;
             ablastr::warn_manager::WMRecordWarning(
                 "EmbeddedBoundary",
-                "warpx.eb_particle_boundary_condition is not specified. "
+                "boundary.particle_eb is not specified. "
                 "Defaulting to Absorbing. Particles that cross the embedded "
                 "boundary surface will be removed. Set to Reflecting to "
                 "reflect particles instead.",
