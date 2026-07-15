@@ -53,7 +53,7 @@ struct Absorb {
     }
 };
 
-/** \brief Specular reflection off the embedded boundary using bisection.
+/** \brief Specular reflection off the embedded boundary.
  *
  *  For each particle that has crossed into the EB (distance_to_eb < 0), this functor:
  *   - Bisects along the particle trajectory to find the contact point on
@@ -121,7 +121,7 @@ struct Reflect {
         ptd.m_rdata[PIdx::uy][i] = uy_refl;
         ptd.m_rdata[PIdx::uz][i] = uz_refl;
 
-        // Advance from contact point with reflected velocity
+        // Advance from the contact point, with the reflected velocity,
         // for the remaining fraction of the timestep
         amrex::ParticleReal x_new = x_c, y_new = y_c, z_new = z_c;
         UpdatePosition(x_new, y_new, z_new, ux_refl, uy_refl, uz_refl,
