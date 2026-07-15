@@ -582,6 +582,14 @@ public:
 
     amrex::ParticleReal getMass () const {return m_mass;}
 
+    /** Thermal velocity (normalized by c) used by thermal particle boundaries
+     *  for this species, parsed from ``boundary.<species_name>.u_th``.
+     */
+    amrex::ParticleReal getBoundaryThermalVelocity () const
+    {
+        return static_cast<amrex::ParticleReal>(m_boundary_conditions.data.m_uth);
+    }
+
     int DoFieldIonization() const { return do_field_ionization; }
 
 #ifdef WARPX_QED
