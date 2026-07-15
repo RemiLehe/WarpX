@@ -56,16 +56,12 @@ struct Absorb {
 /** \brief Specular reflection off the embedded boundary using bisection.
  *
  *  For each particle that has crossed into the EB (distance_to_eb < 0), this functor:
- *  1. Bisects along the particle trajectory to find the contact point on
+ *   - Bisects along the particle trajectory to find the contact point on
  *     the EB surface (where distance_to_eb = 0).
- *  2. Computes the surface normal at the exact contact point.
- *  3. Performs specular velocity reflection: v_new = v - 2*(v . n)*n.
- *  4. Advances the particle from the contact point with the reflected
+ *   - Computes the surface normal at the exact contact point.
+ *   - Performs specular velocity reflection: v_new = v - 2*(v . n)*n.
+ *   - Advances the particle from the contact point with the reflected
  *     velocity for the remaining fraction of the timestep.
- *
- *  This handles curved EB surfaces correctly, unlike the simpler distance_to_eb-based
- *  approximation (x_new = x - 2*distance_to_eb*n) which is only exact for planar
- *  surfaces.
  */
 struct Reflect {
     amrex::Real m_dt;
@@ -87,8 +83,9 @@ struct Reflect {
         amrex::ParticleReal const uy = ptd.m_rdata[PIdx::uy][i];
         amrex::ParticleReal const uz = ptd.m_rdata[PIdx::uz][i];
 
-        // Step 1: Bisect along trajectory to find the fraction of dt
-        // to walk backward from end-of-step to reach the EB surface.
+        // Find the point of contat with the EB surface
+        // Bisect along trajectory to find the fraction of dt
+        // to walk backward from end-of-step to reach distance_to_eb = 0.
         amrex::Real const dt = m_dt;
         amrex::ParticleReal const mass = m_mass;
         amrex::Real const dt_fraction = amrex::bisect(0.0, 1.0,
@@ -103,19 +100,14 @@ struct Reflect {
                 return ablastr::particles::interp_field_nodal(
                     bi, bj, bk, bW, distance_to_eb);
             });
-
-        // Step 2: Move to contact point on the EB surface
+        // Move to contact point on the EB surface
         amrex::ParticleReal x_c = xp, y_c = yp, z_c = zp;
         UpdatePosition(x_c, y_c, z_c, ux, uy, uz, -dt_fraction * dt, mass);
 
-        // Step 3: Compute normal at the contact point
+        // Compute the surface normal vector at the contact point
         amrex::RealVect n = DistanceToEB::interp_normal(x_c, y_c, z_c, plo, dxi, distance_to_eb);
-
-        // Step 4a: Express the surface normal in 3D Cartesian coordinates.
-        // The interpolated normal `n` is in reduced-dimension coordinates,
-        // whereas the velocity is always stored in 3D Cartesian coordinates.
-        // Out-of-plane / ignored components are set to zero so that the
-        // reflection in Step 4b leaves the corresponding velocity unchanged.
+        // Express the surface normal in 3D Cartesian coordinates.
+        // (The interpolated normal `n` is in reduced-dimension coordinates)
 #if defined(WARPX_DIM_3D)
         amrex::ParticleReal const n3d_x = amrex::ParticleReal(n[0]);
         amrex::ParticleReal const n3d_y = amrex::ParticleReal(n[1]);
@@ -151,25 +143,21 @@ struct Reflect {
         amrex::ParticleReal const n3d_z = amrex::ParticleReal(n[0]);
 #endif
 
-        // Step 4b: Specular velocity reflection in Cartesian coordinates,
-        // u' = u - 2 (u.n) n  (dimension-independent).
-        amrex::ParticleReal const v_dot_n = ux*n3d_x + uy*n3d_y + uz*n3d_z;
-        amrex::ParticleReal const ux_refl = ux - 2.0_prt * v_dot_n * n3d_x;
-        amrex::ParticleReal const uy_refl = uy - 2.0_prt * v_dot_n * n3d_y;
-        amrex::ParticleReal const uz_refl = uz - 2.0_prt * v_dot_n * n3d_z;
-
-        // Step 5: Store reflected velocity
+        // Specular reflection: u_refl = u - 2 (u.n) n
+        amrex::ParticleReal const u_dot_n = ux*n3d_x + uy*n3d_y + uz*n3d_z;
+        amrex::ParticleReal const ux_refl = ux - 2.0_prt * u_dot_n * n3d_x;
+        amrex::ParticleReal const uy_refl = uy - 2.0_prt * u_dot_n * n3d_y;
+        amrex::ParticleReal const uz_refl = uz - 2.0_prt * u_dot_n * n3d_z;
+        // Store reflected velocity
         ptd.m_rdata[PIdx::ux][i] = ux_refl;
         ptd.m_rdata[PIdx::uy][i] = uy_refl;
         ptd.m_rdata[PIdx::uz][i] = uz_refl;
 
-        // Step 6: Advance from contact point with reflected velocity
+        // Advance from contact point with reflected velocity
         // for the remaining fraction of the timestep
         amrex::ParticleReal x_new = x_c, y_new = y_c, z_new = z_c;
         UpdatePosition(x_new, y_new, z_new, ux_refl, uy_refl, uz_refl,
                        dt_fraction * dt, mass);
-
-        // Step 7: Write the final Cartesian position back to the particle.
         // SetParticlePosition handles the conversion to the stored
         // (reduced-dimension) coordinates.
         setPosition(i, x_new, y_new, z_new);
