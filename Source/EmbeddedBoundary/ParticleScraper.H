@@ -55,6 +55,7 @@
  *        template <typename PData>
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
+ *                         const SetParticlePosition<PIdx>& setPosition,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
  *                         amrex::Array4<const amrex::Real> const& distance_to_eb,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
@@ -62,8 +63,10 @@
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, distance_to_eb the signed distance
- *        array, plo/dxi the geometry data, and engine for random number generation.
+ *        setPosition writes a Cartesian position back to the particle (handling the
+ *        reduced-dimension conversion), xp/yp/zp the Cartesian particle position,
+ *        distance_to_eb the signed distance array, plo/dxi the geometry data, and
+ *        engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
 void
@@ -101,6 +104,7 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *        template <typename PData>
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
+ *                         const SetParticlePosition<PIdx>& setPosition,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
  *                         amrex::Array4<const amrex::Real> const& distance_to_eb,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
@@ -108,8 +112,10 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, distance_to_eb the signed distance
- *        array, plo/dxi the geometry data, and engine for random number generation.
+ *        setPosition writes a Cartesian position back to the particle (handling the
+ *        reduced-dimension conversion), xp/yp/zp the Cartesian particle position,
+ *        distance_to_eb the signed distance array, plo/dxi the geometry data, and
+ *        engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
 void
@@ -149,6 +155,7 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *        template <typename PData>
  *        AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
  *        void operator() (PData& ptd, int i,
+ *                         const SetParticlePosition<PIdx>& setPosition,
  *                         amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
  *                         amrex::Array4<const amrex::Real> const& distance_to_eb,
  *                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
@@ -156,8 +163,10 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *                         amrex::RandomEngine const& engine);
  *
  *        where ptd is the particle tile, i the index of the particle operated on,
- *        xp/yp/zp the Cartesian particle position, distance_to_eb the signed distance
- *        array, plo/dxi the geometry data, and engine for random number generation.
+ *        setPosition writes a Cartesian position back to the particle (handling the
+ *        reduced-dimension conversion), xp/yp/zp the Cartesian particle position,
+ *        distance_to_eb the signed distance array, plo/dxi the geometry data, and
+ *        engine for random number generation.
  */
 template <class PC, class F, std::enable_if_t<amrex::IsParticleContainer<PC>::value, int> foo = 0>
 void
@@ -176,6 +185,7 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
         for(WarpXParIter pti(pc, lev); pti.isValid(); ++pti)
         {
             const auto getPosition = GetParticlePosition<PIdx>(pti);
+            const auto setPosition = SetParticlePosition<PIdx>(pti);
             auto& tile = pti.GetParticleTile();
             auto ptd = tile.getParticleTileData();
             const auto np = tile.numParticles();
@@ -197,7 +207,7 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
 
                 if (distance_to_eb_value < 0.0)
                 {
-                    f(ptd, ip, xp, yp, zp, distance_to_eb_arr, plo, dxi, engine);
+                    f(ptd, ip, setPosition, xp, yp, zp, distance_to_eb_arr, plo, dxi, engine);
                 }
             });
         }

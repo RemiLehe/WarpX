@@ -8,6 +8,7 @@
 #define WARPX_PARTICLEBOUNDARYPROCESS_H_
 
 #include "EmbeddedBoundary/DistanceToEB.H"
+#include "Particles/Pusher/GetAndSetPosition.H"
 #include "Particles/Pusher/UpdatePosition.H"
 #include "Particles/WarpXParticleContainer.H"
 
@@ -28,6 +29,7 @@ struct NoOp {
     template <typename PData>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (const PData& /*ptd*/, int /*i*/,
+                     const SetParticlePosition<PIdx>& /*setPosition*/,
                      amrex::ParticleReal /*xp*/, amrex::ParticleReal /*yp*/, amrex::ParticleReal /*zp*/,
                      amrex::Array4<const amrex::Real> const& /*distance_to_eb*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*plo*/,
@@ -40,6 +42,7 @@ struct Absorb {
     template <typename PData>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (PData& ptd, int i,
+                     const SetParticlePosition<PIdx>& /*setPosition*/,
                      amrex::ParticleReal /*xp*/, amrex::ParticleReal /*yp*/, amrex::ParticleReal /*zp*/,
                      amrex::Array4<const amrex::Real> const& /*distance_to_eb*/,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& /*plo*/,
@@ -71,6 +74,7 @@ struct Reflect {
     template <typename PData>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (PData& ptd, int i,
+                     const SetParticlePosition<PIdx>& setPosition,
                      amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
                      amrex::Array4<const amrex::Real> const& distance_to_eb,
                      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& plo,
@@ -207,31 +211,10 @@ struct Reflect {
         UpdatePosition(x_new, y_new, z_new, ux_refl, uy_refl, uz_refl,
                        dt_fraction * dt, mass);
 
-        // Step 7: Write final position back to particle (manual RZ conversion)
-#if defined(WARPX_DIM_3D)
-        ptd.m_rdata[PIdx::x][i] = x_new;
-        ptd.m_rdata[PIdx::y][i] = y_new;
-        ptd.m_rdata[PIdx::z][i] = z_new;
-#elif defined(WARPX_DIM_XZ)
-        ptd.m_rdata[PIdx::x][i] = x_new;
-        ptd.m_rdata[PIdx::z][i] = z_new;
-#elif defined(WARPX_DIM_RZ)
-        ptd.m_rdata[PIdx::r][i] = std::sqrt(x_new*x_new + y_new*y_new);
-        ptd.m_rdata[PIdx::z][i] = z_new;
-        ptd.m_rdata[PIdx::theta][i] = std::atan2(y_new, x_new);
-#elif defined(WARPX_DIM_RCYLINDER)
-        ptd.m_rdata[PIdx::r][i] = std::sqrt(x_new*x_new + y_new*y_new);
-        ptd.m_rdata[PIdx::theta][i] = std::atan2(y_new, x_new);
-#elif defined(WARPX_DIM_RSPHERE)
-        amrex::ParticleReal const rxy_new =
-            std::sqrt(x_new*x_new + y_new*y_new);
-        ptd.m_rdata[PIdx::r][i] =
-            std::sqrt(x_new*x_new + y_new*y_new + z_new*z_new);
-        ptd.m_rdata[PIdx::theta][i] = std::atan2(y_new, x_new);
-        ptd.m_rdata[PIdx::phi][i] = std::atan2(z_new, rxy_new);
-#elif defined(WARPX_DIM_1D_Z)
-        ptd.m_rdata[PIdx::z][i] = z_new;
-#endif
+        // Step 7: Write the final Cartesian position back to the particle.
+        // SetParticlePosition handles the conversion to the stored
+        // (reduced-dimension) coordinates.
+        setPosition(i, x_new, y_new, z_new);
     }
 };
 
