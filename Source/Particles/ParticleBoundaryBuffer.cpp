@@ -120,7 +120,7 @@ struct FindEmbeddedBoundaryIntersection {
         UpdatePosition(x_temp, y_temp, z_temp, ux, uy, uz, -dt_fraction*m_dt, m_mass);
 
         // record the components of the normal on the destination
-        amrex::RealVect normal = DistanceToEB::interp_normal(x_temp, y_temp, z_temp, plo, dxi, phiarr);
+        amrex::RealVect const normal = DistanceToEB::interp_normal(x_temp, y_temp, z_temp, plo, dxi, phiarr);
 
 #if (defined WARPX_DIM_3D)
         dst.m_rdata[PIdx::x][dst_i] = x_temp;
@@ -149,7 +149,7 @@ struct FindEmbeddedBoundaryIntersection {
         dst.m_runtime_rdata[m_normal_index+2][dst_i] = normal[1];
 #elif (defined WARPX_DIM_1D_Z)
         dst.m_rdata[PIdx::z][dst_i] = z_temp;
-        amrex::ignore_unused(x_temp, y_temp);
+        amrex::ignore_unused(x_temp, y_temp, normal);
         //normal not defined
         dst.m_runtime_rdata[m_normal_index][dst_i] = 0.0;
         dst.m_runtime_rdata[m_normal_index+1][dst_i] = 0.0;
@@ -162,6 +162,7 @@ struct FindEmbeddedBoundaryIntersection {
         dst.m_rdata[PIdx::r][dst_i] = std::sqrt(x_temp*x_temp + y_temp*y_temp + z_temp*z_temp);
 #endif
         //normal not defined
+        amrex::ignore_unused(normal);
         dst.m_runtime_rdata[m_normal_index][dst_i] = 0.0;
         dst.m_runtime_rdata[m_normal_index+1][dst_i] = 0.0;
         dst.m_runtime_rdata[m_normal_index+2][dst_i] = 0.0;
