@@ -29,9 +29,7 @@ amrex::Real dot_product (const amrex::RealVect& a, const amrex::RealVect& b) noe
 // This function calculates the unit normal vector to the embedded boundary at
 // the particle position (xp, yp, zp), by interpolating the signed distance
 // function distance_to_eb. plo/dxi are the geometry data. The normal is
-// returned in 3D Cartesian coordinates (as is the particle velocity), by
-// converting from the reduced-dimension coordinates in which it is computed,
-// and is normalized to unit length.
+// always returned in 3D Cartesian coordinates.
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 amrex::GpuArray<amrex::ParticleReal, 3>
 interp_normal (amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleReal zp,
@@ -137,15 +135,14 @@ interp_normal (amrex::ParticleReal xp, amrex::ParticleReal yp, amrex::ParticleRe
 
 #endif
 
-    // Normalize to unit length (in the reduced-dimension coordinates)
+    // Normalize to unit length
     amrex::Real const inv_norm = 1.0_rt / std::sqrt(dot_product(normal, normal));
     AMREX_D_DECL(normal[0] *= inv_norm,
                  normal[1] *= inv_norm,
                  normal[2] *= inv_norm);
 
     // Express the unit normal in 3D Cartesian coordinates, using the Cartesian
-    // position (xp, yp, zp) to orient the radial / azimuthal components. This
-    // conversion preserves the unit length; out-of-plane components are zero.
+    // position (xp, yp, zp) to orient the radial / azimuthal components.
 #if defined(WARPX_DIM_3D)
     return {amrex::ParticleReal(normal[0]), amrex::ParticleReal(normal[1]), amrex::ParticleReal(normal[2])};
 #elif defined(WARPX_DIM_XZ)

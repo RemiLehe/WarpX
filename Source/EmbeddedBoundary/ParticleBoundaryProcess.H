@@ -59,7 +59,7 @@ struct Absorb {
  *   - Bisects along the particle trajectory to find the contact point on
  *     the EB surface (where distance_to_eb = 0).
  *   - Computes the surface normal at the exact contact point.
- *   - Performs specular velocity reflection: v_new = v - 2*(v . n)*n.
+ *   - Performs specular reflection on the momentum: u_new = u - 2*(u . n)*n.
  *   - Advances the particle from the contact point with the reflected
  *     velocity for the remaining fraction of the timestep.
  */
