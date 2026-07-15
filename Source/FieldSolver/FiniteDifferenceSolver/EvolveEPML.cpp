@@ -69,7 +69,7 @@ void FiniteDifferenceSolver::EvolveEPML (
     // `pml_edge_lengths` is only defined on the fine patch. On the coarse patch, the EB
     // is not resolved, so the edge-length arrays are left empty and the EB masking below
     // is skipped (the kernels guard on the Array4 being non-empty).
-    ablastr::fields::VectorField edge_lengths;
+    ablastr::fields::VectorField edge_lengths{};
     if (patch_type == PatchType::fine && fields.has_vector(FieldType::pml_edge_lengths, level)) {
         edge_lengths = fields.get_alldirs(FieldType::pml_edge_lengths, level);
     }
