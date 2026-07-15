@@ -1,0 +1,81 @@
+#################################
+####### GENERAL PARAMETERS ######
+#################################
+max_step = 30
+
+amr.n_cell = 48 8 8
+amr.max_level = 0
+amr.max_grid_size = 48
+
+geometry.dims = 3
+# Cubic cells of size 2.5e-4. The lower x boundary (far from the wall) is placed
+# far enough that no re-emitted particle can reach it during the simulation.
+geometry.prob_lo = -1.0e-2 -1.0e-3 -1.0e-3
+geometry.prob_hi =  2.0e-3  1.0e-3  1.0e-3
+
+#################################
+###### BOUNDARY CONDITIONS ######
+#################################
+boundary.field_lo = pec periodic periodic
+boundary.field_hi = pec periodic periodic
+boundary.particle_lo = absorbing periodic periodic
+boundary.particle_hi = absorbing periodic periodic
+
+# Embedded boundary: a planar wall at x = x_wall. The physics region is x < x_wall
+# (where the implicit function is negative) and the solid is x > x_wall. x_wall is
+# deliberately placed off-node to avoid a degenerate level-set at grid nodes.
+my_constants.x_wall = 1.0e-4
+warpx.eb_implicit_function = "x - x_wall"
+
+# Re-emit particles from the embedded boundary with a thermalized velocity
+# (fully accommodating diffuse wall), instead of absorbing them (the default).
+boundary.particle_eb = thermal
+# Thermal velocity (u_th = sqrt(k*T/m)/c) used to sample the re-emission
+# distribution for this species. The tangential components are sampled from a
+# Gaussian of standard deviation u_th, and the (inward) normal component from a
+# Gaussian-flux distribution with the same standard deviation.
+my_constants.uth_e = 0.01
+boundary.electrons.u_th = uth_e
+
+#################################
+############ NUMERICS ###########
+#################################
+warpx.const_dt = 1e-11
+warpx.do_electrostatic = labframe
+warpx.poisson_solver = Multigrid
+warpx.self_fields_absolute_tolerance = 1e-7
+algo.particle_shape = 1
+
+#################################
+########### PARTICLES ###########
+#################################
+particles.species_names = electrons
+
+# A cold, low-density beam of electrons is launched towards the wall at
+# ux = 0.1 (proper velocity gamma*v normalized by c). The density is kept low so
+# that self-fields are negligible and the re-emitted velocity distribution is
+# controlled purely by the thermal embedded-boundary condition. The beam is
+# injected in a thin slab close to the wall so that all particles reach it and
+# re-emit well before the end of the simulation.
+electrons.species_type = electron
+electrons.injection_style = NUniformPerCell
+electrons.num_particles_per_cell_each_dim = 4 4 4
+electrons.profile = constant
+electrons.density = 1.0e6
+electrons.xmin = -1.0e-3
+electrons.xmax = -1.0e-4
+electrons.momentum_distribution_type = constant
+electrons.ux = 0.1
+electrons.uy = 0.0
+electrons.uz = 0.0
+electrons.initialize_self_fields = 0
+
+#################################
+########## DIAGNOSTICS ##########
+#################################
+diagnostics.diags_names = diag1
+diag1.intervals = 30
+diag1.diag_type = Full
+diag1.fields_to_plot = rho
+diag1.format = openpmd
+diag1.species = electrons
