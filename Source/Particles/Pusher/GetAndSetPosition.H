@@ -103,6 +103,44 @@ void set_particle_position (WarpXParticleContainer::SuperParticleType& p,
 #endif
 }
 
+/** \brief Set the cartesian position coordinates `x`, `y`, `z` on the
+ *         particle at index `i` of the particle tile data `ptd`
+ *
+ * \tparam T_PIdx particle index enumerator
+ */
+template<typename T_PIdx = PIdx, typename PTD>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void set_particle_position (const PTD& ptd, int i,
+                            amrex::ParticleReal x,
+                            amrex::ParticleReal y,
+                            amrex::ParticleReal z) noexcept
+{
+    amrex::ignore_unused(x, y, z);
+
+#if defined(WARPX_DIM_RZ)
+    ptd.m_rdata[T_PIdx::theta][i] = std::atan2(y, x);
+    ptd.m_rdata[T_PIdx::r][i] = std::sqrt(x*x + y*y);
+    ptd.m_rdata[PIdx::z][i] = z;
+#elif defined(WARPX_DIM_RCYLINDER)
+    ptd.m_rdata[T_PIdx::theta][i] = std::atan2(y, x);
+    ptd.m_rdata[T_PIdx::r][i] = std::sqrt(x*x + y*y);
+#elif defined(WARPX_DIM_RSPHERE)
+    amrex::ParticleReal const rxy = std::sqrt(x*x + y*y);
+    ptd.m_rdata[T_PIdx::r][i] = std::sqrt(x*x + y*y + z*z);
+    ptd.m_rdata[T_PIdx::theta][i] = std::atan2(y, x);
+    ptd.m_rdata[T_PIdx::phi][i] = std::atan2(z, rxy);
+#elif defined(WARPX_DIM_3D)
+    ptd.m_rdata[PIdx::x][i] = x;
+    ptd.m_rdata[PIdx::y][i] = y;
+    ptd.m_rdata[PIdx::z][i] = z;
+#elif defined(WARPX_DIM_XZ)
+    ptd.m_rdata[PIdx::x][i] = x;
+    ptd.m_rdata[PIdx::z][i] = z;
+#else
+    ptd.m_rdata[PIdx::z][i] = z;
+#endif
+}
+
 /** \brief Functor that can be used to extract the positions of the macroparticles
  *         inside a ParallelFor kernel
  *
