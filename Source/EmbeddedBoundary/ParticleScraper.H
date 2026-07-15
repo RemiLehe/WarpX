@@ -36,8 +36,8 @@
  *
  *  The operation to be performed is specified by the callable function
  *  passed in to this function as an argument. This function can access the
- *  position at which the particle hit the boundary, and also the associated
- *  normal vector. Particles can be `absorbed` by setting their ids to negative
+ *  position at which the particle hit the boundary. Particles can be `absorbed`
+ *  by setting their ids to negative
  *  to flag them for removal. Likewise, they can be reflected back into the domain
  *  by modifying their data appropriately and leaving their ids alone.
  *
@@ -86,8 +86,8 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *
  *  The operation to be performed is specified by the callable function
  *  passed in to this function as an argument. This function can access the
- *  position at which the particle hit the boundary, and also the associated
- *  normal vector. Particles can be `absorbed` by setting their ids to negative
+ *  position at which the particle hit the boundary. Particles can be `absorbed`
+ *  by setting their ids to negative
  *  to flag them for removal. Likewise, they can be reflected back into the domain
  *  by modifying their data appropriately and leaving their ids alone.
  *
@@ -135,9 +135,9 @@ scrapeParticlesAtEB (PC& pc, ablastr::fields::MultiLevelScalarField const& dista
  *
  *  The operation to be performed is specified by the callable function
  *  passed in to this function as an argument. This function can access the
- *  position at which the particle hit the boundary, and also the associated
- *  normal vector. Particles can be `absorbed` by setting their ids to negative
- *  to flag them for removal. Likewise, the can be reflected back into the domain
+ *  position at which the particle hit the boundary. Particles can be `absorbed`
+ *  by setting their ids to negative
+ *  to flag them for removal. Likewise, they can be reflected back into the domain
  *  by modifying their data appropriately and leaving their ids alone.
  *
  *  This version operates only at the specified levels.
