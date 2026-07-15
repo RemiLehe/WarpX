@@ -219,8 +219,7 @@ public:
     static inline amrex::Array<ParticleBoundaryType,AMREX_SPACEDIM> particle_boundary_hi;
 
     /** Particle boundary condition at embedded boundaries.
-     *  Only Absorbing and Reflecting are supported.
-     *  Default is Absorbing for backward compatibility.
+     *  Default is Absorbing
      */
     static inline ParticleBoundaryType eb_particle_boundary = ParticleBoundaryType::Absorbing;
 
