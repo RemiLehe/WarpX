@@ -1035,7 +1035,7 @@ WarpX::EvolveE (int lev, PatchType patch_type, amrex::Real a_dt, amrex::Real sta
                                         lev,
                                         patch_type,
                                         m_fields.get_alldirs(FieldType::Efield_cp, lev),
-                                        m_eb_update_E[lev],
+                                        m_eb_update_E_cp[lev],
                                         a_dt );
     }
 

@@ -388,6 +388,8 @@ WarpX::WarpX ()
 
     m_eb_update_E.resize(nlevs_max);
     m_eb_update_B.resize(nlevs_max);
+    m_eb_update_E_cp.resize(nlevs_max);
+    m_eb_update_B_cp.resize(nlevs_max);
     m_eb_reduce_particle_shape.resize(nlevs_max);
 
     m_flag_info_face.resize(nlevs_max);
@@ -2928,6 +2930,25 @@ WarpX::AllocLevelMFs (int lev, const BoxArray& ba, const DistributionMapping& dm
         m_fields.alloc_init(FieldType::Efield_cp, Direction{0}, lev, amrex::convert(cba, Ex_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
         m_fields.alloc_init(FieldType::Efield_cp, Direction{1}, lev, amrex::convert(cba, Ey_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
         m_fields.alloc_init(FieldType::Efield_cp, Direction{2}, lev, amrex::convert(cba, Ez_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
+
+        // EB info are needed on the coarse patch to update the coarse-patch fields
+        if (EB::enabled() &&
+            WarpX::electromagnetic_solver_id != ElectromagneticSolverAlgo::PSATD) {
+
+            AllocInitMultiFab(m_eb_update_E_cp[lev][0], amrex::convert(cba, Ex_nodal_flag), dm, ncomps,
+                              guard_cells.ng_FieldSolver, lev, "m_eb_update_E_cp[x]");
+            AllocInitMultiFab(m_eb_update_E_cp[lev][1], amrex::convert(cba, Ey_nodal_flag), dm, ncomps,
+                              guard_cells.ng_FieldSolver, lev, "m_eb_update_E_cp[y]");
+            AllocInitMultiFab(m_eb_update_E_cp[lev][2], amrex::convert(cba, Ez_nodal_flag), dm, ncomps,
+                              guard_cells.ng_FieldSolver, lev, "m_eb_update_E_cp[z]");
+
+            AllocInitMultiFab(m_eb_update_B_cp[lev][0], amrex::convert(cba, Bx_nodal_flag), dm, ncomps,
+                              guard_cells.ng_FieldSolver, lev, "m_eb_update_B_cp[x]");
+            AllocInitMultiFab(m_eb_update_B_cp[lev][1], amrex::convert(cba, By_nodal_flag), dm, ncomps,
+                              guard_cells.ng_FieldSolver, lev, "m_eb_update_B_cp[y]");
+            AllocInitMultiFab(m_eb_update_B_cp[lev][2], amrex::convert(cba, Bz_nodal_flag), dm, ncomps,
+                              guard_cells.ng_FieldSolver, lev, "m_eb_update_B_cp[z]");
+        }
 
         if (fft_do_time_averaging)
         {

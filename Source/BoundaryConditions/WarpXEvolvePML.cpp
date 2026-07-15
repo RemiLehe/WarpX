@@ -285,9 +285,11 @@ WarpX::DampJPML (int lev, PatchType patch_type)
             const Real* sigma_star_cumsum_fac_j_z = sigba[mfi].sigma_star_cumsum_fac[1].data();
 #endif
 
-            // Skip the field update if this gridpoint is inside the embedded boundary
+            // Skip the field update if this gridpoint is inside the embedded boundary.
+            // `pml_edge_lengths` is only defined on the fine patch; on the coarse patch the
+            // EB is not resolved, so the arrays are left empty and the check below is skipped.
             amrex::Array4<amrex::Real> eb_lxfab, eb_lyfab, eb_lzfab;
-            if (EB::enabled()) {
+            if (EB::enabled() && patch_type == PatchType::fine) {
                 const auto &pml_edge_lenghts = m_fields.get_alldirs(FieldType::pml_edge_lengths, lev);
 
                 eb_lxfab = pml_edge_lenghts[0]->array(mfi);

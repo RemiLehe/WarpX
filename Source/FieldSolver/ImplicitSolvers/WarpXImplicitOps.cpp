@@ -341,7 +341,7 @@ WarpX::ImplicitComputeRHSE (int lev, PatchType patch_type, amrex::Real a_dt, War
                                         lev,
                                         patch_type,
                                         a_Erhs_vec.getArrayVec()[lev],
-                                        m_eb_update_E[lev],
+                                        m_eb_update_E_cp[lev],
                                         a_dt );
     }
 

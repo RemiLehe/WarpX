@@ -66,8 +66,11 @@ void FiniteDifferenceSolver::EvolveEPML (
         fields.get_alldirs(FieldType::pml_B_fp, level) : fields.get_alldirs(FieldType::pml_B_cp, level);
     const ablastr::fields::VectorField Jfield = (patch_type == PatchType::fine) ?
         fields.get_alldirs(FieldType::pml_j_fp, level) : fields.get_alldirs(FieldType::pml_j_cp, level);
+    // `pml_edge_lengths` is only defined on the fine patch. On the coarse patch, the EB
+    // is not resolved, so the edge-length arrays are left empty and the EB masking below
+    // is skipped (the kernels guard on the Array4 being non-empty).
     ablastr::fields::VectorField edge_lengths;
-    if (fields.has_vector(FieldType::pml_edge_lengths, level)) {
+    if (patch_type == PatchType::fine && fields.has_vector(FieldType::pml_edge_lengths, level)) {
         edge_lengths = fields.get_alldirs(FieldType::pml_edge_lengths, level);
     }
     amrex::MultiFab * Ffield = nullptr;
@@ -127,7 +130,7 @@ void FiniteDifferenceSolver::EvolveEPMLCartesian (
         Array4<Real> const& Bz = Bfield[2]->array(mfi);
 
         amrex::Array4<amrex::Real> lx, ly, lz;
-        if (EB::enabled()) {
+        if (EB::enabled() && edge_lengths[0] != nullptr) {
             lx = edge_lengths[0]->array(mfi);
             ly = edge_lengths[1]->array(mfi);
             lz = edge_lengths[2]->array(mfi);
