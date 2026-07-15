@@ -686,11 +686,6 @@ public:
      */
     void SyncCurrentAndRho ();
 
-    void SumBoundaryJ (
-        const ablastr::fields::MultiLevelVectorField& current,
-        int lev,
-        const amrex::Periodicity& period);
-
     /**
      * \brief Apply filter and sum guard cells across MR levels.
      * If current centering is used, center the current from a nodal grid
@@ -1081,6 +1076,10 @@ private:
         int lev,
         int idim,
         const amrex::Periodicity& period);
+    void SumBoundaryJ (
+        const ablastr::fields::MultiLevelVectorField& current,
+        int lev,
+        const amrex::Periodicity& period);
 
     void RestrictRhoFromFineToCoarsePatch (int lev );
     void ApplyFilterandSumBoundaryRho (
@@ -1461,6 +1460,12 @@ private:
      * Particles have p^{n} and x^{n}.
      */
     void ExplicitFillBoundaryEBUpdateAux ();
+
+    /** Set the magnetic field equal to the curl of the vector potential A.
+     *
+     * Used by the Darwin solver, since B is not itself evolved.
+     */
+    void SyncDarwinBFromA ();
 
     //! Integer that corresponds to the order of the PSATD solution
     //! (whether the PSATD equations are derived from first-order or

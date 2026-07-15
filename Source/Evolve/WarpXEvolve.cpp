@@ -287,22 +287,6 @@ WarpX::Evolve (int numsteps)
             ExecutePythonCallback("aftercollisions");
         }
 
-        // Lambda function to set magnetic field equal to curl of A (used by the
-        // Darwin solver, since B is not itself evolved).
-        auto const SyncDarwinBFromA = [&]() {
-            ablastr::fields::MultiLevelVectorField Bfield_fp =
-                m_fields.get_mr_levels_alldirs("Bfield_fp", finestLevel());
-            ablastr::fields::MultiLevelVectorField Afield_fp =
-                m_fields.get_mr_levels_alldirs("vector_potential_fp", finestLevel());
-            for (int lev = 0; lev <= finestLevel(); ++lev) {
-                get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
-                    Bfield_fp[lev], Afield_fp[lev],
-                    GetEBUpdateBFlag()[lev],
-                    lev);
-            }
-            FillBoundaryB(getngEB(), true);
-        };
-
         // Field solve step for electrostatic, hybrid-PIC, or Darwin solvers
         if( electrostatic_solver_id != ElectrostaticSolverAlgo::None ||
             evolve_scheme == EvolveScheme::Semi_Implicit_Darwin )
@@ -760,6 +744,21 @@ void WarpX::ExplicitFillBoundaryEBUpdateAux ()
         UpdateAuxilaryData();
         FillBoundaryAux(guard_cells.ng_UpdateAux);
     }
+}
+
+void WarpX::SyncDarwinBFromA ()
+{
+    ablastr::fields::MultiLevelVectorField Bfield_fp =
+        m_fields.get_mr_levels_alldirs("Bfield_fp", finestLevel());
+    ablastr::fields::MultiLevelVectorField Afield_fp =
+        m_fields.get_mr_levels_alldirs("vector_potential_fp", finestLevel());
+    for (int lev = 0; lev <= finestLevel(); ++lev) {
+        get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
+            Bfield_fp[lev], Afield_fp[lev],
+            GetEBUpdateBFlag()[lev],
+            lev);
+    }
+    FillBoundaryB(getngEB(), true);
 }
 
 void WarpX::HandleParticlesAtBoundaries (int step, amrex::Real cur_time, int num_moved)
