@@ -293,23 +293,12 @@ void WarpX::MakeWarpX ()
     // Parse embedded boundary particle boundary condition
     if (EB::enabled()) {
         amrex::ParmParse const pp_boundary("boundary");
-        if (pp_boundary.contains("particle_eb")) {
-            pp_boundary.query_enum_sloppy(
-                "particle_eb", eb_particle_boundary, "-_");
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                eb_particle_boundary == ParticleBoundaryType::Absorbing ||
-                eb_particle_boundary == ParticleBoundaryType::Reflecting,
-                "boundary.particle_eb must be Absorbing or Reflecting");
-        } else {
-            eb_particle_boundary = ParticleBoundaryType::Absorbing;
-            ablastr::warn_manager::WMRecordWarning(
-                "EmbeddedBoundary",
-                "boundary.particle_eb is not specified. "
-                "Defaulting to Absorbing. Particles that cross the embedded "
-                "boundary surface will be removed. Set to Reflecting to "
-                "reflect particles instead.",
-                ablastr::warn_manager::WarnPriority::low);
-        }
+        // Defaults to Absorbing; overwritten only if boundary.particle_eb is set.
+        pp_boundary.query_enum_case_insensitive("particle_eb", eb_particle_boundary);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            eb_particle_boundary == ParticleBoundaryType::Absorbing ||
+            eb_particle_boundary == ParticleBoundaryType::Reflecting,
+            "boundary.particle_eb must be Absorbing or Reflecting");
     }
 
     CheckGriddingForRZSpectral();
