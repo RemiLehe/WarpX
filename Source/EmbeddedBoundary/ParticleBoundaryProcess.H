@@ -104,44 +104,12 @@ struct Reflect {
         amrex::ParticleReal x_c = xp, y_c = yp, z_c = zp;
         UpdatePosition(x_c, y_c, z_c, ux, uy, uz, -dt_fraction * dt, mass);
 
-        // Compute the surface normal vector at the contact point
-        amrex::RealVect n = DistanceToEB::interp_normal(x_c, y_c, z_c, plo, dxi, distance_to_eb);
-        // Express the surface normal in 3D Cartesian coordinates.
-        // (The interpolated normal `n` is in reduced-dimension coordinates)
-#if defined(WARPX_DIM_3D)
-        amrex::ParticleReal const n3d_x = amrex::ParticleReal(n[0]);
-        amrex::ParticleReal const n3d_y = amrex::ParticleReal(n[1]);
-        amrex::ParticleReal const n3d_z = amrex::ParticleReal(n[2]);
-#elif defined(WARPX_DIM_XZ)
-        // normal is (n_x, n_z); the y direction is out-of-plane.
-        amrex::ParticleReal const n3d_x = amrex::ParticleReal(n[0]);
-        amrex::ParticleReal const n3d_y = 0.0_prt;
-        amrex::ParticleReal const n3d_z = amrex::ParticleReal(n[1]);
-#elif defined(WARPX_DIM_RZ)
-        // normal is (n_r, n_z); convert using the particle theta at the contact point.
-        amrex::ParticleReal const theta_c = std::atan2(y_c, x_c);
-        amrex::ParticleReal const n3d_x = amrex::ParticleReal(n[0]) * std::cos(theta_c);
-        amrex::ParticleReal const n3d_y = amrex::ParticleReal(n[0]) * std::sin(theta_c);
-        amrex::ParticleReal const n3d_z = amrex::ParticleReal(n[1]);
-#elif defined(WARPX_DIM_RCYLINDER)
-        // normal is radial n_r; convert using the particle theta at the contact point.
-        amrex::ParticleReal const theta_c = std::atan2(y_c, x_c);
-        amrex::ParticleReal const n3d_x = amrex::ParticleReal(n[0]) * std::cos(theta_c);
-        amrex::ParticleReal const n3d_y = amrex::ParticleReal(n[0]) * std::sin(theta_c);
-        amrex::ParticleReal const n3d_z = 0.0_prt;
-#elif defined(WARPX_DIM_RSPHERE)
-        // normal is radial n_r; convert using the particle position at the contact point.
-        amrex::ParticleReal const inv_r_c =
-            1.0_prt / std::sqrt(x_c*x_c + y_c*y_c + z_c*z_c);
-        amrex::ParticleReal const n3d_x = amrex::ParticleReal(n[0]) * x_c * inv_r_c;
-        amrex::ParticleReal const n3d_y = amrex::ParticleReal(n[0]) * y_c * inv_r_c;
-        amrex::ParticleReal const n3d_z = amrex::ParticleReal(n[0]) * z_c * inv_r_c;
-#elif defined(WARPX_DIM_1D_Z)
-        // normal is along z.
-        amrex::ParticleReal const n3d_x = 0.0_prt;
-        amrex::ParticleReal const n3d_y = 0.0_prt;
-        amrex::ParticleReal const n3d_z = amrex::ParticleReal(n[0]);
-#endif
+        // Compute the surface normal vector at the contact point, in 3D
+        // Cartesian coordinates (as is the velocity below).
+        auto const n3d = DistanceToEB::interp_normal(x_c, y_c, z_c, plo, dxi, distance_to_eb);
+        amrex::ParticleReal const n3d_x = n3d[0];
+        amrex::ParticleReal const n3d_y = n3d[1];
+        amrex::ParticleReal const n3d_z = n3d[2];
 
         // Specular reflection: u_refl = u - 2 (u.n) n
         amrex::ParticleReal const u_dot_n = ux*n3d_x + uy*n3d_y + uz*n3d_z;
