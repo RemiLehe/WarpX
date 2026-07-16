@@ -48,9 +48,6 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
         m_WarpX->m_fields.alloc_init(FieldType::dA_fp, Direction{0}, lev, ba_Ex, dm_E, 1, nge, 0.0_rt);
         m_WarpX->m_fields.alloc_init(FieldType::dA_fp, Direction{1}, lev, ba_Ey, dm_E, 1, nge, 0.0_rt);
         m_WarpX->m_fields.alloc_init(FieldType::dA_fp, Direction{2}, lev, ba_Ez, dm_E, 1, nge, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::vector_potential_fp, Direction{0}, lev, ba_Ex, dm_E, 1, nge, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::vector_potential_fp, Direction{1}, lev, ba_Ey, dm_E, 1, nge, 0.0_rt);
-        m_WarpX->m_fields.alloc_init(FieldType::vector_potential_fp, Direction{2}, lev, ba_Ez, dm_E, 1, nge, 0.0_rt);
     }
 
     // Define WarpXSolverVec instances for the MS equation solution (dA) and
@@ -203,8 +200,8 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
         return exit_status;
     }
 
-    // Update E to E = -dA/dt and A to A += dA (recall that B is updated after Poisson solve)
-    UpdateEandAfromdA(a_step);
+    // Update E to E = -dA/dt (B is updated after the corrector push below)
+    UpdateEfromdA(a_step);
 
     // Set particle velocities to 0 since the push below is just calculating
     // the acceleration due to the inductive E-field
@@ -232,6 +229,10 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
 
     // Push particle positions forward (velocities are already updated)
     m_WarpX->GetPartContainer().PushX(m_dt);
+
+    // Update magnetic field
+    m_WarpX->EvolveB(m_dt, SubcyclingHalf::None, a_step*m_dt);
+    m_WarpX->FillBoundaryB(m_WarpX->getngEB(), true);
 
     return exit_status;
 }
@@ -596,19 +597,15 @@ void SemiImplicitDarwin::CalculateSourceVector ()
     }
 }
 
-void SemiImplicitDarwin::UpdateEandAfromdA ( int astep )
+void SemiImplicitDarwin::UpdateEfromdA ( int astep )
 {
     // This function updates the Efield_fp MF to hold the new inductive E-field.
-    // And updates the vector potential to A^n+1/2 = A^n-1/2 + dA^n
-    BL_PROFILE("SemiImplicitDarwin::UpdateEandAfromdA()");
+    BL_PROFILE("SemiImplicitDarwin::UpdateEfromdA()");
 
     const int lev = 0;
 
     // Grab the E-field MultiFabs
     ablastr::fields::MultiLevelVectorField Efield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
-
-    // Grab the vector potential
-    ablastr::fields::MultiLevelVectorField Afield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::vector_potential_fp, lev);
 
     // Grab the dA_fp MultiFabs to store dA = curl(Z) (the solved-for Z lives
     // on B's staggering; dA lives on A/E's staggering)
@@ -648,9 +645,8 @@ void SemiImplicitDarwin::UpdateEandAfromdA ( int astep )
     for (int ii = 0; ii < 3; ii++)
     {
         // dA_fp's transverse components are nodal (E-staggered, same as
-        // Efield_fp/vector_potential_fp) - use FillBoundaryAndSync so the
-        // value copied into Efield/added into vector_potential_fp below is
-        // consistent at the periodic-wrapped domain endpoint.
+        // Efield_fp) - use FillBoundaryAndSync so the value copied into Efield
+        // below is consistent at the periodic-wrapped domain endpoint.
         dAfield[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
@@ -661,20 +657,11 @@ void SemiImplicitDarwin::UpdateEandAfromdA ( int astep )
         amrex::MultiFab::Copy( *Efield[lev][ii], *dAfield[lev][ii], 0, 0, 1,
                                 dAfield[lev][ii]->nGrowVect() );
         Efield[lev][ii]->mult(prefac, 0); // use zero ghost cells since FillBoundary is called below
-
-        // Update vector potential
-        amrex::MultiFab::Add(*Afield[lev][ii], *dAfield[lev][ii], 0, 0, 1, 0);
-        // Fill guard cell values (nodal transverse components - see note above)
-        Afield[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
     // Apply E-field boundary
-    m_WarpX->FillBoundaryE(Efield[lev][0]->nGrowVect(), true);
     m_WarpX->ApplyEfieldBoundary(0, PatchType::fine, astep*m_dt);
-
-    // if (m_WarpX->use_filter) {
-    //     m_WarpX->ApplyFilterMF(Efield, lev);
-    // }
+    m_WarpX->FillBoundaryE(m_WarpX->getngEB(), true);
 }
 
 void SemiImplicitDarwin::ClearParticleVelocities ()

@@ -288,53 +288,39 @@ WarpX::Evolve (int numsteps)
         }
 
         // Field solve step for electrostatic, hybrid-PIC, or Darwin solvers
-        if( electrostatic_solver_id != ElectrostaticSolverAlgo::None ||
-            evolve_scheme == EvolveScheme::Semi_Implicit_Darwin )
+        if( electrostatic_solver_id != ElectrostaticSolverAlgo::None )
         {
             ExecutePythonCallback("beforeEsolve");
 
-            if (electrostatic_solver_id != ElectrostaticSolverAlgo::None) {
-                // Electrostatic solver:
-                // For each species: deposit charge and add the associated space-charge
-                // E and B field to the grid ; this is done at the end of the PIC
-                // loop (i.e. immediately after a `Redistribute` and before particle
-                // positions are next pushed) so that the particles do not deposit out of bounds
-                // and so that the fields are at the correct time in the output.
-                bool const reset_fields = true;
-                ComputeSpaceChargeField( reset_fields );
-                if (electrostatic_solver_id == ElectrostaticSolverAlgo::LabFrameElectroMagnetostatic) {
-                    // Call Magnetostatic Solver to solve for the vector potential A and compute the
-                    // B field.  Time varying A contribution to E field is neglected.
-                    // This is currently a lab frame calculation.
-                    ComputeMagnetostaticField();
-                }
+            // Electrostatic solver:
+            // The E-field is always reset to hold just the electrostatic component
+            bool const reset_E_field = true;
+            // The B-field is also reset unless the Darwin solver is used
+            bool const reset_B_field = (evolve_scheme != EvolveScheme::Semi_Implicit_Darwin);
+
+            // For each species: deposit charge and add the associated space-charge
+            // E and B field to the grid ; this is done at the end of the PIC
+            // loop (i.e. immediately after a `Redistribute` and before particle
+            // positions are next pushed) so that the particles do not deposit out of bounds
+            // and so that the fields are at the correct time in the output.
+            ComputeSpaceChargeField( reset_E_field, reset_B_field );
+            if (electrostatic_solver_id == ElectrostaticSolverAlgo::LabFrameElectroMagnetostatic) {
+                // Call Magnetostatic Solver to solve for the vector potential A and compute the
+                // B field.  Time varying A contribution to E field is neglected.
+                // This is currently a lab frame calculation.
+                ComputeMagnetostaticField();
             }
-            else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
-                // Darwin without an electrostatic solver: the electrostatic component of E
-                // is zero by definition, but SemiImplicitDarwin::OneStep() assumes on entry
-                // that Efield_fp holds only that (electrostatic) component. Without an
-                // electrostatic solver to refresh it every step, Efield_fp would otherwise
-                // still hold the previous step's inductive field (E = -dA/dt), computed at
-                // the end of that step's OneStep() call.
-                for (int lev = 0; lev <= max_level; ++lev) {
-                    for (int comp = 0; comp < 3; ++comp) {
-                        m_fields.get(FieldType::Efield_fp, Direction{comp}, lev)->setVal(0);
-                    }
-                }
-            }
-            // Darwin case: The magnetic field is calculated based on the
-            // updated vector potential (A)
-            if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin &&
-                electrostatic_solver_id != ElectrostaticSolverAlgo::LabFrameElectroMagnetostatic ) {
-                // Set magnetic field equal to curl of A.
-                SyncDarwinBFromA();
-            }
+
             // The external fields are added back on to the fine patch fields
-            // (which are overwritten by electrostatic / magnetostatic solvers).
+            // (which are overwritten by electrostatic / magnetostatic solvers),
+            // unless Darwin is used in which case the "external" fields function
+            // as initial conditions (like for the electromagnetic solvers)
             // The net fields are then the sum of the field solutions and any
             // external field.
-            for (int lev = 0; lev <= max_level; ++lev) {
-                AddExternalFields(lev);
+            if (evolve_scheme != EvolveScheme::Semi_Implicit_Darwin) {
+                for (int lev = 0; lev <= max_level; ++lev) {
+                    AddExternalFields(lev);
+                }
             }
             ExecutePythonCallback("afterEsolve");
         }
@@ -744,21 +730,6 @@ void WarpX::ExplicitFillBoundaryEBUpdateAux ()
         UpdateAuxilaryData();
         FillBoundaryAux(guard_cells.ng_UpdateAux);
     }
-}
-
-void WarpX::SyncDarwinBFromA ()
-{
-    ablastr::fields::MultiLevelVectorField Bfield_fp =
-        m_fields.get_mr_levels_alldirs("Bfield_fp", finestLevel());
-    ablastr::fields::MultiLevelVectorField Afield_fp =
-        m_fields.get_mr_levels_alldirs("vector_potential_fp", finestLevel());
-    for (int lev = 0; lev <= finestLevel(); ++lev) {
-        get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
-            Bfield_fp[lev], Afield_fp[lev],
-            GetEBUpdateBFlag()[lev],
-            lev);
-    }
-    FillBoundaryB(getngEB(), true);
 }
 
 void WarpX::HandleParticlesAtBoundaries (int step, amrex::Real cur_time, int num_moved)

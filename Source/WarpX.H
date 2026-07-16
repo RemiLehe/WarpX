@@ -805,7 +805,7 @@ public:
     [[nodiscard]] amrex::IntVect get_numprocs() const {return numprocs;}
 
     /** Electrostatic solve call */
-    void ComputeSpaceChargeField (bool reset_fields);
+    void ComputeSpaceChargeField (bool reset_E_field, bool reset_B_field);
 
     // Magnetostatic Solver Interface
     MagnetostaticSolver::VectorPoissonBoundaryHandler m_vector_poisson_boundary_handler;
@@ -1460,12 +1460,6 @@ private:
      * Particles have p^{n} and x^{n}.
      */
     void ExplicitFillBoundaryEBUpdateAux ();
-
-    /** Set the magnetic field equal to the curl of the vector potential A.
-     *
-     * Used by the Darwin solver, since B is not itself evolved.
-     */
-    void SyncDarwinBFromA ();
 
     //! Integer that corresponds to the order of the PSATD solution
     //! (whether the PSATD equations are derived from first-order or

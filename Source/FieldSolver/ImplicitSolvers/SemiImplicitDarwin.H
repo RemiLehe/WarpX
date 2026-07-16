@@ -60,7 +60,7 @@ public:
     void PrepareCurrentDeposition ();
     void AccumulateCurrentAndSusceptibility ();
     void CalculateSourceVector ();
-    void UpdateEandAfromdA( int astep );
+    void UpdateEfromdA( int astep );
     void ClearParticleVelocities ();
     void FinishVelocityUpdate ();
 

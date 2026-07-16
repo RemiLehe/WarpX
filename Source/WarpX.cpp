@@ -737,6 +737,9 @@ WarpX::ReadParameters ()
         else if (evolve_scheme == EvolveScheme::Semi_Implicit_Darwin) {
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee,
                 "Only the Yee electromagnetic solver can be used with Darwin");
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(electrostatic_solver_id != ElectrostaticSolverAlgo::None,
+                "The Darwin solver requires an electrostatic solver to also be set, "
+                "e.g. warpx.do_electrostatic = labframe");
         }
 
 #if defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
