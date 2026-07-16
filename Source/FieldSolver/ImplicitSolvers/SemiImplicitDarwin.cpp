@@ -292,56 +292,6 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         rhs_vec[lev], Zscratch, m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Enforce Z's divergence-free gauge. Deriving nabla^4(Z) + curl(chi(curl(Z)))
-    // from the validated 2nd-order (dA, xi) equation relies on
-    // curl(curl(Z)) = -nabla^2(Z), which only holds if div(Z)=0. The full
-    // identity is curl(curl(Z)) = grad(div(Z)) - nabla^2(Z), so the exact
-    // equation also has a -nabla^2(grad(div(Z))) = -grad(nabla^2(div(Z)))
-    // term. Nothing else here constrains div(Z) numerically, so without this
-    // term the divergent component of Z is entirely unconstrained by the
-    // operator and can grow without bound.
-// #if defined(WARPX_DIM_1D_Z)
-//     {
-//         // div(Z) flips Zz's own (nodal) type in the z-direction to
-//         // cell-centered - reuse the generic ComputeDivE/ComputeLaplacian/
-//         // ComputeGradient kernels (they only depend on the ixType of the
-//         // MultiFabs passed in, not on which physical field they represent).
-//         amrex::IndexType div_type = Zscratch_z.ixType();
-//         div_type.flip(0);
-//         amrex::MultiFab divZ(amrex::convert(Zscratch_z.boxArray(), div_type),
-//                               Zscratch_z.DistributionMap(), ncomps, biharmonic_ng);
-//         m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeDivE(Zscratch, divZ);
-//         divZ.FillBoundary(m_WarpX->Geom(lev).periodicity());
-
-//         amrex::MultiFab lap_divZ(divZ.boxArray(), divZ.DistributionMap(), ncomps, biharmonic_ng);
-//         amrex::MultiFab* divZ_p = &divZ;
-//         amrex::MultiFab* lap_divZ_p = &lap_divZ;
-//         m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeLaplacian(
-//             lap_divZ_p, divZ_p, m_WarpX->GetEBUpdateBFlag()[lev], lev
-//         );
-//         lap_divZ.FillBoundary(m_WarpX->Geom(lev).periodicity());
-
-//         // gradcorr is allocated matching Zscratch's own (correct) staggering,
-//         // since UpwardDx/Dy/Dz applied to lap_divZ naturally flips back to it.
-//         amrex::MultiFab gradcorr_x(Zscratch_x.boxArray(), Zscratch_x.DistributionMap(), ncomps, 0);
-//         amrex::MultiFab gradcorr_y(Zscratch_y.boxArray(), Zscratch_y.DistributionMap(), ncomps, 0);
-//         amrex::MultiFab gradcorr_z(Zscratch_z.boxArray(), Zscratch_z.DistributionMap(), ncomps, 0);
-//         ablastr::fields::VectorField gradcorr = {&gradcorr_x, &gradcorr_y, &gradcorr_z};
-//         m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeGradient(
-//             gradcorr, lap_divZ_p, m_WarpX->GetEBUpdateBFlag()[lev], lev
-//         );
-
-//         for (int ii = 0; ii < 3; ii++)
-//         {
-//             amrex::MultiFab::Subtract(*rhs_vec[lev][ii], *gradcorr[ii], 0, 0, ncomps, 0);
-//         }
-//     }
-// #else
-//     WARPX_ABORT_WITH_MESSAGE(
-//         "SemiImplicitDarwin::ComputeRHS: divergence-free Z enforcement is only "
-//         "implemented for WARPX_DIM_1D_Z so far");
-// #endif
-
     // Calculate curl of Z into dA (ComputeCurlB resets dA_fp to zero internally).
     // Use Zscratch (guard cells already filled above) rather than Zvec directly.
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlB(
