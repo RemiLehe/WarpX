@@ -874,7 +874,7 @@ FullDiagnostics::InitializeFieldFunctors (int lev)
                     // Efield_aux (like Efield_fp, which it aliases at this level)
                     // only holds the electrostatic E-field at this point in the
                     // step; recover the full field using dA_fp (see
-                    // DarwinEfieldFunctor and SemiImplicitDarwin::UpdateEandAfromdA).
+                    // DarwinEfieldFunctor and SemiImplicitDarwin::UpdateEfromdA).
                     m_all_field_functors[lev][comp] = std::make_unique<DarwinEfieldFunctor>(
                         warpx.m_fields.get(FieldType::Efield_aux, Direction{idir}, lev),
                         warpx.m_fields.get(FieldType::dA_fp, Direction{idir}, lev),

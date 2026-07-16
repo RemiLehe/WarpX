@@ -287,7 +287,7 @@ WarpX::Evolve (int numsteps)
             ExecutePythonCallback("aftercollisions");
         }
 
-        // Field solve step for electrostatic, hybrid-PIC, or Darwin solvers
+        // Electrostatic field solve step for electrostatic or Darwin solvers
         if( electrostatic_solver_id != ElectrostaticSolverAlgo::None )
         {
             ExecutePythonCallback("beforeEsolve");
