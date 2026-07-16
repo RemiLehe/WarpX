@@ -128,13 +128,6 @@ struct ParticleBoundaryInteraction {
         amrex::ParticleReal const n3d_z = n3d[2];
 
         if (m_boundary_type == ParticleBoundaryType::Thermal) {
-            // Degenerate level-set gradient at a sharp corner makes the
-            // (internally normalized) normal non-finite: absorb the particle
-            // rather than re-emit it in an ill-defined direction.
-            if (!(std::isfinite(n3d_x) && std::isfinite(n3d_y) && std::isfinite(n3d_z))) {
-                amrex::ParticleIDWrapper{ptd.m_idcpu[i]}.make_invalid();
-                return;
-            }
 
             // Build an orthonormal frame (n, t1, t2) out of the surface normal,
             // to re-emit the particle in the (half-Maxwellian normal, full
