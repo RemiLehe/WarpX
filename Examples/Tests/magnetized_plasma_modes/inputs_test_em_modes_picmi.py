@@ -321,12 +321,6 @@ class EMModes(object):
                 self.solver_obj = DummyES_Solver(self.grid)
             simulation.solver = self.solver_obj
 
-            B_ext = picmi.AnalyticInitialField(
-                Bx_expression=self.Bx,
-                By_expression=self.By,
-                Bz_expression=self.Bz,
-                warpx_do_initial_div_cleaning=False,
-            )
         else:
             self.solver_obj = picmi.HybridPICSolver(
                 grid=self.grid,
@@ -338,9 +332,9 @@ class EMModes(object):
             )
             simulation.solver = self.solver_obj
 
-            B_ext = picmi.AnalyticInitialField(
-                Bx_expression=self.Bx, By_expression=self.By, Bz_expression=self.Bz
-            )
+        B_ext = picmi.AnalyticInitialField(
+            Bx_expression=self.Bx, By_expression=self.By, Bz_expression=self.Bz
+        )
         simulation.add_applied_field(B_ext)
 
         #######################################################################
