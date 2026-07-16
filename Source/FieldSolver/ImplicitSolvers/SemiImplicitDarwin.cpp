@@ -37,7 +37,7 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
             "conditions in all directions.");
     }
 
-    // Define dA and xi MultiFabs
+    // Define dA MultiFabs
     using ablastr::fields::Direction;
     for (int lev = 0; lev < m_num_amr_levels; ++lev) {
         const auto& ba_Ex = m_WarpX->m_fields.get(FieldType::Efield_fp, Direction{0}, lev)->boxArray();
@@ -50,8 +50,7 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
         m_WarpX->m_fields.alloc_init(FieldType::dA_fp, Direction{2}, lev, ba_Ez, dm_E, 1, nge, 0.0_rt);
     }
 
-    // Define WarpXSolverVec instances for the MS equation solution (dA) and
-    // source
+    // Define WarpXSolverVec instances for the MS equation solution (Z) and source
     m_Z.Define( m_WarpX, "Bfield_fp");
     m_Z.zero();
     m_source.Define(m_Z);
@@ -81,14 +80,11 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
     }
 
     // Parse implicit solver parameters
-    // const amrex::ParmParse pp("implicit_evolve");
-    // parseNonlinearSolverParams( pp );
     m_use_mass_matrices = true;
     m_use_mass_matrices_pc = false;
     m_use_mass_matrices_jacobian = true;
     m_nlsolver_type = NonlinearSolverType::none;
     m_max_particle_iterations = 1;
-    m_particle_tolerance = 0.0;
 
     // Get the linear solver input parameters
     const amrex::ParmParse pp_l(amrex::getEnumNameString(m_linear_solver_type));
@@ -103,9 +99,6 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
     // but would reduce code.
     m_linear_function = std::make_unique<LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>>();
     m_linear_function->define(m_Z, this, PreconditionerType::none);
-
-    // Define the nonlinear solver
-    // m_nlsolver->Define(m_dA, this);
 
     // Define the linear solver
     m_linear_solver = std::make_unique<AMReXGMRES<WarpXSolverVec,LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>>>();
@@ -122,13 +115,11 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
 
 void SemiImplicitDarwin::PrintParameters () const
 {
-    if (!m_WarpX->Verbose()) { return; }
     amrex::Print() << "\n";
     amrex::Print() << "-----------------------------------------------------------\n";
     amrex::Print() << "--------- SEMI IMPLICIT DARWIN SOLVER PARAMETERS ----------\n";
     amrex::Print() << "-----------------------------------------------------------\n";
-    //PrintBaseImplicitSolverParameters();
-    //m_nlsolver->PrintParams();
+
     auto linsol_name = amrex::getEnumNameString(m_linear_solver_type);
     amrex::Print()     << "Linear solver (" << linsol_name << ") verbose:            " << m_linsol_verbose_int << "\n";
     amrex::Print()     << "Linear solver (" << linsol_name << ") restart length:     " << m_linsol_restart_length << "\n";
@@ -158,7 +149,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // TODO: only save u since we don't need to keep x
     m_WarpX->SaveParticlesAtImplicitStepStart();
 
-    // Push particle velocities with E_fp (which currently just contains -grad phi since
+    // Push particle velocities with E_fp (which currently just contains -∇ phi since
     // the E-field was cleared during the last Poisson solve)
     for (int lev = 0; lev <= finest_level; ++lev)
     {
@@ -230,7 +221,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // Push particle positions forward (velocities are already updated)
     m_WarpX->GetPartContainer().PushX(m_dt);
 
-    // Update magnetic field
+    // Update magnetic field using dB/dt = -∇ x E
     m_WarpX->EvolveB(m_dt, SubcyclingHalf::None, a_step*m_dt);
     m_WarpX->FillBoundaryB(m_WarpX->getngEB(), true);
 
@@ -257,7 +248,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     auto dA_fp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::dA_fp, lev);
     auto E_temp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
 
-    // Scratch space (allocated once in Define()), reused below to hold curl(chi(curl(Z))).
+    // Scratch space (allocated once in Define()), reused below to hold ∇ x (chi ∇ x Z).
     ablastr::fields::VectorField lapZ = {&m_lapZ_x, &m_lapZ_y, &m_lapZ_z};
 
     // GMRES builds intermediate Krylov candidates via WarpXSolverVec's
@@ -272,17 +263,15 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     for (int ii = 0; ii < 3; ii++)
     {
         amrex::MultiFab::Copy(*Zscratch[ii], *Zvec[lev][ii], 0, 0, ncomps, 0);
-        // Z's z-component is nodal (Bz_nodal_flag=1 for WARPX_DIM_1D_Z), so
-        // index 0 and index Nz are both *valid* cells representing the same
-        // periodic-wrapped point for that component. Plain FillBoundary only
-        // reconciles true ghost cells, not two overlapping valid cells - use
-        // FillBoundaryAndSync instead (harmless no-op for the transverse,
-        // cell-centered components, which have no such duplication).
+        // Plain FillBoundary only reconciles true ghost cells, not two
+        // overlapping valid cells - use FillBoundaryAndSync instead (harmless
+        // no-op for the transverse, cell-centered components, which have no
+        // such duplication).
         Zscratch[ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
     // Evaluation of the (single) 4th-order field equation:
-    // nabla^4(Z), discretized directly in a single pass. Composing two
+    // ∇^4(Z), discretized directly in a single pass. Composing two
     // separate ComputeVectorLaplacian calls (with an intermediate boundary
     // fill in between) introduces a parasitic, sign-alternating mode in Z's
     // nodal component, since each application's guard cells are filled
@@ -292,17 +281,14 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         rhs_vec[lev], Zscratch, m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Calculate curl of Z into dA (ComputeCurlB resets dA_fp to zero internally).
+    // Calculate dA = ∇ x Z (ComputeCurlB resets dA_fp to zero internally).
     // Use Zscratch (guard cells already filled above) rather than Zvec directly.
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlB(
         dA_fp[lev], Zscratch, m_WarpX->GetEBUpdateEFlag()[lev], lev
     );
 
-    // include guard cells. dA_fp is E-staggered: for WARPX_DIM_1D_Z its
-    // transverse components (x,y) are NODAL (Ex_nodal_flag=Ey_nodal_flag=1
-    // in WarpX.cpp), so the two array cells representing the periodic-wrapped
-    // domain endpoint are both valid cells - use FillBoundaryAndSync so they
-    // agree before ApplySusceptibility reads dA_fp with a wide stencil below.
+    // include guard cells. dA_fp is E-staggered: use FillBoundaryAndSync so
+    // periodically wrapped cells agree before ApplySusceptibility reads dA_fp below.
     for (int ii = 0; ii < 3; ii++)
     {
         dA_fp[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
@@ -319,7 +305,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         E_temp[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
-    // Reuse lapZ as a temporary storage location for the curl of E_temp (chi nabla x Z_vec)
+    // Reuse lapZ as a temporary storage location for the ∇ x E_temp = ∇ x (chi ∇ x Z_vec)
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
         lapZ, E_temp[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
@@ -329,11 +315,10 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         amrex::MultiFab::Add(*rhs_vec[lev][ii], *lapZ[ii], 0, 0, ncomps, 0);
     }
 
-    // rhs_vec is the operator's own output (B-staggered, matching Z: its
-    // z-component is nodal, transverse components are cell-centered).
+    // rhs_vec is the operator's own output (B-staggered, matching Z).
     // Nothing guarantees the stencil evaluations above produced identical
-    // values at the two duplicate periodic-image cells of the nodal
-    // component, and GMRES's own linComb/increment arithmetic (used to
+    // values at the duplicate periodic-image cells of the nodal
+    // component(s), and GMRES's own linComb/increment arithmetic (used to
     // build every subsequent Krylov vector from this result) is
     // element-wise and has no notion of that duplication - so reconcile it
     // here before handing the result back.
@@ -418,7 +403,7 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
         get the Lorentz factor used in the current deposition. That function
         is not appropriate for the Darwin model since it is hard coded for the
         electromagnetic implicit methods (it uses u and u_n to get a time
-        centered gamma).
+        centered gamma) - was fixed in 89a8fc3.
     */
 
     BL_PROFILE("SemiImplicitDarwin::AccumulateCurrentAndSusceptibility()");
@@ -492,12 +477,7 @@ void SemiImplicitDarwin::CalculateSourceVector ()
     // last synced, so don't rely on that happening elsewhere.
     for (int ii = 0; ii < 3; ii++)
     {
-        // Bfield_fp's z-component is nodal (same as Z's) - FillBoundaryAndSync
-        // is a harmless no-op for the cell-centered transverse components.
         Bfield[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
-        // current_fp shares Efield_fp's staggering: its transverse (x,y)
-        // components ARE nodal (jx_nodal_flag=jy_nodal_flag=1 for
-        // WARPX_DIM_1D_Z) - needs FillBoundaryAndSync, not plain FillBoundary.
         jfield[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
@@ -537,10 +517,7 @@ void SemiImplicitDarwin::CalculateSourceVector ()
         );
     }
 
-    // m_source is B-staggered (same as Z: nodal z-component, cell-centered
-    // transverse); reconcile the duplicate periodic-image cells of the
-    // z-component for the same reason as rhs_vec in ComputeRHS - this is the
-    // RHS GMRES solves against for the entire step.
+    // This is the RHS GMRES solves against for the entire step.
     for (int ii = 0; ii < 3; ii++)
     {
         b[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
@@ -557,7 +534,7 @@ void SemiImplicitDarwin::UpdateEfromdA ( int astep )
     // Grab the E-field MultiFabs
     ablastr::fields::MultiLevelVectorField Efield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
 
-    // Grab the dA_fp MultiFabs to store dA = curl(Z) (the solved-for Z lives
+    // Grab the dA_fp MultiFabs to store dA = ∇ x Z (the solved-for Z lives
     // on B's staggering; dA lives on A/E's staggering)
     ablastr::fields::MultiLevelVectorField dAfield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::dA_fp, lev);
 
@@ -581,22 +558,19 @@ void SemiImplicitDarwin::UpdateEfromdA ( int astep )
     for (int ii = 0; ii < 3; ii++)
     {
         amrex::MultiFab::Copy(*Zscratch[ii], *Zfield[lev][ii], 0, 0, 1, 0);
-        // Z's transverse components are nodal, so index 0 and index Nz are
-        // both *valid* cells representing the same periodic-wrapped point.
+        // Z's transverse components are nodal, so transverse end points are
+        // *valid* cells possibly representing the same periodic-wrapped point.
         // Plain FillBoundary only reconciles true ghost cells, not two
         // overlapping valid cells - use FillBoundaryAndSync instead.
         Zscratch[ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
-    // Calculate dA = curl(Z)
+    // Calculate dA = ∇ x Z
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlB(
         dAfield[lev], Zscratch, m_WarpX->GetEBUpdateEFlag()[lev], lev
     );
     for (int ii = 0; ii < 3; ii++)
     {
-        // dA_fp's transverse components are nodal (E-staggered, same as
-        // Efield_fp) - use FillBoundaryAndSync so the value copied into Efield
-        // below is consistent at the periodic-wrapped domain endpoint.
         dAfield[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
@@ -987,10 +961,7 @@ void SemiImplicitDarwin::ApplySusceptibility (
             });
         }
 
-        // Apply boundary conditions. rhs is always called with E-staggered
-        // storage (E_temp/Efield_fp) here, whose transverse components are
-        // nodal for WARPX_DIM_1D_Z - use FillBoundaryAndSync so the two
-        // valid cells representing the periodic-wrapped domain endpoint agree.
+        // Fill and sync guard cells & edges
         rhs[lev][0]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
         rhs[lev][1]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
         rhs[lev][2]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
