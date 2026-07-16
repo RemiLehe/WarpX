@@ -80,7 +80,7 @@ struct ParticleBoundaryInteraction {
     amrex::Real m_dt;
     amrex::ParticleReal m_mass;
     ParticleBoundaryType m_boundary_type;
-    amrex::ParticleReal m_uth = 0._prt;
+    amrex::ParticleReal m_uth = amrex::ParticleReal(0);
 
     template <typename PData>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
