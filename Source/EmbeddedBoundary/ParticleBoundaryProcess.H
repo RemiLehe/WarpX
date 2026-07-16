@@ -170,17 +170,6 @@ struct ParticleBoundaryInteraction {
             UpdatePosition(x_new, y_new, z_new, ux_new, uy_new, uz_new,
                            dt_fraction * dt, mass);
 
-            // If re-emission still lands inside the solid (sharp concave
-            // corner), absorb the particle rather than let it accumulate
-            // inside the EB.
-            int ri, rj, rk;
-            amrex::Real rW[AMREX_SPACEDIM][2];
-            ablastr::particles::compute_weights<amrex::IndexType::NODE>(
-                x_new, y_new, z_new, plo, dxi, ri, rj, rk, rW);
-            if (ablastr::particles::interp_field_nodal(ri, rj, rk, rW, distance_to_eb) < 0.0) {
-                amrex::ParticleIDWrapper{ptd.m_idcpu[i]}.make_invalid();
-                return;
-            }
             setPosition(i, x_new, y_new, z_new);
         } else {
             // Specular reflection: u_refl = u - 2 (u.n) n
