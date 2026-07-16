@@ -169,7 +169,8 @@ if sim.B_dir == "z":
             c="limegreen",
             ls="--",
             lw=1.25,
-            label="L mode:\n" + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1-\omega/\Omega_i}$",
+            label="L mode:\n"
+            + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1-\omega/\Omega_i}$",
         )
         # plot the R mode
         idx = np.where(w < 0)[0]
@@ -179,7 +180,8 @@ if sim.B_dir == "z":
             c="limegreen",
             ls="-.",
             lw=1.25,
-            label="R mode:\n" + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1+\omega/\Omega_i}$",
+            label="R mode:\n"
+            + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1+\omega/\Omega_i}$",
         )
     else:
         # plot the L mode
@@ -189,7 +191,8 @@ if sim.B_dir == "z":
             c="limegreen",
             ls="--",
             lw=1.25,
-            label="L mode:\n" + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1-\omega/\Omega_i}$",
+            label="L mode:\n"
+            + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1-\omega/\Omega_i}$",
         )
         # plot the R mode
         ax1.plot(
@@ -198,7 +201,8 @@ if sim.B_dir == "z":
             c="limegreen",
             ls="-.",
             lw=1.25,
-            label="R mode:\n" + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1+\omega/\Omega_i}$",
+            label="R mode:\n"
+            + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1+\omega/\Omega_i}$",
         )
 
     ax1.plot(

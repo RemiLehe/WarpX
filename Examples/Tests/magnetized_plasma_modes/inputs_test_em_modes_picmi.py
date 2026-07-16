@@ -87,7 +87,14 @@ class EMModes(object):
     )
 
     def __init__(
-        self, solver, test, dim, B_dir, verbose, include_es_solver=False, use_rkf45=False
+        self,
+        solver,
+        test,
+        dim,
+        B_dir,
+        verbose,
+        include_es_solver=False,
+        use_rkf45=False,
     ):
         """Get input parameters for the specific case desired."""
         self.solver = solver
@@ -465,9 +472,15 @@ class EMModes(object):
             return
 
         field_suffix = "aux" if self.solver == "darwin" else "fp"
-        Bx_warpx = simulation.fields.get(f"Bfield_{field_suffix}", dir="x", level=0)[...]
-        By_warpx = simulation.fields.get(f"Bfield_{field_suffix}", dir="y", level=0)[...]
-        Ez_warpx = simulation.fields.get(f"Efield_{field_suffix}", dir="z", level=0)[...]
+        Bx_warpx = simulation.fields.get(f"Bfield_{field_suffix}", dir="x", level=0)[
+            ...
+        ]
+        By_warpx = simulation.fields.get(f"Bfield_{field_suffix}", dir="y", level=0)[
+            ...
+        ]
+        Ez_warpx = simulation.fields.get(f"Efield_{field_suffix}", dir="z", level=0)[
+            ...
+        ]
 
         if libwarpx.amr.ParallelDescriptor.MyProc() != 0:
             return
