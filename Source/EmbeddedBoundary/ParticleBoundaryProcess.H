@@ -127,6 +127,7 @@ struct ParticleBoundaryInteraction {
         amrex::ParticleReal const n3d_y = n3d[1];
         amrex::ParticleReal const n3d_z = n3d[2];
 
+        amrex::ParticleReal ux_new = 0._prt, uy_new = 0._prt, uz_new = 0._prt;
         if (m_boundary_type == ParticleBoundaryType::Thermal) {
 
             // Re-emit the particle in the (half-Maxwellian normal, full
@@ -146,40 +147,29 @@ struct ParticleBoundaryInteraction {
             amrex::ParticleReal const u_flux =
                 cc * static_cast<amrex::ParticleReal>(generateGaussianFluxDist(0._rt, m_uth, engine));
             amrex::ParticleReal const u_iso_dot_n = ux_iso*n3d_x + uy_iso*n3d_y + uz_iso*n3d_z;
-            amrex::ParticleReal const ux_new = ux_iso + (u_flux - u_iso_dot_n)*n3d_x;
-            amrex::ParticleReal const uy_new = uy_iso + (u_flux - u_iso_dot_n)*n3d_y;
-            amrex::ParticleReal const uz_new = uz_iso + (u_flux - u_iso_dot_n)*n3d_z;
-            ptd.m_rdata[PIdx::ux][i] = ux_new;
-            ptd.m_rdata[PIdx::uy][i] = uy_new;
-            ptd.m_rdata[PIdx::uz][i] = uz_new;
-
-            // Advance from the contact point, with the new velocity,
-            // for the remaining fraction of the timestep
-            amrex::ParticleReal x_new = x_c, y_new = y_c, z_new = z_c;
-            UpdatePosition(x_new, y_new, z_new, ux_new, uy_new, uz_new,
-                           dt_fraction * dt, mass);
-
-            setPosition(i, x_new, y_new, z_new);
+            ux_new = ux_iso + (u_flux - u_iso_dot_n)*n3d_x;
+            uy_new = uy_iso + (u_flux - u_iso_dot_n)*n3d_y;
+            uz_new = uz_iso + (u_flux - u_iso_dot_n)*n3d_z;
         } else {
             // Specular reflection: u_refl = u - 2 (u.n) n
             amrex::ParticleReal const u_dot_n = ux*n3d_x + uy*n3d_y + uz*n3d_z;
-            amrex::ParticleReal const ux_refl = ux - 2.0_prt * u_dot_n * n3d_x;
-            amrex::ParticleReal const uy_refl = uy - 2.0_prt * u_dot_n * n3d_y;
-            amrex::ParticleReal const uz_refl = uz - 2.0_prt * u_dot_n * n3d_z;
-            // Store reflected velocity
-            ptd.m_rdata[PIdx::ux][i] = ux_refl;
-            ptd.m_rdata[PIdx::uy][i] = uy_refl;
-            ptd.m_rdata[PIdx::uz][i] = uz_refl;
-
-            // Advance from the contact point, with the reflected velocity,
-            // for the remaining fraction of the timestep
-            amrex::ParticleReal x_new = x_c, y_new = y_c, z_new = z_c;
-            UpdatePosition(x_new, y_new, z_new, ux_refl, uy_refl, uz_refl,
-                           dt_fraction * dt, mass);
-            // SetParticlePosition handles the conversion to the stored
-            // (reduced-dimension) coordinates.
-            setPosition(i, x_new, y_new, z_new);
+            ux_new = ux - 2.0_prt * u_dot_n * n3d_x;
+            uy_new = uy - 2.0_prt * u_dot_n * n3d_y;
+            uz_new = uz - 2.0_prt * u_dot_n * n3d_z;
         }
+
+        // Store the new velocity
+        ptd.m_rdata[PIdx::ux][i] = ux_new;
+        ptd.m_rdata[PIdx::uy][i] = uy_new;
+        ptd.m_rdata[PIdx::uz][i] = uz_new;
+
+        // Advance from the contact point, with the new velocity, for the
+        // remaining fraction of the timestep. SetParticlePosition handles the
+        // conversion to the stored (reduced-dimension) coordinates.
+        amrex::ParticleReal x_new = x_c, y_new = y_c, z_new = z_c;
+        UpdatePosition(x_new, y_new, z_new, ux_new, uy_new, uz_new,
+                       dt_fraction * dt, mass);
+        setPosition(i, x_new, y_new, z_new);
     }
 };
 
