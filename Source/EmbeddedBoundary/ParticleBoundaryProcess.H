@@ -129,37 +129,26 @@ struct ParticleBoundaryInteraction {
 
         if (m_boundary_type == ParticleBoundaryType::Thermal) {
 
-            // Build an orthonormal frame (n, t1, t2) out of the surface normal,
-            // to re-emit the particle in the (half-Maxwellian normal, full
-            // Maxwellian tangential) wall distribution.
-            amrex::ParticleReal e0 = 0._prt, e1 = 0._prt, e2 = 0._prt;
-            if (std::abs(n3d_x) <= std::abs(n3d_y) && std::abs(n3d_x) <= std::abs(n3d_z)) {
-                e0 = 1._prt;
-            } else if (std::abs(n3d_y) <= std::abs(n3d_z)) {
-                e1 = 1._prt;
-            } else {
-                e2 = 1._prt;
-            }
-            amrex::ParticleReal const edn = e0*n3d_x + e1*n3d_y + e2*n3d_z;
-            amrex::ParticleReal t10 = e0 - edn*n3d_x;
-            amrex::ParticleReal t11 = e1 - edn*n3d_y;
-            amrex::ParticleReal t12 = e2 - edn*n3d_z;
-            amrex::ParticleReal const t1n = 1._prt/std::sqrt(t10*t10 + t11*t11 + t12*t12);
-            t10 *= t1n; t11 *= t1n; t12 *= t1n;
-            amrex::ParticleReal const t20 = n3d_y*t12 - n3d_z*t11;
-            amrex::ParticleReal const t21 = n3d_z*t10 - n3d_x*t12;
-            amrex::ParticleReal const t22 = n3d_x*t11 - n3d_y*t10;
-
+            // Re-emit the particle in the (half-Maxwellian normal, full
+            // Maxwellian tangential) wall distribution. First draw an
+            // isotropic Maxwellian velocity in 3D, then replace the component
+            // along the normal by a (positive) half-Maxwellian flux velocity,
+            // directed into the domain along n3d. Since n3d is a unit vector,
+            // subtracting the current normal projection (u_iso . n3d) and
+            // adding u_flux leaves the tangential components untouched.
             auto const cc = static_cast<amrex::ParticleReal>(PhysConst::c);
-            amrex::ParticleReal const u_norm =
+            amrex::ParticleReal const ux_iso =
+                cc * static_cast<amrex::ParticleReal>(amrex::RandomNormal(0._rt, m_uth, engine));
+            amrex::ParticleReal const uy_iso =
+                cc * static_cast<amrex::ParticleReal>(amrex::RandomNormal(0._rt, m_uth, engine));
+            amrex::ParticleReal const uz_iso =
+                cc * static_cast<amrex::ParticleReal>(amrex::RandomNormal(0._rt, m_uth, engine));
+            amrex::ParticleReal const u_flux =
                 cc * static_cast<amrex::ParticleReal>(generateGaussianFluxDist(0._rt, m_uth, engine));
-            amrex::ParticleReal const u_tang1 =
-                cc * static_cast<amrex::ParticleReal>(amrex::RandomNormal(0._rt, m_uth, engine));
-            amrex::ParticleReal const u_tang2 =
-                cc * static_cast<amrex::ParticleReal>(amrex::RandomNormal(0._rt, m_uth, engine));
-            amrex::ParticleReal const ux_new = u_norm*n3d_x + u_tang1*t10 + u_tang2*t20;
-            amrex::ParticleReal const uy_new = u_norm*n3d_y + u_tang1*t11 + u_tang2*t21;
-            amrex::ParticleReal const uz_new = u_norm*n3d_z + u_tang1*t12 + u_tang2*t22;
+            amrex::ParticleReal const u_iso_dot_n = ux_iso*n3d_x + uy_iso*n3d_y + uz_iso*n3d_z;
+            amrex::ParticleReal const ux_new = ux_iso + (u_flux - u_iso_dot_n)*n3d_x;
+            amrex::ParticleReal const uy_new = uy_iso + (u_flux - u_iso_dot_n)*n3d_y;
+            amrex::ParticleReal const uz_new = uz_iso + (u_flux - u_iso_dot_n)*n3d_z;
             ptd.m_rdata[PIdx::ux][i] = ux_new;
             ptd.m_rdata[PIdx::uy][i] = uy_new;
             ptd.m_rdata[PIdx::uz][i] = uz_new;
