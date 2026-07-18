@@ -31,8 +31,8 @@ if(WarpX_EB)
         3  # dims
         1  # nprocs
         inputs_test_3d_embedded_boundary_cube_mr  # inputs
-        "analysis_fields.py diags/diag1000208"  # analysis
-        "analysis_default_regression.py --path diags/diag1000208"  # checksum
+        "analysis_fields.py diags/diag1000104"  # analysis
+        "analysis_default_regression.py --path diags/diag1000104"  # checksum
         OFF  # dependency
     )
 endif()
