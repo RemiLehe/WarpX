@@ -9,3 +9,5 @@ geometry.prob_lo = -1.6 -1.6 -1.6
 geometry.prob_hi =  1.6  1.6  1.6
 warpx.fine_tag_lo = -0.8 -0.8 -0.8
 warpx.fine_tag_hi =  0.8  0.8  0.8
+
+warpx.do_subcycling = 1
