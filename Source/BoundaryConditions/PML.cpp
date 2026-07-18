@@ -870,9 +870,14 @@ PML::PML (const int lev, const BoxArray& grid_ba,
 #ifdef AMREX_USE_EB
     if (eb_enabled) {
         const amrex::IntVect max_guard_EB_vect = amrex::IntVect(max_guard_EB);
-        fields.alloc_init(FieldType::pml_edge_lengths, Direction{0}, lev, ba_Ex, dm, WarpX::ncomps, max_guard_EB_vect, 0.0_rt, false, false);
-        fields.alloc_init(FieldType::pml_edge_lengths, Direction{1}, lev, ba_Ey, dm, WarpX::ncomps, max_guard_EB_vect, 0.0_rt, false, false);
-        fields.alloc_init(FieldType::pml_edge_lengths, Direction{2}, lev, ba_Ez, dm, WarpX::ncomps, max_guard_EB_vect, 0.0_rt, false, false);
+
+        // Allocate the flags that indicate on which grid points the E field
+        // (and the PML current) should be updated. By default, all grid points
+        // are updated; this is refined below for the finite-difference solvers.
+        m_eb_update_E[0] = std::make_unique<amrex::iMultiFab>(ba_Ex, dm, WarpX::ncomps, max_guard_EB_vect);
+        m_eb_update_E[1] = std::make_unique<amrex::iMultiFab>(ba_Ey, dm, WarpX::ncomps, max_guard_EB_vect);
+        m_eb_update_E[2] = std::make_unique<amrex::iMultiFab>(ba_Ez, dm, WarpX::ncomps, max_guard_EB_vect);
+        for (int idim = 0; idim < 3; ++idim) { m_eb_update_E[idim]->setVal(1); }
 
         if (WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee ||
             WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::CKC ||
@@ -880,10 +885,19 @@ PML::PML (const int lev, const BoxArray& grid_ba,
 
             auto const eb_fact = fieldEBFactory();
 
-            ablastr::fields::VectorField t_pml_edge_lengths = fields.get_alldirs(FieldType::pml_edge_lengths, lev);
-            warpx::embedded_boundary::ComputeEdgeLengths(t_pml_edge_lengths, eb_fact);
-            warpx::embedded_boundary::ScaleEdges(t_pml_edge_lengths, WarpX::CellSize(lev));
+            // Compute the edge lengths of the mesh in the PML region, and use
+            // them to mark the grid points on which the E field should be updated
+            // (i.e. the grid points whose associated edge is not fully covered).
+            amrex::MultiFab pml_edge_lengths_x(ba_Ex, dm, WarpX::ncomps, max_guard_EB_vect);
+            amrex::MultiFab pml_edge_lengths_y(ba_Ey, dm, WarpX::ncomps, max_guard_EB_vect);
+            amrex::MultiFab pml_edge_lengths_z(ba_Ez, dm, WarpX::ncomps, max_guard_EB_vect);
+            ablastr::fields::VectorField pml_edge_lengths =
+                {&pml_edge_lengths_x, &pml_edge_lengths_y, &pml_edge_lengths_z};
 
+            warpx::embedded_boundary::ComputeEdgeLengths(pml_edge_lengths, eb_fact);
+            warpx::embedded_boundary::ScaleEdges(pml_edge_lengths, WarpX::CellSize(lev));
+
+            warpx::embedded_boundary::MarkUpdateECellsECT(m_eb_update_E, pml_edge_lengths);
         }
     }
 #endif
