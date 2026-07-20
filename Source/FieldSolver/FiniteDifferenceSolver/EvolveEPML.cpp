@@ -32,11 +32,13 @@
 #include <AMReX_IndexType.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_iMultiFab.H>
 #include <AMReX_REAL.H>
 
 #include <AMReX_BaseFwd.H>
 
 #include <array>
+#include <memory>
 
 using namespace amrex;
 
@@ -47,13 +49,14 @@ void FiniteDifferenceSolver::EvolveEPML (
     ablastr::fields::MultiFabRegister& fields,
     PatchType patch_type,
     int level,
+    std::array< std::unique_ptr<amrex::iMultiFab>, 3 > const& eb_update_E,
     MultiSigmaBox const& sigba,
     amrex::Real const dt, bool pml_has_particles ) {
 
     // Select algorithm (The choice of algorithm is a runtime option,
     // but we compile code for each algorithm, using templates)
 #if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
-    amrex::ignore_unused(fields, patch_type, level, sigba, dt, pml_has_particles);
+    amrex::ignore_unused(fields, patch_type, level, eb_update_E, sigba, dt, pml_has_particles);
     WARPX_ABORT_WITH_MESSAGE(
         "PML are only implemented in Cartesian geometry.");
 #elif !defined(WARPX_DIM_RSPHERE)
@@ -66,13 +69,12 @@ void FiniteDifferenceSolver::EvolveEPML (
         fields.get_alldirs(FieldType::pml_B_fp, level) : fields.get_alldirs(FieldType::pml_B_cp, level);
     const ablastr::fields::VectorField Jfield = (patch_type == PatchType::fine) ?
         fields.get_alldirs(FieldType::pml_j_fp, level) : fields.get_alldirs(FieldType::pml_j_cp, level);
-    // `pml_edge_lengths` is only defined on the fine patch. On the coarse patch, the EB
-    // is not resolved, so the edge-length arrays are left empty and the EB masking below
+    // `m_eb_update_E` is only defined on the fine patch. On the coarse patch, the EB
+    // is not resolved, so the flag arrays are left empty and the EB masking below
     // is skipped (the kernels guard on the Array4 being non-empty).
-    ablastr::fields::VectorField edge_lengths{};
-    if (patch_type == PatchType::fine && fields.has_vector(FieldType::pml_edge_lengths, level)) {
-        edge_lengths = fields.get_alldirs(FieldType::pml_edge_lengths, level);
-    }
+    static std::array<std::unique_ptr<amrex::iMultiFab>, 3> const empty_eb_update{};
+    std::array<std::unique_ptr<amrex::iMultiFab>, 3> const& eb_update_for_kernel =
+        (patch_type == PatchType::fine) ? eb_update_E : empty_eb_update;
     amrex::MultiFab * Ffield = nullptr;
     if (fields.has(FieldType::pml_F_fp, level)) {
         Ffield = (patch_type == PatchType::fine) ?
@@ -82,17 +84,17 @@ void FiniteDifferenceSolver::EvolveEPML (
     if (m_grid_type == GridType::Collocated) {
 
         EvolveEPMLCartesian <CartesianNodalAlgorithm> (
-            Efield, Bfield, Jfield, edge_lengths, Ffield, sigba, dt, pml_has_particles );
+            Efield, Bfield, Jfield, eb_update_for_kernel, Ffield, sigba, dt, pml_has_particles );
 
     } else if (m_fdtd_algo == ElectromagneticSolverAlgo::Yee || m_fdtd_algo == ElectromagneticSolverAlgo::ECT) {
 
         EvolveEPMLCartesian <CartesianYeeAlgorithm> (
-            Efield, Bfield, Jfield,  edge_lengths, Ffield, sigba, dt, pml_has_particles );
+            Efield, Bfield, Jfield, eb_update_for_kernel, Ffield, sigba, dt, pml_has_particles );
 
     } else if (m_fdtd_algo == ElectromagneticSolverAlgo::CKC) {
 
         EvolveEPMLCartesian <CartesianCKCAlgorithm> (
-            Efield, Bfield, Jfield,  edge_lengths, Ffield, sigba, dt, pml_has_particles );
+            Efield, Bfield, Jfield, eb_update_for_kernel, Ffield, sigba, dt, pml_has_particles );
 
     } else {
         WARPX_ABORT_WITH_MESSAGE("EvolveEPML: Unknown algorithm");
@@ -108,7 +110,7 @@ void FiniteDifferenceSolver::EvolveEPMLCartesian (
     std::array< amrex::MultiFab*, 3 > Efield,
     std::array< amrex::MultiFab*, 3 > const Bfield,
     std::array< amrex::MultiFab*, 3 > const Jfield,
-    std::array< amrex::MultiFab*, 3 > const edge_lengths,
+    std::array< std::unique_ptr<amrex::iMultiFab>, 3 > const& eb_update_E,
     amrex::MultiFab* const Ffield,
     MultiSigmaBox const& sigba,
     amrex::Real const dt, bool pml_has_particles ) {
@@ -129,11 +131,12 @@ void FiniteDifferenceSolver::EvolveEPMLCartesian (
         Array4<Real> const& By = Bfield[1]->array(mfi);
         Array4<Real> const& Bz = Bfield[2]->array(mfi);
 
-        amrex::Array4<amrex::Real> lx, ly, lz;
-        if (EB::enabled() && edge_lengths[0] != nullptr) {
-            lx = edge_lengths[0]->array(mfi);
-            ly = edge_lengths[1]->array(mfi);
-            lz = edge_lengths[2]->array(mfi);
+        // Extract structures indicating whether the E field should be updated
+        amrex::Array4<int> update_Ex_arr, update_Ey_arr, update_Ez_arr;
+        if (EB::enabled() && eb_update_E[0] != nullptr) {
+            update_Ex_arr = eb_update_E[0]->array(mfi);
+            update_Ey_arr = eb_update_E[1]->array(mfi);
+            update_Ez_arr = eb_update_E[2]->array(mfi);
         }
 
         // Extract stencil coefficients
@@ -153,7 +156,8 @@ void FiniteDifferenceSolver::EvolveEPMLCartesian (
         amrex::ParallelFor(tex, tey, tez,
 
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
-                if (lx && lx(i, j, k) <= 0) { return; }
+                // Skip field push if this cell is fully covered by embedded boundaries
+                if (update_Ex_arr && update_Ex_arr(i, j, k) == 0) { return; }
 
                 Ex(i, j, k, PMLComp::xz) -= c2 * dt * (
                     T_Algo::DownwardDz(By, coefs_z, n_coefs_z, i, j, k, PMLComp::yx)
@@ -165,13 +169,8 @@ void FiniteDifferenceSolver::EvolveEPMLCartesian (
 
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
                 // Skip field push if this cell is fully covered by embedded boundaries
-#ifdef WARPX_DIM_3D
-                if (ly && ly(i,j,k) <= 0) { return; }
-#elif defined(WARPX_DIM_XZ)
-                //In XZ Ey is associated with a mesh node, so we need to check if the mesh node is covered
-                amrex::ignore_unused(ly);
-                if (lx && (lx(i, j, k)<=0 || lx(i-1, j, k)<=0 || lz(i, j-1, k)<=0 || lz(i, j, k)<=0)) { return; }
-#endif
+                // (in XZ, `eb_update_E` already accounts for Ey being defined on mesh nodes)
+                if (update_Ey_arr && update_Ey_arr(i, j, k) == 0) { return; }
 
                 Ey(i, j, k, PMLComp::yx) -= c2 * dt * (
                     T_Algo::DownwardDx(Bz, coefs_x, n_coefs_x, i, j, k, PMLComp::zx)
@@ -182,7 +181,8 @@ void FiniteDifferenceSolver::EvolveEPMLCartesian (
             },
 
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
-                if (lz && lz(i, j, k) <= 0) { return; }
+                // Skip field push if this cell is fully covered by embedded boundaries
+                if (update_Ez_arr && update_Ez_arr(i, j, k) == 0) { return; }
 
                 Ez(i, j, k, PMLComp::zy) -= c2 * dt * (
                     T_Algo::DownwardDy(Bx, coefs_y, n_coefs_y, i, j, k, PMLComp::xy)
