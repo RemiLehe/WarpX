@@ -885,11 +885,7 @@ PML::PML (const int lev, const BoxArray& grid_ba,
 
             auto const eb_fact = fieldEBFactory();
 
-            // Mark the grid points on which the E field should be updated in the PML
-            // region, using the stair-case approximation (i.e. do not update the E
-            // field on grid points whose neighboring cells are partially or fully
-            // covered by the embedded boundary). This reads the geometry directly from
-            // the EB factory, without computing the edge lengths of the mesh.
+            // Mark on which grid points E should be updated (stair-case approximation)
             warpx::embedded_boundary::MarkUpdatePMLCellsStairCase(
                 m_eb_update_E, eb_fact, m_geom->periodicity());
         }

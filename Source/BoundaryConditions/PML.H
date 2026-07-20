@@ -170,7 +170,7 @@ public:
 
     /** Flags indicating on which grid points the E field (and the PML current)
      *  should be updated, depending on their position relative to the embedded
-     *  boundary. This is the PML equivalent of `WarpX::m_eb_update_E`. */
+     *  boundary. */
     [[nodiscard]] std::array< std::unique_ptr<amrex::iMultiFab>, 3 > const & GetEBUpdateEFlag () const
     {
         return m_eb_update_E;
