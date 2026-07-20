@@ -886,8 +886,10 @@ PML::PML (const int lev, const BoxArray& grid_ba,
             auto const eb_fact = fieldEBFactory();
 
             // Mark on which grid points E should be updated (stair-case approximation)
-            warpx::embedded_boundary::MarkUpdatePMLCellsStairCase(
-                m_eb_update_E, eb_fact, m_geom->periodicity());
+            warpx::embedded_boundary::MarkUpdateCellsStairCase(
+                m_eb_update_E,
+                fields.get_alldirs(FieldType::pml_E_fp, lev),
+                eb_fact, m_geom->periodicity());
         }
     }
 #endif

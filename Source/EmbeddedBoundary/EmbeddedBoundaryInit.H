@@ -62,18 +62,6 @@ namespace warpx::embedded_boundary
         amrex::EBFArrayBoxFactory const & eb_fact,
         const amrex::Periodicity& periodicity );
 
-    /** \brief Set a flag to indicate on which grid points the PML E field
-     *  should be updated, depending on their position relative to the embedded boundary.
-     *
-     * More specifically, this function fills the iMultiFabs in `eb_update`
-     * (which have the same indexType as the MultiFabs in `field`) with 1
-     * or 0, depending on whether the grid point should be updated or not.
-     */
-    void MarkUpdatePMLCellsStairCase (
-        std::array< std::unique_ptr<amrex::iMultiFab>,3> & eb_update_E,
-        amrex::EBFArrayBoxFactory const & eb_fact,
-        const amrex::Periodicity& periodicity );
-
     /** \brief Set a flag to indicate on which grid points the E field
      *  should be updated, depending on their position relative to the embedded boundary.
      *
