@@ -10,6 +10,8 @@
 
 #include "Utils/TextMsg.H"
 
+#include <AMReX_Algorithm.H>
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -134,39 +136,22 @@ ScatteringProcess::buildScreenedRutherfordTable ()
 
     // In the screened Rutherford model, the ratio of the momentum-transfer to the integral
     // cross-section fixes the mean scattering cosine through the screening parameter eta:
-    //     sigma_mt/sigma = 2*eta*[(eta+1)*ln(1+1/eta) - 1] = 1 - <cos(theta)>
-    // We tabulate R(eta) = ln(sigma_mt/sigma) on a logarithmic eta grid, then invert it
-    // (R is monotonically increasing in eta) to obtain eta at each energy node from the
-    // measured ratio R_n = ln(sigma_mt[n]/sigma[n]).
+    //     g(eta) := sigma_mt/sigma = 2*eta*[(eta+1)*ln(1+1/eta) - 1] = 1 - <cos(theta)>
+    // g(eta) increases monotonically from 0 (as eta -> 0, strongly forward-peaked) to 1
+    // (as eta -> infinity, isotropic). At each energy node we solve g(eta) = sigma_mt/sigma
+    // for eta by bisection (in log(eta), which scales well over the wide search range).
 
-    // eta grid: chosen wide enough to cover sigma_mt/sigma spanning essentially (0, 1).
-    // As eta -> 0 the scattering is strongly forward-peaked (sigma_mt/sigma -> 0); as
-    // eta -> infinity it becomes isotropic (sigma_mt/sigma -> 1). Ratios outside the
-    // tabulated range are clamped to the corresponding endpoint eta.
-    constexpr int n_eta = 1000;
-    constexpr amrex::ParticleReal eta_min = 1.e-6_prt;
-    constexpr amrex::ParticleReal eta_max = 1.e4_prt;
+    auto g = [](amrex::ParticleReal eta) {
+        return 2._prt * eta * ((eta + 1._prt) * std::log1p(1._prt / eta) - 1._prt);
+    };
 
-    amrex::Vector<amrex::ParticleReal> log_eta_grid(n_eta);
-    amrex::Vector<amrex::ParticleReal> R_grid(n_eta);
+    // Representable range for eta. Ratios sigma_mt/sigma outside (g(eta_lo), g(eta_hi)),
+    // i.e. essentially outside (0, 1), are clamped to the corresponding endpoint.
+    const amrex::ParticleReal log_eta_lo = std::log(1.e-8_prt);
+    const amrex::ParticleReal log_eta_hi = std::log(1.e8_prt);
+    const amrex::ParticleReal g_lo = g(std::exp(log_eta_lo));
+    const amrex::ParticleReal g_hi = g(std::exp(log_eta_hi));
 
-    const amrex::ParticleReal log_eta_min = std::log(eta_min);
-    const amrex::ParticleReal log_eta_max = std::log(eta_max);
-    const amrex::ParticleReal d_log_eta = (log_eta_max - log_eta_min) / (n_eta - 1);
-    for (int i = 0; i < n_eta; ++i) {
-        const amrex::ParticleReal log_eta = log_eta_min + i * d_log_eta;
-        const amrex::ParticleReal eta = std::exp(log_eta);
-        log_eta_grid[i] = log_eta;
-        R_grid[i] = std::log(2._prt * eta * ((eta + 1._prt) * std::log1p(1._prt / eta) - 1._prt));
-        if (i > 0) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-                (R_grid[i] > R_grid[i-1]),
-                "Screened Rutherford tabulation: R(eta) is not monotonic."
-            );
-        }
-    }
-
-    // Invert R(eta) at each energy node
     const int grid_size = static_cast<int>(m_energies.size());
     m_log_eta_h.resize(grid_size);
     for (int i = 0; i < grid_size; ++i) {
@@ -175,19 +160,15 @@ ScatteringProcess::buildScreenedRutherfordTable ()
             "Screened Rutherford model requires strictly positive integral and "
             "momentum-transfer cross-sections."
         );
-        const amrex::ParticleReal Rn = std::log(m_sigmas_mt_h[i] / m_sigmas_h[i]);
-        if (Rn <= R_grid.front()) {
-            m_log_eta_h[i] = log_eta_grid.front();
-        } else if (Rn >= R_grid.back()) {
-            m_log_eta_h[i] = log_eta_grid.back();
+        const amrex::ParticleReal ratio = m_sigmas_mt_h[i] / m_sigmas_h[i];
+        if (ratio <= g_lo) {
+            m_log_eta_h[i] = log_eta_lo;
+        } else if (ratio >= g_hi) {
+            m_log_eta_h[i] = log_eta_hi;
         } else {
-            // Find the bracketing interval [lo, lo+1] such that R_grid[lo] <= Rn < R_grid[lo+1]
-            const auto it = std::upper_bound(R_grid.begin(), R_grid.end(), Rn);
-            const int lo = static_cast<int>(it - R_grid.begin()) - 1;
-            // Linearly interpolate ln(eta) in R
-            m_log_eta_h[i] = log_eta_grid[lo]
-                + (log_eta_grid[lo+1] - log_eta_grid[lo])
-                  / (R_grid[lo+1] - R_grid[lo]) * (Rn - R_grid[lo]);
+            // Solve g(exp(t)) - ratio = 0 for t = log(eta)
+            m_log_eta_h[i] = amrex::bisect(log_eta_lo, log_eta_hi,
+                [=] (amrex::ParticleReal t) { return g(std::exp(t)) - ratio; });
         }
     }
 }
