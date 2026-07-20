@@ -149,7 +149,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // TODO: only save u since we don't need to keep x
     m_WarpX->SaveParticlesAtImplicitStepStart();
 
-    // Push particle velocities with E_fp (which currently just contains -∇ phi since
+    // Push particle velocities with E_fp (which currently just contains -grad(phi) since
     // the E-field was cleared during the last Poisson solve)
     for (int lev = 0; lev <= finest_level; ++lev)
     {
@@ -221,7 +221,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // Push particle positions forward (velocities are already updated)
     m_WarpX->GetPartContainer().PushX(m_dt);
 
-    // Update magnetic field using dB/dt = -∇ x E
+    // Update magnetic field using dB/dt = -curl(E)
     m_WarpX->EvolveB(m_dt, SubcyclingHalf::None, a_step*m_dt);
     m_WarpX->FillBoundaryB(m_WarpX->getngEB(), true);
 
@@ -248,7 +248,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     auto dA_fp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::dA_fp, lev);
     auto E_temp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
 
-    // Scratch space (allocated once in Define()), reused below to hold ∇ x (chi curl(Z)).
+    // Scratch space (allocated once in Define()), reused below to hold curl(chi curl(Z)).
     ablastr::fields::VectorField lapZ = {&m_lapZ_x, &m_lapZ_y, &m_lapZ_z};
 
     // GMRES builds intermediate Krylov candidates via WarpXSolverVec's
@@ -271,7 +271,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     }
 
     // Evaluation of the (single) 4th-order field equation:
-    // ∇^4(Z), discretized directly in a single pass. Composing two
+    // bilaplacian(Z), discretized directly in a single pass. Composing two
     // separate ComputeVectorLaplacian calls (with an intermediate boundary
     // fill in between) introduces a parasitic, sign-alternating mode in Z's
     // nodal component, since each application's guard cells are filled
@@ -305,7 +305,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         E_temp[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
-    // Reuse lapZ as a temporary storage location for the ∇ x E_temp = ∇ x (chi curl(Z)_vec)
+    // Reuse lapZ as a temporary storage location for the curl(E)_temp = curl(chi curl(Z)_vec)
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
         lapZ, E_temp[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
@@ -508,7 +508,7 @@ void SemiImplicitDarwin::CalculateSourceVector ()
         curlJ, jfield[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Calculate 2 * ∇^2 B + 2 * mu_0 ∇ x J and write result in m_source
+    // Calculate 2 * laplacian(B) + 2 * mu_0 curl(J) and write result in m_source
     const auto& b = m_source.getArrayVec();
     for (int ii = 0; ii < 3; ii++)
     {
