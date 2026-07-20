@@ -282,7 +282,7 @@ void HybridPICModel::InitData (const ablastr::fields::MultiFabRegister& fields)
                 m_J_external[1],
                 m_J_external[2],
                 lev, PatchType::fine,
-                warpx.GetEBUpdateEFlag());
+                warpx.GetEBUpdateEFlag_fp());
         }
     }
 
@@ -304,7 +304,7 @@ void HybridPICModel::GetCurrentExternal ()
             m_J_external[1],
             m_J_external[2],
             lev, PatchType::fine,
-            warpx.GetEBUpdateEFlag());
+            warpx.GetEBUpdateEFlag_fp());
     }
 }
 

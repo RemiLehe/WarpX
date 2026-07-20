@@ -1291,7 +1291,7 @@ WarpX::InitLevelData (int lev, Real /*time*/)
             m_p_ext_field_params->Bxfield_parser->compile<4>(),
             m_p_ext_field_params->Byfield_parser->compile<4>(),
             m_p_ext_field_params->Bzfield_parser->compile<4>(),
-            lev, PatchType::fine, m_eb_update_B);
+            lev, PatchType::fine, m_eb_update_B_fp);
 
         ComputeExternalFieldOnGridUsingParser(
             FieldType::Bfield_cp,
@@ -1329,7 +1329,7 @@ WarpX::InitLevelData (int lev, Real /*time*/)
                 m_p_ext_field_params->Exfield_parser->compile<4>(),
                 m_p_ext_field_params->Eyfield_parser->compile<4>(),
                 m_p_ext_field_params->Ezfield_parser->compile<4>(),
-                lev, PatchType::fine, m_eb_update_E);
+                lev, PatchType::fine, m_eb_update_E_fp);
 
             ComputeExternalFieldOnGridUsingParser(
                 FieldType::Efield_cp,
@@ -1619,9 +1619,9 @@ void WarpX::InitializeEBGridData (int lev)
                 ComputeFaceExtensions();
 
                 // Mark on which grid points E should be updated
-                warpx::embedded_boundary::MarkUpdateECellsECT( m_eb_update_E[lev], edge_lengths_lev );
+                warpx::embedded_boundary::MarkUpdateECellsECT( m_eb_update_E_fp[lev], edge_lengths_lev );
                 // Mark on which grid points B should be updated
-                warpx::embedded_boundary::MarkUpdateBCellsECT( m_eb_update_B[lev], face_areas_lev, edge_lengths_lev);
+                warpx::embedded_boundary::MarkUpdateBCellsECT( m_eb_update_B_fp[lev], face_areas_lev, edge_lengths_lev);
             }
 
         } else {
@@ -1629,11 +1629,11 @@ void WarpX::InitializeEBGridData (int lev)
             // Mark on which grid points E and B should be updated (stair-case approximation),
             // on the fine patch of this level.
             warpx::embedded_boundary::MarkUpdateCellsStairCase(
-                m_eb_update_E[lev],
+                m_eb_update_E_fp[lev],
                 m_fields.get_alldirs(FieldType::Efield_fp, lev),
                 eb_fact, Geom(lev).periodicity() );
             warpx::embedded_boundary::MarkUpdateCellsStairCase(
-                m_eb_update_B[lev],
+                m_eb_update_B_fp[lev],
                 m_fields.get_alldirs(FieldType::Bfield_fp, lev),
                 eb_fact, Geom(lev).periodicity() );
 
@@ -1709,7 +1709,7 @@ WarpX::LoadExternalFields (int const lev)
             m_p_ext_field_params->Bxfield_parser->compile<4>(),
             m_p_ext_field_params->Byfield_parser->compile<4>(),
             m_p_ext_field_params->Bzfield_parser->compile<4>(),
-            lev, PatchType::fine, m_eb_update_B);
+            lev, PatchType::fine, m_eb_update_B_fp);
     }
     else if (m_p_ext_field_params->B_ext_grid_type == ExternalFieldType::read_from_file) {
 #if defined(WARPX_DIM_RZ)
@@ -1728,7 +1728,7 @@ WarpX::LoadExternalFields (int const lev)
             m_p_ext_field_params->Exfield_parser->compile<4>(),
             m_p_ext_field_params->Eyfield_parser->compile<4>(),
             m_p_ext_field_params->Ezfield_parser->compile<4>(),
-            lev, PatchType::fine, m_eb_update_E );
+            lev, PatchType::fine, m_eb_update_E_fp );
     }
     else if (m_p_ext_field_params->E_ext_grid_type == ExternalFieldType::read_from_file) {
 #if defined(WARPX_DIM_RZ)

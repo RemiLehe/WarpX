@@ -171,9 +171,9 @@ public:
     /** Flags indicating on which grid points the E field (and the PML current)
      *  should be updated, depending on their position relative to the embedded
      *  boundary. */
-    [[nodiscard]] std::array< std::unique_ptr<amrex::iMultiFab>, 3 > const & GetEBUpdateEFlag () const
+    [[nodiscard]] std::array< std::unique_ptr<amrex::iMultiFab>, 3 > const & GetEBUpdateEFlag_fp () const
     {
-        return m_eb_update_E;
+        return m_eb_update_E_fp;
     }
 
 #ifdef WARPX_USE_FFT
@@ -224,7 +224,7 @@ private:
 
     // Flags indicating on which grid points the E field (and PML current) should
     // be updated, depending on their position relative to the embedded boundary.
-    std::array< std::unique_ptr<amrex::iMultiFab>, 3 > m_eb_update_E;
+    std::array< std::unique_ptr<amrex::iMultiFab>, 3 > m_eb_update_E_fp;
 
 #ifdef WARPX_USE_FFT
     std::unique_ptr<SpectralSolver> spectral_solver_fp;

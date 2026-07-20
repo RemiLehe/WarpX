@@ -69,7 +69,7 @@ void FiniteDifferenceSolver::EvolveEPML (
         fields.get_alldirs(FieldType::pml_B_fp, level) : fields.get_alldirs(FieldType::pml_B_cp, level);
     const ablastr::fields::VectorField Jfield = (patch_type == PatchType::fine) ?
         fields.get_alldirs(FieldType::pml_j_fp, level) : fields.get_alldirs(FieldType::pml_j_cp, level);
-    // `m_eb_update_E` is only defined on the fine patch. On the coarse patch, the EB
+    // `m_eb_update_E_fp` is only defined on the fine patch. On the coarse patch, the EB
     // is not resolved, so the flag arrays are left empty and the EB masking below
     // is skipped (the kernels guard on the Array4 being non-empty).
     static std::array<std::unique_ptr<amrex::iMultiFab>, 3> const empty_eb_update{};
