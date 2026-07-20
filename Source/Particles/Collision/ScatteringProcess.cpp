@@ -11,15 +11,20 @@
 #include "Utils/TextMsg.H"
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <fstream>
 
 ScatteringProcess::ScatteringProcess (
                         const std::string& scattering_process,
                         const std::string& cross_section_file,
                         const amrex::ParticleReal energy,
-                        const ScatteringAngleModel scattering_angle_model )
+                        const ScatteringAngleModel scattering_angle_model,
+                        const std::string& cross_section_file_mt )
 {
-    // read the cross-section data file into memory
-    readCrossSectionFile(cross_section_file, m_energies, m_sigmas_h);
+    // read the cross-section data file(s) into memory
+    readCrossSectionFile(cross_section_file, m_energies, m_sigmas_h,
+                         cross_section_file_mt, &m_sigmas_mt_h);
 
     init(scattering_process, energy, scattering_angle_model);
 }
@@ -30,10 +35,12 @@ ScatteringProcess::ScatteringProcess (
                         const InputVector&& energies,
                         const InputVector&& sigmas,
                         const amrex::ParticleReal energy,
-                        const ScatteringAngleModel scattering_angle_model )
+                        const ScatteringAngleModel scattering_angle_model,
+                        const InputVector&& sigmas_mt )
 {
     m_energies.insert(m_energies.begin(), std::begin(energies), std::end(energies));
     m_sigmas_h.insert(m_sigmas_h.begin(), std::begin(sigmas),   std::end(sigmas));
+    m_sigmas_mt_h.insert(m_sigmas_mt_h.begin(), std::begin(sigmas_mt), std::end(sigmas_mt));
 
     init(scattering_process, energy, scattering_angle_model);
 }
@@ -82,6 +89,21 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
         );
     }
 
+    // For the screened Rutherford angle model, build the lookup table of the screening
+    // parameter eta as a function of energy from the momentum-transfer and integral
+    // cross-sections (see buildScreenedRutherfordTable).
+    if (scattering_angle_model == ScatteringAngleModel::Screened_Rutherford) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            (!m_sigmas_mt_h.empty()),
+            "The 'screened_rutherford' scattering angle model requires the momentum-transfer "
+            "cross-section to be provided via '<process>_cross_section_mt'."
+        );
+        buildScreenedRutherfordTable();
+        m_exe_h.m_log_eta_data = m_log_eta_h.data();
+        m_exe_h.m_log_eta_lo   = m_log_eta_h[0];
+        m_exe_h.m_log_eta_hi   = m_log_eta_h[grid_size-1];
+    }
+
 #ifdef AMREX_USE_GPU
     m_exe_d = m_exe_h;
     m_energies_d.resize(m_energies.size());
@@ -92,8 +114,82 @@ ScatteringProcess::init (const std::string& scattering_process, const amrex::Par
                           m_energies_d.begin());
     amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, m_sigmas_h.begin(), m_sigmas_h.end(),
                           m_sigmas_d.begin());
+    // Copy the ln(eta) table to the device (only needed for the screened Rutherford model;
+    // the momentum-transfer cross-section itself is not needed on the device, since the
+    // eta table shares the cross-section energy grid).
+    if (!m_log_eta_h.empty()) {
+        m_log_eta_d.resize(m_log_eta_h.size());
+        m_exe_d.m_log_eta_data = m_log_eta_d.data();
+        amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice, m_log_eta_h.begin(), m_log_eta_h.end(),
+                              m_log_eta_d.begin());
+    }
     amrex::Gpu::streamSynchronize();
 #endif
+}
+
+void
+ScatteringProcess::buildScreenedRutherfordTable ()
+{
+    using namespace amrex::literals;
+
+    // In the screened Rutherford model, the ratio of the momentum-transfer to the integral
+    // cross-section fixes the mean scattering cosine through the screening parameter eta:
+    //     sigma_mt/sigma = 2*eta*[(eta+1)*ln(1+1/eta) - 1] = 1 - <cos(theta)>
+    // We tabulate R(eta) = ln(sigma_mt/sigma) on a logarithmic eta grid, then invert it
+    // (R is monotonically increasing in eta) to obtain eta at each energy node from the
+    // measured ratio R_n = ln(sigma_mt[n]/sigma[n]).
+
+    // eta grid: chosen wide enough to cover sigma_mt/sigma spanning essentially (0, 1).
+    // As eta -> 0 the scattering is strongly forward-peaked (sigma_mt/sigma -> 0); as
+    // eta -> infinity it becomes isotropic (sigma_mt/sigma -> 1). Ratios outside the
+    // tabulated range are clamped to the corresponding endpoint eta.
+    constexpr int n_eta = 1000;
+    constexpr amrex::ParticleReal eta_min = 1.e-6_prt;
+    constexpr amrex::ParticleReal eta_max = 1.e4_prt;
+
+    amrex::Vector<amrex::ParticleReal> log_eta_grid(n_eta);
+    amrex::Vector<amrex::ParticleReal> R_grid(n_eta);
+
+    const amrex::ParticleReal log_eta_min = std::log(eta_min);
+    const amrex::ParticleReal log_eta_max = std::log(eta_max);
+    const amrex::ParticleReal d_log_eta = (log_eta_max - log_eta_min) / (n_eta - 1);
+    for (int i = 0; i < n_eta; ++i) {
+        const amrex::ParticleReal log_eta = log_eta_min + i * d_log_eta;
+        const amrex::ParticleReal eta = std::exp(log_eta);
+        log_eta_grid[i] = log_eta;
+        R_grid[i] = std::log(2._prt * eta * ((eta + 1._prt) * std::log1p(1._prt / eta) - 1._prt));
+        if (i > 0) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                (R_grid[i] > R_grid[i-1]),
+                "Screened Rutherford tabulation: R(eta) is not monotonic."
+            );
+        }
+    }
+
+    // Invert R(eta) at each energy node
+    const int grid_size = static_cast<int>(m_energies.size());
+    m_log_eta_h.resize(grid_size);
+    for (int i = 0; i < grid_size; ++i) {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            (m_sigmas_h[i] > 0._prt && m_sigmas_mt_h[i] > 0._prt),
+            "Screened Rutherford model requires strictly positive integral and "
+            "momentum-transfer cross-sections."
+        );
+        const amrex::ParticleReal Rn = std::log(m_sigmas_mt_h[i] / m_sigmas_h[i]);
+        if (Rn <= R_grid.front()) {
+            m_log_eta_h[i] = log_eta_grid.front();
+        } else if (Rn >= R_grid.back()) {
+            m_log_eta_h[i] = log_eta_grid.back();
+        } else {
+            // Find the bracketing interval [lo, lo+1] such that R_grid[lo] <= Rn < R_grid[lo+1]
+            const auto it = std::upper_bound(R_grid.begin(), R_grid.end(), Rn);
+            const int lo = static_cast<int>(it - R_grid.begin()) - 1;
+            // Linearly interpolate ln(eta) in R
+            m_log_eta_h[i] = log_eta_grid[lo]
+                + (log_eta_grid[lo+1] - log_eta_grid[lo])
+                  / (R_grid[lo+1] - R_grid[lo]) * (Rn - R_grid[lo]);
+        }
+    }
 }
 
 ScatteringProcessType
@@ -121,7 +217,9 @@ void
 ScatteringProcess::readCrossSectionFile (
                                   const std::string& cross_section_file,
                                   amrex::Vector<amrex::ParticleReal>& energies,
-                                  amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas )
+                                  amrex::Gpu::HostVector<amrex::ParticleReal>& sigmas,
+                                  const std::string& cross_section_file_mt,
+                                  amrex::Gpu::HostVector<amrex::ParticleReal>* sigmas_mt )
 {
     std::ifstream infile(cross_section_file);
     if(!infile.is_open()) { WARPX_ABORT_WITH_MESSAGE("Failed to open cross-section data file"); }
@@ -133,6 +231,36 @@ ScatteringProcess::readCrossSectionFile (
     }
     if (infile.bad()) { WARPX_ABORT_WITH_MESSAGE("Failed to read cross-section data from file."); }
     infile.close();
+
+    // Optionally read the momentum-transfer cross-section, which must be tabulated on the
+    // same energy grid as the integral cross-section.
+    if (!cross_section_file_mt.empty() && sigmas_mt != nullptr) {
+        std::ifstream infile_mt(cross_section_file_mt);
+        if(!infile_mt.is_open()) {
+            WARPX_ABORT_WITH_MESSAGE("Failed to open momentum-transfer cross-section data file");
+        }
+        amrex::ParticleReal energy_mt, sigma_mt;
+        std::size_t idx = 0;
+        while (infile_mt >> energy_mt >> sigma_mt) {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                (idx < energies.size() &&
+                 std::abs(energy_mt - energies[idx]) <= 1.e-6 * std::abs(energies[idx])),
+                "The momentum-transfer cross-section must be tabulated on the same energy "
+                "grid as the integral cross-section."
+            );
+            sigmas_mt->push_back(sigma_mt);
+            ++idx;
+        }
+        if (infile_mt.bad()) {
+            WARPX_ABORT_WITH_MESSAGE("Failed to read momentum-transfer cross-section data from file.");
+        }
+        infile_mt.close();
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            (sigmas_mt->size() == sigmas.size()),
+            "The momentum-transfer cross-section must have the same number of energy points "
+            "as the integral cross-section."
+        );
+    }
 }
 
 void
