@@ -248,7 +248,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     auto dA_fp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::dA_fp, lev);
     auto E_temp = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
 
-    // Scratch space (allocated once in Define()), reused below to hold ∇ x (chi ∇ x Z).
+    // Scratch space (allocated once in Define()), reused below to hold ∇ x (chi curl(Z)).
     ablastr::fields::VectorField lapZ = {&m_lapZ_x, &m_lapZ_y, &m_lapZ_z};
 
     // GMRES builds intermediate Krylov candidates via WarpXSolverVec's
@@ -281,7 +281,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         rhs_vec[lev], Zscratch, m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Calculate dA = ∇ x Z (ComputeCurlB resets dA_fp to zero internally).
+    // Calculate dA = curl(Z) (ComputeCurlB resets dA_fp to zero internally).
     // Use Zscratch (guard cells already filled above) rather than Zvec directly.
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlB(
         dA_fp[lev], Zscratch, m_WarpX->GetEBUpdateEFlag()[lev], lev
@@ -305,7 +305,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         E_temp[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
-    // Reuse lapZ as a temporary storage location for the ∇ x E_temp = ∇ x (chi ∇ x Z_vec)
+    // Reuse lapZ as a temporary storage location for the ∇ x E_temp = ∇ x (chi curl(Z)_vec)
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlA(
         lapZ, E_temp[lev], m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
@@ -534,7 +534,7 @@ void SemiImplicitDarwin::UpdateEfromdA ( int astep )
     // Grab the E-field MultiFabs
     ablastr::fields::MultiLevelVectorField Efield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::Efield_fp, lev);
 
-    // Grab the dA_fp MultiFabs to store dA = ∇ x Z (the solved-for Z lives
+    // Grab the dA_fp MultiFabs to store dA = curl(Z) (the solved-for Z lives
     // on B's staggering; dA lives on A/E's staggering)
     ablastr::fields::MultiLevelVectorField dAfield = m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::dA_fp, lev);
 
@@ -565,7 +565,7 @@ void SemiImplicitDarwin::UpdateEfromdA ( int astep )
         Zscratch[ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
     }
 
-    // Calculate dA = ∇ x Z
+    // Calculate dA = curl(Z)
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlB(
         dAfield[lev], Zscratch, m_WarpX->GetEBUpdateEFlag()[lev], lev
     );
