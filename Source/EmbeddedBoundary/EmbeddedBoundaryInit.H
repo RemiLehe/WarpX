@@ -62,6 +62,25 @@ namespace warpx::embedded_boundary
         amrex::EBFArrayBoxFactory const & eb_fact,
         const amrex::Periodicity& periodicity );
 
+    /** \brief Set a flag to indicate on which grid points the PML E field
+     *  should be updated, depending on their position relative to the embedded boundary.
+     *
+     * This is the PML counterpart of `MarkUpdateCellsStairCase`: it uses the same
+     * stair-case approximation of the embedded boundary (if a grid point touches cells
+     * that are either partially or fully covered by the embedded boundary, the
+     * corresponding field is not updated), but it reads the geometry directly from the
+     * EB factory `eb_fact` instead of from a precomputed `edge_lengths` field. The
+     * index type of the grid points is inferred from the iMultiFabs in `eb_update_E`
+     * themselves, so no separate `field` argument is needed.
+     *
+     * This function is used for the PML with all the finite-difference solvers
+     * (including the ECT solver, since the PML always uses the Yee stencil).
+     */
+    void MarkUpdatePMLCellsStairCase (
+        std::array< std::unique_ptr<amrex::iMultiFab>,3> & eb_update_E,
+        amrex::EBFArrayBoxFactory const & eb_fact,
+        const amrex::Periodicity& periodicity );
+
     /** \brief Set a flag to indicate on which grid points the E field
      *  should be updated, depending on their position relative to the embedded boundary.
      *

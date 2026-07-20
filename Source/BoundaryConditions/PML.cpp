@@ -885,19 +885,13 @@ PML::PML (const int lev, const BoxArray& grid_ba,
 
             auto const eb_fact = fieldEBFactory();
 
-            // Compute the edge lengths of the mesh in the PML region, and use
-            // them to mark the grid points on which the E field should be updated
-            // (i.e. the grid points whose associated edge is not fully covered).
-            amrex::MultiFab pml_edge_lengths_x(ba_Ex, dm, WarpX::ncomps, max_guard_EB_vect);
-            amrex::MultiFab pml_edge_lengths_y(ba_Ey, dm, WarpX::ncomps, max_guard_EB_vect);
-            amrex::MultiFab pml_edge_lengths_z(ba_Ez, dm, WarpX::ncomps, max_guard_EB_vect);
-            ablastr::fields::VectorField pml_edge_lengths =
-                {&pml_edge_lengths_x, &pml_edge_lengths_y, &pml_edge_lengths_z};
-
-            warpx::embedded_boundary::ComputeEdgeLengths(pml_edge_lengths, eb_fact);
-            warpx::embedded_boundary::ScaleEdges(pml_edge_lengths, WarpX::CellSize(lev));
-
-            warpx::embedded_boundary::MarkUpdateECellsECT(m_eb_update_E, pml_edge_lengths);
+            // Mark the grid points on which the E field should be updated in the PML
+            // region, using the stair-case approximation (i.e. do not update the E
+            // field on grid points whose neighboring cells are partially or fully
+            // covered by the embedded boundary). This reads the geometry directly from
+            // the EB factory, without computing the edge lengths of the mesh.
+            warpx::embedded_boundary::MarkUpdatePMLCellsStairCase(
+                m_eb_update_E, eb_fact, m_geom->periodicity());
         }
     }
 #endif

@@ -220,6 +220,97 @@ web::MarkUpdateCellsStairCase (
 }
 
 void
+web::MarkUpdatePMLCellsStairCase (
+    std::array< std::unique_ptr<amrex::iMultiFab>,3> & eb_update_E,
+    amrex::EBFArrayBoxFactory const & eb_fact,
+    const amrex::Periodicity& periodicity )
+{
+
+    // Extract structures for embedded boundaries
+    amrex::FabArray<amrex::EBCellFlagFab> const& eb_flag = eb_fact.getMultiEBCellFlagFab();
+
+    for (int idim = 0; idim < 3; ++idim) {
+
+        // The index type of the grid points on which this component of E is defined
+        // (e.g. Ex is edge-centered along x, Ey along y, Ez along z, except in 2D
+        // where Ey lives on mesh nodes). It is used below to determine which cells
+        // neighbor each grid point.
+        auto const index_type = eb_update_E[idim]->ixType();
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        for (amrex::MFIter mfi(*eb_update_E[idim]); mfi.isValid(); ++mfi) {
+
+            const amrex::Box& box = mfi.tilebox();
+            amrex::Array4<int> const & eb_update_arr = eb_update_E[idim]->array(mfi);
+
+            // Check if the box (including one layer of guard cells) contains a mix of covered and regular cells
+            const amrex::Box eb_info_box = mfi.tilebox(amrex::IntVect::TheCellVector()).grow(1);
+            amrex::FabType const fab_type = eb_flag[mfi].getType( eb_info_box );
+
+            if (fab_type == amrex::FabType::regular) { // All cells in the box are regular
+
+                // Every cell in box is regular: update field in every cell
+                amrex::ParallelFor(box, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    eb_update_arr(i, j, k) = 1;
+                });
+
+            } else if (fab_type == amrex::FabType::covered) { // All cells in the box are covered
+
+                // Every cell in box is fully covered: do not update field
+                amrex::ParallelFor(box, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    eb_update_arr(i, j, k) = 0;
+                });
+
+            } else { // The box contains a mix of covered and regular cells
+
+                auto const & flag = eb_flag[mfi].array();
+
+                amrex::ParallelFor(box, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+
+                    // Stair-case approximation: If neighboring cells of this gridpoint
+                    // are either partially or fully covered: do not update field
+                    // (see `MarkUpdateCellsStairCase` for a detailed explanation of the
+                    // neighboring-cell indexing based on the index type.)
+                    int const i_start = ( index_type.nodeCentered(0) )? i-1 : i;
+#if AMREX_SPACEDIM > 1
+                    int const j_start = ( index_type.nodeCentered(1) )? j-1 : j;
+#else
+                    int const j_start = j;
+#endif
+#if AMREX_SPACEDIM > 2
+                    int const k_start = ( index_type.nodeCentered(2) )? k-1 : k;
+#else
+                    int const k_start = k;
+#endif
+                    // Loop over neighboring cells
+                    int eb_update_flag = 1;
+                    for (int i_cell = i_start; i_cell <= i; ++i_cell) {
+                        for (int j_cell = j_start; j_cell <= j; ++j_cell) {
+                            for (int k_cell = k_start; k_cell <= k; ++k_cell) {
+                                // If one of the neighboring is either partially or fully covered
+                                // (i.e. if they are not regular cells), do not update field
+                                // (`isRegular` returns `false` if the cell is either partially or fully covered.)
+                                if ( !flag(i_cell, j_cell, k_cell).isRegular() ) {
+                                    eb_update_flag = 0;
+                                }
+                            }
+                        }
+                    }
+                    eb_update_arr(i, j, k) = eb_update_flag;
+                });
+
+            }
+
+        }
+        // Populate guard cells
+        eb_update_E[idim]->FillBoundary(periodicity);
+    }
+
+}
+
+void
 web::MarkUpdateECellsECT (
     std::array< std::unique_ptr<amrex::iMultiFab>,3> & eb_update_E,
     ablastr::fields::VectorField const& edge_lengths )
