@@ -142,6 +142,33 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
 
     const int finest_level = 0;
 
+    // Velocity de-synchronization (mirrors WarpX::ExplicitFillBoundaryEBUpdateAux
+    // for the explicit scheme). The particles enter synchronized (u^{n}, x^{n})
+    // either on the very first step or because the previous step's diagnostics
+    // called SynchronizeVelocityWithPosition() (a +0.5*dt PushP). Push the
+    // velocity back half a step to restore the intended leapfrog stagger
+    // (u^{n-1/2}, x^{n}) and clear the global flag, so that the generic
+    // diagnostic synchronization (WarpXEvolve.cpp, before the reduced diags)
+    // fires again for the Darwin scheme and velocity-based diagnostics (e.g.
+    // ParticleEnergy) are measured with u and x/fields at the same time.
+    if (m_WarpX->getis_synchronized()) {
+        for (int lev = 0; lev <= finest_level; ++lev)
+        {
+            m_WarpX->GetPartContainer().PushP(
+                lev,
+                -0.5_rt*m_dt,
+                *m_WarpX->m_fields.get(FieldType::Efield_fp, Direction{0}, lev),
+                *m_WarpX->m_fields.get(FieldType::Efield_fp, Direction{1}, lev),
+                *m_WarpX->m_fields.get(FieldType::Efield_fp, Direction{2}, lev),
+                *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev),
+                *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev),
+                *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev),
+                MomentumPushType::Full
+            );
+        }
+        m_WarpX->setis_synchronized(false);
+    }
+
     // Fields have E^{n} (from phi^n only), B^{n-1/2}
     // Particles have u^{n-1/2} and x^{n}.
 

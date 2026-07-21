@@ -725,6 +725,7 @@ public:
     [[nodiscard]] int getdo_moving_window() const {return do_moving_window;}
     [[nodiscard]] amrex::Real getmoving_window_x() const {return moving_window_x;}
     [[nodiscard]] bool getis_synchronized() const {return m_is_synchronized;}
+    void setis_synchronized(bool a_is_synchronized) {m_is_synchronized = a_is_synchronized;}
 
     [[nodiscard]] int maxStep () const {return max_step;}
     void updateMaxStep (const int new_max_step) {max_step = new_max_step;}
