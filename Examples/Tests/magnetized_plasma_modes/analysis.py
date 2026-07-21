@@ -167,8 +167,7 @@ if sim.B_dir == "z":
         c="limegreen",
         ls="--",
         lw=1.25,
-        label="L mode:\n"
-        + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1-\omega/\Omega_i}$",
+        label="L mode:\n" + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1-\omega/\Omega_i}$",
     )
     # plot the R mode
     ax1.plot(
@@ -177,8 +176,7 @@ if sim.B_dir == "z":
         c="limegreen",
         ls="-.",
         lw=1.25,
-        label="R mode:\n"
-        + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1+\omega/\Omega_i}$",
+        label="R mode:\n" + r"$(kl_i)^2=\frac{(\omega/\Omega_i)^2}{1+\omega/\Omega_i}$",
     )
 
     ax1.plot(
@@ -190,8 +188,7 @@ if sim.B_dir == "z":
         label=r"$\omega = \Omega_i + 3v_{th,i} k$",
     )
     ax1.plot(
-        k, 1.0 - 3.0 * sim.v_ti / w_norm * k * k_norm,
-        c="limegreen", ls=":", lw=1.25
+        k, 1.0 - 3.0 * sim.v_ti / w_norm * k * k_norm, c="limegreen", ls=":", lw=1.25
     )
 
     if is_darwin:
@@ -239,7 +236,6 @@ else:
         ax1.axhline(w_LH / w_norm, ls="--", c="pink", label="$\omega_{LH}$")
 
     else:
-
         # digitized values from Munoz et al. (2018)
         x = [
             0.006781609195402272,
