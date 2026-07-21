@@ -153,7 +153,6 @@ WarpX::Evolve (int numsteps)
     ABLASTR_PROFILE("WarpX::Evolve()");
 
     using ablastr::fields::Direction;
-    using warpx::fields::FieldType;
 
     Real cur_time = t_new[0];
 
@@ -314,11 +313,11 @@ WarpX::Evolve (int numsteps)
             }
 
             // The external fields are added back on to the fine patch fields
-            // (which are overwritten by electrostatic / magnetostatic solvers),
-            // unless Darwin is used in which case the "external" fields function
-            // as initial conditions (like for the electromagnetic solvers)
-            // The net fields are then the sum of the field solutions and any
-            // external field.
+            // (which were overwritten by electrostatic / magnetostatic solvers)
+            // so that the net fields are the sum of the field solutions and any
+            // external fields.
+            // This is skipped for Darwin since in that case the "external" fields
+            // are just treated as initial conditions (as for other EM solvers).
             if (evolve_scheme != EvolveScheme::Semi_Implicit_Darwin) {
                 for (int lev = 0; lev <= max_level; ++lev) {
                     AddExternalFields(lev);

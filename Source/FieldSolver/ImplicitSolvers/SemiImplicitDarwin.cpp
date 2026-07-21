@@ -1,8 +1,8 @@
-/* Copyright 2025 The WarpX Community
+/* Copyright 2026 The WarpX Community
  *
  * This file is part of WarpX.
  *
- * Authors: Roelof Groenewald (TAE Technologies)
+ * Authors: Roelof Groenewald (Realta Fusion)
  *
  * License: BSD-3-Clause-LBNL
  */
@@ -79,12 +79,10 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
                             Zvec[lev][2]->nComp(), biharmonic_ng);
     }
 
-    // Parse implicit solver parameters
+    // Set parameters used by `InitializeMassMatrices`
     m_use_mass_matrices = true;
     m_use_mass_matrices_pc = false;
     m_use_mass_matrices_jacobian = true;
-    m_nlsolver_type = NonlinearSolverType::none;
-    m_max_particle_iterations = 1;
 
     // Get the linear solver input parameters
     const amrex::ParmParse pp_l(amrex::getEnumNameString(m_linear_solver_type));
@@ -94,14 +92,17 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
     pp_l.query("relative_tolerance",  m_linsol_rtol);
     pp_l.query("max_iterations",      m_linsol_maxits);
 
-    // Define the linear function - Note we could use JacobianFunctionMF if we
-    // write ComputeRHS appropriately, this will add some extra overhead in MF operations
-    // but would reduce code.
+    // Define the linear function
     m_linear_function = std::make_unique<LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>>();
     m_linear_function->define(m_Z, this, PreconditionerType::none);
 
     // Define the linear solver
-    m_linear_solver = std::make_unique<AMReXGMRES<WarpXSolverVec,LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>>>();
+    if (m_linear_solver_type == LinearSolverType::amrex_gmres) {
+        m_linear_solver = std::make_unique<AMReXGMRES<WarpXSolverVec,LinearFunctionMF<WarpXSolverVec,SemiImplicitDarwin>>>();
+    }
+    else {
+        amrex::Abort("Darwin linear solver: unknown type");
+    }
     m_linear_solver->define(*m_linear_function);
     m_linear_solver->setVerbose( m_linsol_verbose_int );
     m_linear_solver->setRestartLength( m_linsol_restart_length );
@@ -166,10 +167,10 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
         );
     }
 
-    // Prepare current deposition by setting particle velocities to twice the
-    // t = n velocity values (with just the ES acceleration applied for the
-    // advanced velocity)
-    PrepareCurrentDeposition();
+    // Prepare current deposition: the velocities are time centered with
+    // u -> (u^{n+1/2} + u^{n-1/2}) / 2.0 (with just the ES acceleration applied
+    // for the advanced velocity), and the advanced velocity is saved to u_n
+    PrepareVelocitiesForCurrentDeposition();
 
     // Accumulate current* and susceptibility (mass matrices)
     AccumulateCurrentAndSusceptibility();
@@ -180,7 +181,8 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // Populate the source vector
     CalculateSourceVector();
 
-    // Solve MS equation
+    // Solve MS equation:
+    // bilaplacian(Z) + curl(chi curl(Z)) = 2 * laplacian(B) + 2 * mu_0 curl(J)
     m_linear_solver->solve(m_Z, m_source, m_linsol_rtol, m_linsol_atol);
 
     // AMReX's GMRES::getStatus() returns 0 on convergence and a positive
@@ -191,8 +193,8 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
         return exit_status;
     }
 
-    // Update E to E = -dA/dt (B is updated after the corrector push below)
-    UpdateEfromdA(a_step);
+    // Set E = -dA/dt (B is updated after the corrector push below)
+    ComputeInductiveEfromdA(a_step);
 
     // Set particle velocities to 0 since the push below is just calculating
     // the acceleration due to the inductive E-field
@@ -235,6 +237,9 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
                                       [[maybe_unused]] bool a_from_jacobian )
 {
     BL_PROFILE("SemiImplicitDarwin::ComputeRHS()");
+
+    // Computes the RHS from the given Z vector:
+    //   RHS = bilaplacian(Z) + curl(chi curl(Z))
 
     const int lev = 0;
     const int ncomps = 1;
@@ -281,7 +286,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
         rhs_vec[lev], Zscratch, m_WarpX->GetEBUpdateBFlag()[lev], lev
     );
 
-    // Calculate dA = curl(Z) (ComputeCurlB resets dA_fp to zero internally).
+    // Calculate dA = curl(Z)
     // Use Zscratch (guard cells already filled above) rather than Zvec directly.
     m_WarpX->get_pointer_fdtd_solver_fp(lev)->ComputeCurlB(
         dA_fp[lev], Zscratch, m_WarpX->GetEBUpdateEFlag()[lev], lev
@@ -328,9 +333,9 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     }
 }
 
-void SemiImplicitDarwin::PrepareCurrentDeposition ()
+void SemiImplicitDarwin::PrepareVelocitiesForCurrentDeposition ()
 {
-    BL_PROFILE("SemiImplicitDarwin::PrepareCurrentDeposition()");
+    BL_PROFILE("SemiImplicitDarwin::PrepareVelocitiesForCurrentDeposition()");
     // On entry, u holds the velocity after the electrostatic-only push
     // (PushP in OneStep()) and u_n holds the velocity saved at the start of
     // the step (SaveParticlesAtImplicitStepStart()). This function sets u to
@@ -394,16 +399,6 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
         Note: The functionality here deposits current to the Yee grid (and
         accumulates the susceptibility to a staggered grid). The prototype
         Darwin solver does the depositions to nodal grids!
-        This should maybe be fixed for > 1d!!
-        (In 1d the z-current component is basically divergence cleaned away.)
-
-        Note: There is an outstanding issue with this function - the
-        `WarpXParticleContainer::DepositCurrentAndMassMatrices` calls
-        `doDirectJandSigmaDeposition` which uses `GetImplicitGammaInverse` to
-        get the Lorentz factor used in the current deposition. That function
-        is not appropriate for the Darwin model since it is hard coded for the
-        electromagnetic implicit methods (it uses u and u_n to get a time
-        centered gamma) - was fixed in 89a8fc3.
     */
 
     BL_PROFILE("SemiImplicitDarwin::AccumulateCurrentAndSusceptibility()");
@@ -524,10 +519,10 @@ void SemiImplicitDarwin::CalculateSourceVector ()
     }
 }
 
-void SemiImplicitDarwin::UpdateEfromdA ( int astep )
+void SemiImplicitDarwin::ComputeInductiveEfromdA ( int astep )
 {
     // This function updates the Efield_fp MF to hold the new inductive E-field.
-    BL_PROFILE("SemiImplicitDarwin::UpdateEfromdA()");
+    BL_PROFILE("SemiImplicitDarwin::ComputeInductiveEfromdA()");
 
     const int lev = 0;
 

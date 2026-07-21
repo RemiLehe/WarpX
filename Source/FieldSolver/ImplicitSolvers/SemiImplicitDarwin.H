@@ -57,10 +57,10 @@ public:
     void ApplySusceptibility ( ablastr::fields::MultiLevelVectorField& rhs,
                                const ablastr::fields::MultiLevelVectorField& dA);
 
-    void PrepareCurrentDeposition ();
+    void PrepareVelocitiesForCurrentDeposition ();
     void AccumulateCurrentAndSusceptibility ();
     void CalculateSourceVector ();
-    void UpdateEfromdA( int astep );
+    void ComputeInductiveEfromdA( int astep );
     void ClearParticleVelocities ();
     void FinishVelocityUpdate ();
 
