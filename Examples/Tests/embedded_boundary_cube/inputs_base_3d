@@ -41,4 +41,5 @@ warpx.Bz_external_grid_function(x,y,z) = cos(m * pi / Lx * (x - Lx / 2)) * cos(n
 diagnostics.diags_names = diag1
 diag1.intervals = 1000
 diag1.diag_type = Full
+diag1.format = openpmd
 diag1.fields_to_plot = Ex Ey Ez Bx By Bz
