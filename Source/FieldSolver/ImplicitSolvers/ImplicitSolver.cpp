@@ -311,7 +311,8 @@ void ImplicitSolver::ComputeJfromMassMatrices (const bool  a_J_from_MM_only)
                     }
                 }
 
-                Jx(i,j,k,n) += Jx0(i,j,k,n) + SxxdEx + SxydEy + SxzdEz;
+                Jx(i,j,k,n) += Jx0(i,j,k,n);
+                Jx(i,j,k,n) += SxxdEx + SxydEy + SxzdEz;
             });
             amrex::ParallelFor(
             Jby, ncomps, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -374,7 +375,8 @@ void ImplicitSolver::ComputeJfromMassMatrices (const bool  a_J_from_MM_only)
                     }
                 }
 
-                Jy(i,j,k,n) += Jy0(i,j,k,n) + SyxdEx + SyydEy + SyzdEz;
+                Jy(i,j,k,n) += Jy0(i,j,k,n);
+                Jy(i,j,k,n) += SyxdEx + SyydEy + SyzdEz;
             });
             amrex::ParallelFor(
             Jbz, ncomps, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -437,7 +439,8 @@ void ImplicitSolver::ComputeJfromMassMatrices (const bool  a_J_from_MM_only)
                     }
                 }
 
-                Jz(i,j,k,n) += Jz0(i,j,k,n) + SzxdEx + SzydEy + SzzdEz;
+                Jz(i,j,k,n) += Jz0(i,j,k,n);
+                Jz(i,j,k,n) += SzxdEx + SzydEy + SzzdEz;
             });
         }
 
