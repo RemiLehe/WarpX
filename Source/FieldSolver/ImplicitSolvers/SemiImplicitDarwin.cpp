@@ -403,31 +403,9 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
 
     BL_PROFILE("SemiImplicitDarwin::AccumulateCurrentAndSusceptibility()");
 
-    using ablastr::fields::Direction;
     using warpx::fields::FieldType;
 
     const int lev = 0;
-
-    amrex::MultiFab * Sxx = m_WarpX->m_fields.get(FieldType::MassMatrices_X, Direction{0}, lev);
-    amrex::MultiFab * Sxy = m_WarpX->m_fields.get(FieldType::MassMatrices_X, Direction{1}, lev);
-    amrex::MultiFab * Sxz = m_WarpX->m_fields.get(FieldType::MassMatrices_X, Direction{2}, lev);
-    amrex::MultiFab * Syx = m_WarpX->m_fields.get(FieldType::MassMatrices_Y, Direction{0}, lev);
-    amrex::MultiFab * Syy = m_WarpX->m_fields.get(FieldType::MassMatrices_Y, Direction{1}, lev);
-    amrex::MultiFab * Syz = m_WarpX->m_fields.get(FieldType::MassMatrices_Y, Direction{2}, lev);
-    amrex::MultiFab * Szx = m_WarpX->m_fields.get(FieldType::MassMatrices_Z, Direction{0}, lev);
-    amrex::MultiFab * Szy = m_WarpX->m_fields.get(FieldType::MassMatrices_Z, Direction{1}, lev);
-    amrex::MultiFab * Szz = m_WarpX->m_fields.get(FieldType::MassMatrices_Z, Direction{2}, lev);
-
-    // clear MultiFabs in preparation for new deposit
-    Sxx->setVal(0.0);
-    Sxy->setVal(0.0);
-    Sxz->setVal(0.0);
-    Syx->setVal(0.0);
-    Syy->setVal(0.0);
-    Syz->setVal(0.0);
-    Szx->setVal(0.0);
-    Szy->setVal(0.0);
-    Szz->setVal(0.0);
 
     // Deposit the current density from all species, using the time-centered
     // particle velocities as appropriate for the implicit push. This also
@@ -436,9 +414,11 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
         m_WarpX->m_fields.get_mr_levels_alldirs(FieldType::current_fp, lev),
         m_dt, 0.0_rt, PushType::Implicit);
 
-    for (auto const& pc : m_WarpX->GetPartContainer()) {
-        pc->DepositMassMatrices(m_WarpX->m_fields, lev, m_dt);
-    }
+    // Zero and accumulate the mass matrices from all species. This shares the
+    // zero-then-deposit machinery with the electromagnetic implicit solvers
+    // (see ImplicitSolver::PreLinearSolve), which drive the same
+    // WarpX::DepositMassMatrices() -> MultiParticleContainer::DepositMassMatrices().
+    m_WarpX->DepositMassMatrices();
 
     // Sync current (filter and sum boundaries)
     m_WarpX->SyncCurrent("current_fp");
