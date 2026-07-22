@@ -367,6 +367,35 @@ Overall simulation parameters
       the energy conservation is spoiled because of the inconsistency of the periodic assumption of the spectral solver and the
       non-periodic behavior of the individual blocks.
 
+    * ``semi_implicit_darwin``: Use the semi-implicit Darwin field solver.
+
+      This solver advances the electrostatic (longitudinal) field together with the inductive
+      (magnetostatic Darwin) field, thereby retaining low-frequency magnetic effects while
+      filtering out light waves. The magnetostatic Darwin equation is solved for an auxiliary
+      vector potential using the AMReX GMRES linear solver; the resulting field is used to
+      obtain the inductive :math:`\textbf{E}`-field and to update the magnetic field.
+
+      - **Requirements and restrictions:**
+
+        - This solver requires an electrostatic solver to also be set, i.e.
+          :pp:param:`warpx.do_electrostatic` must be specified (e.g. ``warpx.do_electrostatic = labframe``).
+          Unlike a pure electrostatic run, setting ``algo.evolve_scheme = semi_implicit_darwin`` does
+          **not** disable the electromagnetic solver, since the magnetic field is still evolved.
+        - The electromagnetic solver must be the Yee solver, i.e. :pp:param:`algo.maxwell_solver` = ``yee``
+          (the default). No other Maxwell solver is compatible with the Darwin scheme.
+        - The current implementation only supports periodic field boundary conditions, in 1D or 2D
+          Cartesian geometry.
+
+      - **Linear (GMRES) solver options:**
+        The magnetostatic solve uses the AMReX GMRES linear solver, whose parameters are set with the
+        ``amrex_gmres`` prefix:
+
+        - ``amrex_gmres.verbose_int`` (``int``, default: 2) Level of verbosity of the linear solver output.
+        - ``amrex_gmres.restart_length`` (``int``, default: 30) How often to restart the GMRES iterations.
+        - ``amrex_gmres.max_iterations`` (``int``, default: 1000) Maximum number of iterations.
+        - ``amrex_gmres.relative_tolerance`` (``float``, default: 1.0e-4) Relative tolerance of the convergence.
+        - ``amrex_gmres.absolute_tolerance`` (``float``, default: 0.0) Absolute tolerance of the convergence.
+
 .. _param-electrostatic-pic:
 
 .. pp:param:: warpx.do_electrostatic
