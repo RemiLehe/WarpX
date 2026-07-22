@@ -960,7 +960,7 @@ public:
 
 #ifdef AMREX_USE_EB
     amrex::EB2::IndexSpace const* GetEBIndexSpace (int lev) const {
-        return (lev < m_eb_is.size()) ? m_eb_is[lev] : &(amrex::EB2::IndexSpace::top());
+        return (lev < m_eb_index_space.size()) ? m_eb_index_space[lev] : &(amrex::EB2::IndexSpace::top());
     }
 #endif
 
@@ -1636,7 +1636,7 @@ private:
     bool m_collisions_split_momentum_push;
 
 #ifdef AMREX_USE_EB
-    amrex::Vector<amrex::EB2::IndexSpace const*> m_eb_is;
+    amrex::Vector<amrex::EB2::IndexSpace const*> m_eb_index_space;
 #endif
 };
 

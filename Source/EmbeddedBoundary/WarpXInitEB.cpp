@@ -99,9 +99,8 @@ WarpX::InitEB ()
          // not be an issue.
         for (int ilev = 0; ilev <= maxLevel(); ++ilev) {
             amrex::EB2::Build(gshop, Geom(ilev), 0, 20);
-            m_eb_is.push_back(&(amrex::EB2::IndexSpace::top()));
+            m_eb_index_space.push_back(&(amrex::EB2::IndexSpace::top()));
         }
-        // amrex::EB2::Build(gshop, Geom(maxLevel()), maxLevel(), maxLevel()+20);
     } else {
         amrex::ParmParse pp_eb2("eb2");
         if (!pp_eb2.contains("geom_type")) {
@@ -111,7 +110,7 @@ WarpX::InitEB ()
         // See the comment above on amrex::EB2::Build for the hard-wired number 20.
         for (int ilev = 0; ilev <= maxLevel(); ++ilev) {
             amrex::EB2::Build(Geom(ilev), 0, 20);
-            m_eb_is.push_back(&(amrex::EB2::IndexSpace::top()));
+            m_eb_index_space.push_back(&(amrex::EB2::IndexSpace::top()));
         }
         // amrex::EB2::Build(Geom(maxLevel()), maxLevel(), maxLevel()+20);
     }
@@ -128,8 +127,8 @@ WarpX::ComputeDistanceToEB ()
     BL_PROFILE("ComputeDistanceToEB");
     using warpx::fields::FieldType;
     for (int lev=0; lev<=maxLevel(); lev++) {
-        auto const* eb_is = GetEBIndexSpace(lev);
-        const amrex::EB2::Level& eb_level = eb_is->getLevel(Geom(lev));
+        auto const* eb_index_space = GetEBIndexSpace(lev);
+        const amrex::EB2::Level& eb_level = eb_index_space->getLevel(Geom(lev));
         auto const eb_fact = fieldEBFactory(lev);
         amrex::FillSignedDistance(*m_fields.get(FieldType::distance_to_eb, lev), eb_level, eb_fact, 1);
     }
