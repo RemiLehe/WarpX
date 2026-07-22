@@ -112,7 +112,6 @@ WarpX::InitEB ()
             amrex::EB2::Build(Geom(ilev), 0, 20);
             m_eb_index_space.push_back(&(amrex::EB2::IndexSpace::top()));
         }
-        // amrex::EB2::Build(Geom(maxLevel()), maxLevel(), maxLevel()+20);
     }
 #endif
 }
