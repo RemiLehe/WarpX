@@ -277,7 +277,7 @@ void ImplicitSolver::ApplyMassMatrices (
                 amrex::GpuArray<int, 3> index_min = {0, 0, 0};
                 amrex::GpuArray<int, 3> index_max = {0, 0, 0};
 
-                // Compute Sxx_d_in_x
+                // Compute Sxx*d_in_x
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_xx[dim],in_fullbx.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_xx[dim]-1-offset_xx[dim],in_fullbx.bigEnd(dim)-idx[dim]);
@@ -296,7 +296,7 @@ void ImplicitSolver::ApplyMassMatrices (
                     }
                 }
 
-                // Compute Sxy_d_in_y
+                // Compute Sxy*d_in_y
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_xy[dim],in_fullby.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_xy[dim]-1-offset_xy[dim],in_fullby.bigEnd(dim)-idx[dim]);
@@ -315,7 +315,7 @@ void ImplicitSolver::ApplyMassMatrices (
                     }
                 }
 
-                // Compute Sxz_d_in_z
+                // Compute Sxz*d_in_z
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_xz[dim],in_fullbz.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_xz[dim]-1-offset_xz[dim],in_fullbz.bigEnd(dim)-idx[dim]);
@@ -344,7 +344,7 @@ void ImplicitSolver::ApplyMassMatrices (
                 amrex::GpuArray<int, 3> index_min = {0, 0, 0};
                 amrex::GpuArray<int, 3> index_max = {0, 0, 0};
 
-                // Compute Syx_d_in_x
+                // Compute Syx*d_in_x
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_yx[dim],in_fullbx.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_yx[dim]-1-offset_yx[dim],in_fullbx.bigEnd(dim)-idx[dim]);
@@ -363,7 +363,7 @@ void ImplicitSolver::ApplyMassMatrices (
                     }
                 }
 
-                // Compute Syy_d_in_y
+                // Compute Syy*d_in_y
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_yy[dim],in_fullby.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_yy[dim]-1-offset_yy[dim],in_fullby.bigEnd(dim)-idx[dim]);
@@ -382,7 +382,7 @@ void ImplicitSolver::ApplyMassMatrices (
                     }
                 }
 
-                // Compute Syz_d_in_z
+                // Compute Syz*d_in_z
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_yz[dim],in_fullbz.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_yz[dim]-1-offset_yz[dim],in_fullbz.bigEnd(dim)-idx[dim]);
@@ -411,7 +411,7 @@ void ImplicitSolver::ApplyMassMatrices (
                 amrex::GpuArray<int, 3> index_min = {0, 0, 0};
                 amrex::GpuArray<int, 3> index_max = {0, 0, 0};
 
-                // Compute Szx_d_in_x
+                // Compute Szx*d_in_x
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_zx[dim],in_fullbx.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_zx[dim]-1-offset_zx[dim],in_fullbx.bigEnd(dim)-idx[dim]);
@@ -430,7 +430,7 @@ void ImplicitSolver::ApplyMassMatrices (
                     }
                 }
 
-                // Compute Szy_d_in_y
+                // Compute Szy*d_in_y
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_zy[dim],in_fullby.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_zy[dim]-1-offset_zy[dim],in_fullby.bigEnd(dim)-idx[dim]);
@@ -449,7 +449,7 @@ void ImplicitSolver::ApplyMassMatrices (
                     }
                 }
 
-                // Compute Szz_d_in_z
+                // Compute Szz*d_in_z
                 for (int dim=0; dim<AMREX_SPACEDIM; ++dim) {
                     index_min[dim] = std::max(-offset_zz[dim],in_fullbz.smallEnd(dim)-idx[dim]);
                     index_max[dim] = std::min(ncomp_zz[dim]-1-offset_zz[dim],in_fullbz.bigEnd(dim)-idx[dim]);
