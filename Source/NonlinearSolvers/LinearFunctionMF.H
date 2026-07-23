@@ -10,17 +10,13 @@
 #define LinearFunctionMF_H_
 
 #include "LinearFunction.H"
-#include "CurlCurlMLMGPC.H"
-#include "MatrixPC.H"
-#include "JacobiPC.H"
 #include "Utils/TextMsg.H"
 
 #include <AMReX_Config.H>
-#include <string>
 
 /**
  * \brief This is a linear function class for computing the action of a
- *  Jacobian on a vector using a matrix-free finite-difference method.
+ *  linear operator on a vector using a matrix-free method.
  *  This class has all of the required functions to be used as the
  *  linear operator template parameter in AMReX_GMRES.
  */
@@ -46,18 +42,13 @@ class LinearFunctionMF : public LinearFunction<T,Ops>
     inline
     void precond ( T& a_U, const T& a_X ) override
     {
-        if (m_usePreCond) {
-            a_U.zero();
-            m_preCond->Apply(a_U, a_X);
-        } else {
-            a_U.Copy(a_X);
-        }
+        a_U.Copy(a_X);
     }
 
     inline
-    void updatePreCondMat ( const T&  a_X ) override
+    void updatePreCondMat ( const T& a_X ) override
     {
-        if (m_usePreCond) { m_preCond->Update(a_X); }
+        amrex::ignore_unused(a_X);
     }
 
     inline
@@ -76,74 +67,18 @@ class LinearFunctionMF : public LinearFunction<T,Ops>
     [[nodiscard]] inline
     bool isDefined() const { return m_is_defined;  }
 
-    [[nodiscard]] inline
-    bool usePreconditioner() const { return m_usePreCond;  }
-
-    inline
-    void setBaseSolution ( const T&  a_U )
-    {
-        m_normY0 = this->norm2(a_U);
-    }
-
-    inline
-    void setBaseRHS ( const T&  a_R )
-    {
-        amrex::ignore_unused(a_R);
-    }
-
-    inline
-    void setJFNKEps ( RT a_eps )
-    {
-        m_epsJFNK = a_eps;
-    }
-
-    inline
-    void setIsLinear ( bool a_isLinear )
-    {
-        m_is_linear = a_isLinear;
-    }
-
-    inline
-    void curTime ( RT a_time )
-    {
-        m_cur_time = a_time;
-        if (m_usePreCond) { m_preCond->CurTime(a_time); }
-    }
-
-    inline
-    void curTimeStep ( RT a_dt )
-    {
-        m_dt = a_dt;
-        if (m_usePreCond) { m_preCond->CurTimeStep(a_dt); }
-    }
-
-    inline
-    void printParams () const
-    {
-        if (m_pc_type != PreconditionerType::none) {
-            m_preCond->printParameters();
-        }
-    }
-
     void define( const T&, Ops*, const PreconditionerType& ) override;
 
     [[nodiscard]] inline
-    PreconditionerType pcType () const override { return m_pc_type; }
+    PreconditionerType pcType () const override { return PreconditionerType::none; }
 
     private:
 
     bool m_is_defined = false;
-    bool m_is_linear = false;
-    bool m_usePreCond = false;
-    RT m_epsJFNK = RT(1.0e-6);
-    RT m_normY0 = RT(0.0);
-    RT m_cur_time = RT(0.0), m_dt = RT(0.0);
-
-    PreconditionerType m_pc_type = PreconditionerType::none;
+    RT m_cur_time = RT(0.0);
 
     T m_R;
     Ops* m_ops = nullptr;
-    std::unique_ptr<Preconditioner<T,Ops>> m_preCond = nullptr;
 };
 
 template <class T, class Ops>
@@ -152,24 +87,12 @@ void LinearFunctionMF<T,Ops>::define ( const T& a_U,
                                          const PreconditionerType& a_pc_type )
 {
     BL_PROFILE("LinearFunctionMF::::define()");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        a_pc_type == PreconditionerType::none,
+        "LinearFunctionMF::define(): preconditioners are not supported");
+
     m_R.Define(a_U);
-
     m_ops = a_ops;
-
-    m_usePreCond = (a_pc_type != PreconditionerType::none);
-    if (m_usePreCond) {
-        m_pc_type = a_pc_type;
-        if (m_pc_type == PreconditionerType::pc_curl_curl_mlmg) {
-            m_preCond = std::make_unique<CurlCurlMLMGPC<T,Ops>>();
-        } else if (m_pc_type == PreconditionerType::pc_jacobi) {
-            m_preCond = std::make_unique<JacobiPC<T,Ops>>();
-        } else {
-            m_preCond = std::make_unique<MatrixPC<T,Ops>>();
-            m_preCond->setName(amrex::getEnumNameString(m_pc_type));
-        }
-        m_preCond->Define(a_U, a_ops);
-    }
-
     m_is_defined = true;
 }
 
@@ -195,20 +118,12 @@ template <class T, class Ops>
 void LinearFunctionMF<T,Ops>::apply (T& a_dF, const T& a_dU)
 {
     BL_PROFILE("LinearFunctionMF::apply()");
-    using namespace amrex::literals;
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         isDefined(),
-        "JacobianFunction::apply() called on undefined JacobianFunction");
+        "LinearFunctionMF::apply() called on undefined LinearFunctionMF");
 
-    // a_dU is always unit-norm when called from GMRES with no preconditioner,
-    // so only pay for the norm2() reduction when a preconditioner could have
-    // produced a near-zero a_dU.
-    if (m_usePreCond && this->norm2(a_dU) < 1.0e-15) {
-        a_dF.zero();
-    } else {
-        m_ops->ComputeRHS(a_dF, a_dU, m_cur_time, -1, true );
-    }
+    m_ops->ComputeRHS(a_dF, a_dU, m_cur_time, -1, true );
 }
 
 #endif
