@@ -960,7 +960,11 @@ public:
 
 #ifdef AMREX_USE_EB
     amrex::EB2::IndexSpace const* GetEBIndexSpace (int lev) const {
-        return (lev < m_eb_index_space.size()) ? m_eb_index_space[lev] : &(amrex::EB2::IndexSpace::top());
+        // If EB data was built separately for each mesh-refinement level, return the one for
+        // this level; otherwise return the single global EB data (built at the finest level
+        // and coarsened for coarser levels).
+        return (m_build_eb_data_per_level && lev < m_eb_index_space.size())
+            ? m_eb_index_space[lev] : &(amrex::EB2::IndexSpace::top());
     }
 #endif
 
@@ -1636,6 +1640,11 @@ private:
     bool m_collisions_split_momentum_push;
 
 #ifdef AMREX_USE_EB
+    /** Whether to build the EB data separately for each mesh-refinement level (true, default),
+     *  instead of building it once at the finest level and coarsening it down for coarser levels.
+     *  Set via the runtime parameter "warpx.build_eb_data_per_level".
+     */
+    bool m_build_eb_data_per_level = true;
     amrex::Vector<amrex::EB2::IndexSpace const*> m_eb_index_space;
 #endif
 };
