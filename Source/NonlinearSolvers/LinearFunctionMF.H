@@ -76,55 +76,6 @@ class LinearFunctionMF : public LinearFunction<T,Ops>
     [[nodiscard]] inline
     bool isDefined() const { return m_is_defined;  }
 
-    [[nodiscard]] inline
-    bool usePreconditioner() const { return m_usePreCond;  }
-
-    inline
-    void setBaseSolution ( const T&  a_U )
-    {
-        m_normY0 = this->norm2(a_U);
-    }
-
-    inline
-    void setBaseRHS ( const T&  a_R )
-    {
-        amrex::ignore_unused(a_R);
-    }
-
-    inline
-    void setJFNKEps ( RT a_eps )
-    {
-        m_epsJFNK = a_eps;
-    }
-
-    inline
-    void setIsLinear ( bool a_isLinear )
-    {
-        m_is_linear = a_isLinear;
-    }
-
-    inline
-    void curTime ( RT a_time )
-    {
-        m_cur_time = a_time;
-        if (m_usePreCond) { m_preCond->CurTime(a_time); }
-    }
-
-    inline
-    void curTimeStep ( RT a_dt )
-    {
-        m_dt = a_dt;
-        if (m_usePreCond) { m_preCond->CurTimeStep(a_dt); }
-    }
-
-    inline
-    void printParams () const
-    {
-        if (m_pc_type != PreconditionerType::none) {
-            m_preCond->printParameters();
-        }
-    }
-
     void define( const T&, Ops*, const PreconditionerType& ) override;
 
     [[nodiscard]] inline
@@ -133,11 +84,8 @@ class LinearFunctionMF : public LinearFunction<T,Ops>
     private:
 
     bool m_is_defined = false;
-    bool m_is_linear = false;
     bool m_usePreCond = false;
-    RT m_epsJFNK = RT(1.0e-6);
-    RT m_normY0 = RT(0.0);
-    RT m_cur_time = RT(0.0), m_dt = RT(0.0);
+    RT m_cur_time = RT(0.0);
 
     PreconditionerType m_pc_type = PreconditionerType::none;
 
