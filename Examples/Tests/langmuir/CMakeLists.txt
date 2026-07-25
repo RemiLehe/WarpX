@@ -12,10 +12,30 @@ add_warpx_test(
 )
 
 add_warpx_test(
+    test_1d_langmuir_multi_electrostatic  # name
+    1  # dims
+    2  # nprocs
+    inputs_test_1d_langmuir_multi_electrostatic  # inputs
+    "analysis_1d.py diags/diag1000080"  # analysis
+    "analysis_default_regression.py --path diags/diag1000080"  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
     test_2d_langmuir_multi  # name
     2  # dims
     2  # nprocs
     inputs_test_2d_langmuir_multi  # inputs
+    "analysis_2d.py diags/diag1000080"  # analysis
+    "analysis_default_regression.py --path diags/diag1000080"  # checksum
+    OFF  # dependency
+)
+
+add_warpx_test(
+    test_2d_langmuir_multi_electrostatic  # name
+    2  # dims
+    2  # nprocs
+    inputs_test_2d_langmuir_multi_electrostatic  # inputs
     "analysis_2d.py diags/diag1000080"  # analysis
     "analysis_default_regression.py --path diags/diag1000080"  # checksum
     OFF  # dependency

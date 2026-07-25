@@ -1,0 +1,10 @@
+# base input parameters
+FILE = inputs_base_2d
+
+# test input parameters
+warpx.do_electrostatic = labframe
+# Use a constant time step that matches the one of the corresponding
+# electromagnetic test (2D Yee solver with cfl = 1): dt = dz / (sqrt(2) * c)
+warpx.const_dt = 40.e-6/128./sqrt(2.)/clight
+diag1.electrons.variables = x z w ux uy uz
+diag1.positrons.variables = x z w ux uy uz
