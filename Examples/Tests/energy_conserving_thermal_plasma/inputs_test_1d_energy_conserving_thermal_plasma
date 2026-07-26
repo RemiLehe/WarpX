@@ -8,7 +8,7 @@ geometry.dims = 1
 
 warpx.do_electrostatic = labframe
 algo.field_gathering = energy-conserving
-algo.particle_shape = 2
+algo.particle_shape = 3
 warpx.use_filter = 0
 
 #################################
