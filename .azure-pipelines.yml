@@ -41,7 +41,17 @@ jobs:
     matrix:
       # 1D Cartesian, Cylindrical, Spherical
       1d:
-        WARPX_CMAKE_FLAGS: -DWarpX_DIMS='1;RCYLINDER;RSPHERE' -DWarpX_FFT=ON -DWarpX_PYTHON=ON -DWarpX_PETSC=ON
+        # DEMONSTRATION ONLY - DO NOT MERGE.
+        # Build this job with GCC 15 instead of the image default (GCC 13). With
+        # cubic shape factors, GCC 15 vectorizes the particle loop in
+        # doChargeDepositionShapeN (licensed by the "GCC ivdep" that
+        # AMREX_PRAGMA_SIMD puts on amrex::ParallelFor) even though consecutive
+        # particles accumulate into the same rho nodes and CPU
+        # Gpu::Atomic::AddNoRet is a plain "+=". 3 of every 4 updates are
+        # dropped, rho comes out 4x too small, and the energy-conservation
+        # analysis fails. GCC 13 does not vectorize that loop, which is why this
+        # bug is invisible on the current CI image.
+        WARPX_CMAKE_FLAGS: -DWarpX_DIMS='1;RCYLINDER;RSPHERE' -DWarpX_FFT=ON -DWarpX_PYTHON=ON -DWarpX_PETSC=ON -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15
       # Cartesian 2D
       cartesian_2d:
         WARPX_CMAKE_FLAGS: -DWarpX_DIMS=2 -DWarpX_FFT=ON -DWarpX_PYTHON=ON -DWarpX_PETSC=ON
@@ -90,6 +100,14 @@ jobs:
       df -h
       echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries
       sudo apt update
+      # DEMONSTRATION ONLY - DO NOT MERGE.
+      # ubuntu-24.04 ships GCC 13, which does not vectorize the affected
+      # deposition loop. Pull in GCC 15 so the 1d job can expose the bug.
+      sudo apt install -y software-properties-common
+      sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+      sudo apt update
+      sudo apt install -y gcc-15 g++-15
+      g++-15 --version
       sudo apt install -y ccache curl gcc gfortran git g++ ninja-build \
         openmpi-bin libopenmpi-dev \
         libfftw3-dev libfftw3-mpi-dev libhdf5-openmpi-dev pkg-config make \
