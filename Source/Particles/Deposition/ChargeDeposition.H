@@ -60,7 +60,7 @@ void doChargeDepositionShapeN (const GetParticlePosition<PIdx>& GetPosition,
     constexpr int CELL = amrex::IndexType::CELL;
 
     // Loop over particles and deposit into rho_fab
-    amrex::ParallelFor(
+    amrex::For(
             np_to_deposit,
             [=] AMREX_GPU_DEVICE (long ip) {
             // --- Get particle quantities
@@ -265,7 +265,7 @@ void doChargeDepositionSharedShapeN (const GetParticlePosition<PIdx>& GetPositio
                   nblocks, threads_per_block, shared_mem_bytes, amrex::Gpu::gpuStream(),
                   [=] AMREX_GPU_DEVICE () noexcept
 #else // defined(AMREX_USE_CUDA) || defined(AMREX_USE_HIP)
-    amrex::ParallelFor(np_to_deposit, [=] AMREX_GPU_DEVICE (long ip_orig) noexcept
+    amrex::For(np_to_deposit, [=] AMREX_GPU_DEVICE (long ip_orig) noexcept
 #endif
       {
 #if defined(AMREX_USE_CUDA) || defined(AMREX_USE_HIP)
