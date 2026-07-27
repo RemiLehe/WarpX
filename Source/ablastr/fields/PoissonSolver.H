@@ -161,7 +161,7 @@ inline void interpolatePhiBetweenLevels (
  *
  * More specifically, this solves the equation
  * \f[
- *   \boldsymbol{\nabla}^2 r \phi - (\boldsymbol{\beta}\cdot\boldsymbol{\nabla})^2 r \phi = -\frac{r \rho}{\epsilon_0}
+ *   \nabla^2 r \phi - (\boldsymbol{\beta}\cdot\boldsymbol{\nabla})^2 r \phi = -\frac{r \rho}{\epsilon_0}
  * \f]
  *
  * \tparam T_PostPhiCalculationFunctor a calculation per level directly after phi was calculated
