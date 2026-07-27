@@ -28,7 +28,7 @@ The magnetic field is advanced in time using Faraday's law,
 
     .. math::
 
-        \frac{\partial\boldsymbol{B}}{\partial t} = -\nabla\times\boldsymbol{E},
+        \frac{\partial\boldsymbol{B}}{\partial t} = -\boldsymbol{\nabla}\times\boldsymbol{E},
 
 where the electric field is calculated from Ohm's law which involves the currents,
 the magnetic field, and the electron pressure (for which an additional closure is required,
@@ -36,7 +36,7 @@ see :ref:`here <theory-hybrid-model-elec-temp>`),
 
     .. math::
 
-        \boldsymbol{E} = -\frac{1}{en_e}\left( \boldsymbol{J}_e\times\boldsymbol{B} + \nabla P_e \right)+\eta\boldsymbol{J}-\eta_h \nabla^2\boldsymbol{J}.
+        \boldsymbol{E} = -\frac{1}{en_e}\left( \boldsymbol{J}_e\times\boldsymbol{B} + \boldsymbol{\nabla} P_e \right)+\eta\boldsymbol{J}-\eta_h \nabla^2\boldsymbol{J}.
 
 The electron current is in turn obtained by subtracting the ion current (obtained from
 kinetic ion macro-particles) from the total current (obtained from Ampere's law):
@@ -163,31 +163,31 @@ integrating over velocity), also called the generalized Ohm's law, is given by:
 
     .. math::
 
-        en_e\boldsymbol{E} = \frac{m}{e}\frac{\partial \boldsymbol{J}_e}{\partial t} + \frac{m}{e}\left( \boldsymbol{U}_e\cdot\nabla \right) \boldsymbol{J}_e - \nabla\cdot {\overleftrightarrow P}_e - \boldsymbol{J}_e\times\boldsymbol{B}+\boldsymbol{R}_e
+        en_e\boldsymbol{E} = \frac{m}{e}\frac{\partial \boldsymbol{J}_e}{\partial t} + \frac{m}{e}\left( \boldsymbol{U}_e\cdot\boldsymbol{\nabla} \right) \boldsymbol{J}_e - \boldsymbol{\nabla}\cdot {\overleftrightarrow P}_e - \boldsymbol{J}_e\times\boldsymbol{B}+\boldsymbol{R}_e
 
 where :math:`\boldsymbol{U}_e = \boldsymbol{J}_e/(en_e)` is the electron fluid velocity,
 :math:`{\overleftrightarrow P}_e` is the electron pressure tensor and
 :math:`\boldsymbol{R}_e` is the drag force due to collisions between electrons and ions.
-Applying the above momentum equation to the Maxwell-Faraday equation (:math:`\frac{\partial\boldsymbol{B}}{\partial t} = -\nabla\times\boldsymbol{E}`)
+Applying the above momentum equation to the Maxwell-Faraday equation (:math:`\frac{\partial\boldsymbol{B}}{\partial t} = -\boldsymbol{\nabla}\times\boldsymbol{E}`)
 and substituting in :math:`\boldsymbol{J}` calculated from the Maxwell-Ampere equation, gives,
 
     .. math::
 
-        \frac{\partial\boldsymbol{J}_e}{\partial t} = -\frac{1}{\mu_0}\nabla\times\left(\nabla\times\boldsymbol{E}\right) - \frac{\partial\boldsymbol{J}_{ext}}{\partial t} - \sum_{s\neq e}\frac{\partial\boldsymbol{J}_s}{\partial t}.
+        \frac{\partial\boldsymbol{J}_e}{\partial t} = -\frac{1}{\mu_0}\boldsymbol{\nabla}\times\left(\boldsymbol{\nabla}\times\boldsymbol{E}\right) - \frac{\partial\boldsymbol{J}_{ext}}{\partial t} - \sum_{s\neq e}\frac{\partial\boldsymbol{J}_s}{\partial t}.
 
 Plugging this back into the generalized Ohm's law gives:
 
     .. math::
 
-        \left(en_e +\frac{m}{e\mu_0}\nabla\times\nabla\times\right)\boldsymbol{E} =&
+        \left(en_e +\frac{m}{e\mu_0}\boldsymbol{\nabla}\times\boldsymbol{\nabla}\times\right)\boldsymbol{E} =&
         - \frac{m}{e}\left( \frac{\partial\boldsymbol{J}_{ext}}{\partial t} + \sum_{s\neq e}\frac{\partial\boldsymbol{J}_s}{\partial t} \right) \\
-        &+ \frac{m}{e}\left( \boldsymbol{U}_e\cdot\nabla \right) \boldsymbol{J}_e - \nabla\cdot {\overleftrightarrow P}_e - \boldsymbol{J}_e\times\boldsymbol{B}+\boldsymbol{R}_e.
+        &+ \frac{m}{e}\left( \boldsymbol{U}_e\cdot\boldsymbol{\nabla} \right) \boldsymbol{J}_e - \boldsymbol{\nabla}\cdot {\overleftrightarrow P}_e - \boldsymbol{J}_e\times\boldsymbol{B}+\boldsymbol{R}_e.
 
 If we now further assume electrons are inertialess (i.e. :math:`m=0`), the above equation simplifies to,
 
     .. math::
 
-        en_e\boldsymbol{E} = -\boldsymbol{J}_e\times\boldsymbol{B}-\nabla\cdot{\overleftrightarrow P}_e+\boldsymbol{R}_e.
+        en_e\boldsymbol{E} = -\boldsymbol{J}_e\times\boldsymbol{B}-\boldsymbol{\nabla}\cdot{\overleftrightarrow P}_e+\boldsymbol{R}_e.
 
 Making the further simplifying assumptions that the electron pressure is isotropic and that
 the electron drag term can be written using a simple resistivity (:math:`\eta`) and hyper-resistivity (:math:`\eta_h`)
@@ -196,7 +196,7 @@ Ohm's law:
 
     .. math::
 
-        \boldsymbol{E} = -\frac{1}{en_e}\left( \boldsymbol{J}_e\times\boldsymbol{B} + \nabla P_e \right)+\eta\boldsymbol{J}-\eta_h \nabla^2\boldsymbol{J}.
+        \boldsymbol{E} = -\frac{1}{en_e}\left( \boldsymbol{J}_e\times\boldsymbol{B} + \boldsymbol{\nabla} P_e \right)+\eta\boldsymbol{J}-\eta_h \nabla^2\boldsymbol{J}.
 
 Lastly, if an electron temperature is given from which the electron pressure can
 be calculated, the model is fully constrained and can be evolved given initial
