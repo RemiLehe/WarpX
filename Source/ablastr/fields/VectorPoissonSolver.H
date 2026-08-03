@@ -55,7 +55,7 @@ namespace ablastr::fields {
  *
  * More specifically, this solves the equation
  * \f[
- *   \boldsymbol{\nabla}^2 r \boldsymbol{A} - (\boldsymbol{\beta}\cdot\boldsymbol{\nabla})^2 r \boldsymbol{A} = - r \mu_0 \boldsymbol{J}
+ *   \nabla^2 r \boldsymbol{A} - (\boldsymbol{\beta}\cdot\boldsymbol{\nabla})^2 r \boldsymbol{A} = - r \mu_0 \boldsymbol{J}
  * \f]
  *
  * \tparam T_BoundaryHandler handler for boundary conditions, for example @see MagnetostaticSolver::MultiPoissonBoundaryHandler

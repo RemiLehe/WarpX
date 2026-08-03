@@ -73,7 +73,7 @@ public:
      * This uses the amrex solver.
      * More specifically, this solves the equation
      *  \f[
-     *      \boldsymbol{\nabla}^2 r \phi - (\boldsymbol{\beta}\cdot\boldsymbol{\nabla})^2 r \phi = -\frac{r \rho}{\epsilon_0}
+     *      \nabla^2 r \phi - (\boldsymbol{\beta}\cdot\boldsymbol{\nabla})^2 r \phi = -\frac{r \rho}{\epsilon_0}
      *  \f]
      * \param[in] rho The charge density for a given species (relativistic solver)
      *                               or total charge density (labframe solver)

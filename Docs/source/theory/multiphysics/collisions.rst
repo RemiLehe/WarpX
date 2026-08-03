@@ -135,7 +135,7 @@ where :math:`\gamma` is the Lorentz factor of the relative speed between the lab
 
     .. math::
 
-        \boldsymbol{v}^{COM} = \frac{m \boldsymbol{u_c}}{\gamma_u m + M}
+        \boldsymbol{v}^{COM} = \frac{m \boldsymbol{u}_c}{\gamma_u m + M}
 
 The particle velocity in the COM frame is then isotropically scattered using the function ``ParticleUtils::RandomizeVelocity()``. After the direction of the velocity vector has been appropriately changed, it is transformed back to the lab frame with the reversed Lorentz transform as was done above followed by the reverse Galilean transformation using the starting neutral velocity.
 
