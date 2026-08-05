@@ -286,8 +286,9 @@ WarpX::DampJPML (int lev, PatchType patch_type)
 #endif
 
             // Skip the field update if this gridpoint is inside the embedded boundary.
-            // `m_eb_update_E_fp` is only defined on the fine patch; on the coarse patch the
-            // EB is not resolved, so the check below is skipped.
+            // The PML only builds EB update flags for its fine patch (`m_eb_update_E_fp`);
+            // no equivalent is built for the PML coarse patch, so the check below is
+            // skipped there. (See the corresponding TODO in `EvolveEPML.cpp`.)
             amrex::Array4<int> update_Ex_arr, update_Ey_arr, update_Ez_arr;
             if (EB::enabled() && patch_type == PatchType::fine) {
                 const auto &eb_update_E = pml[lev]->GetEBUpdateEFlag_fp();
