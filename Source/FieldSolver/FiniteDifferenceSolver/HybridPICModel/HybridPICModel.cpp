@@ -1342,7 +1342,7 @@ void HybridPICModel::AdvanceElectronEnergyQDSMC (amrex::Real const dt) const
     if (!m_qdsmc_J_plasma_valid) {
         CalculatePlasmaCurrent(
             warpx.m_fields.get_mr_levels_alldirs(FieldType::Bfield_fp, warpx.finestLevel()),
-            warpx.GetEBUpdateEFlag());
+            warpx.GetEBUpdateEFlag_fp());
         m_qdsmc_J_plasma_valid = true;
     }
 
