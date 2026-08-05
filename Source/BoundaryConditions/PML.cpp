@@ -1004,6 +1004,39 @@ PML::PML (const int lev, const BoxArray& grid_ba,
         fields.alloc_init(FieldType::pml_B_cp, Direction{1}, lev, cba_By, cdm, ncompb, ngb, 0.0_rt, false, false);
         fields.alloc_init(FieldType::pml_B_cp, Direction{2}, lev, cba_Bz, cdm, ncompb, ngb, 0.0_rt, false, false);
 
+#ifdef AMREX_USE_EB
+        if (eb_enabled) {
+            const amrex::IntVect max_guard_EB_vect = amrex::IntVect(max_guard_EB);
+
+            // Allocate the flags that indicate on which grid points the E field
+            // (and the PML current) should be updated. By default, all grid points
+            // are updated; this is refined below for the finite-difference solvers.
+            m_eb_update_E_cp[0] = std::make_unique<amrex::iMultiFab>(cba_Ex, cdm, WarpX::ncomps, max_guard_EB_vect);
+            m_eb_update_E_cp[1] = std::make_unique<amrex::iMultiFab>(cba_Ey, cdm, WarpX::ncomps, max_guard_EB_vect);
+            m_eb_update_E_cp[2] = std::make_unique<amrex::iMultiFab>(cba_Ez, cdm, WarpX::ncomps, max_guard_EB_vect);
+            for (int idim = 0; idim < 3; ++idim) { m_eb_update_E_cp[idim]->setVal(1); }
+
+            if (WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee ||
+                WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::CKC ||
+                WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::ECT) {
+
+                // The coarse-patch fields live on a coarsened grid, so they need their own
+                // EB factory, at the resolution of the coarse patch.
+                auto const cp_eb_fact = amrex::makeEBFabFactory(
+                    *cgeom, cba, cdm,
+                    {max_guard_EB, max_guard_EB, max_guard_EB},
+                    amrex::EBSupport::full
+                );
+
+                // Mark on which grid points E should be updated (stair-case approximation)
+                warpx::embedded_boundary::MarkUpdateCellsStairCase(
+                    m_eb_update_E_cp,
+                    fields.get_alldirs(FieldType::pml_E_cp, lev),
+                    *cp_eb_fact, m_cgeom->periodicity());
+            }
+        }
+#endif
+
         if (m_dive_cleaning)
         {
             const amrex::BoxArray cba_F_nodal = amrex::convert(cba, amrex::IntVect::TheNodeVector());

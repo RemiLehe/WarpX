@@ -69,15 +69,6 @@ void FiniteDifferenceSolver::EvolveEPML (
         fields.get_alldirs(FieldType::pml_B_fp, level) : fields.get_alldirs(FieldType::pml_B_cp, level);
     const ablastr::fields::VectorField Jfield = (patch_type == PatchType::fine) ?
         fields.get_alldirs(FieldType::pml_j_fp, level) : fields.get_alldirs(FieldType::pml_j_cp, level);
-    // The PML only builds EB update flags for its fine patch (`m_eb_update_E_fp`);
-    // no equivalent is built for the PML coarse patch. The flag arrays are therefore
-    // left empty here for the coarse patch, and the EB masking below is skipped
-    // (the kernels guard on the Array4 being non-empty).
-    // TODO: build EB update flags on the PML coarse patch, so that an embedded
-    // boundary intersecting the coarse PML region is also accounted for there.
-    static std::array<std::unique_ptr<amrex::iMultiFab>, 3> const empty_eb_update{};
-    std::array<std::unique_ptr<amrex::iMultiFab>, 3> const& eb_update_for_kernel =
-        (patch_type == PatchType::fine) ? eb_update_E : empty_eb_update;
     amrex::MultiFab * Ffield = nullptr;
     if (fields.has(FieldType::pml_F_fp, level)) {
         Ffield = (patch_type == PatchType::fine) ?
@@ -87,17 +78,17 @@ void FiniteDifferenceSolver::EvolveEPML (
     if (m_grid_type == GridType::Collocated) {
 
         EvolveEPMLCartesian <CartesianNodalAlgorithm> (
-            Efield, Bfield, Jfield, eb_update_for_kernel, Ffield, sigba, dt, pml_has_particles );
+            Efield, Bfield, Jfield, eb_update_E, Ffield, sigba, dt, pml_has_particles );
 
     } else if (m_fdtd_algo == ElectromagneticSolverAlgo::Yee || m_fdtd_algo == ElectromagneticSolverAlgo::ECT) {
 
         EvolveEPMLCartesian <CartesianYeeAlgorithm> (
-            Efield, Bfield, Jfield, eb_update_for_kernel, Ffield, sigba, dt, pml_has_particles );
+            Efield, Bfield, Jfield, eb_update_E, Ffield, sigba, dt, pml_has_particles );
 
     } else if (m_fdtd_algo == ElectromagneticSolverAlgo::CKC) {
 
         EvolveEPMLCartesian <CartesianCKCAlgorithm> (
-            Efield, Bfield, Jfield, eb_update_for_kernel, Ffield, sigba, dt, pml_has_particles );
+            Efield, Bfield, Jfield, eb_update_E, Ffield, sigba, dt, pml_has_particles );
 
     } else {
         WARPX_ABORT_WITH_MESSAGE("EvolveEPML: Unknown algorithm");
