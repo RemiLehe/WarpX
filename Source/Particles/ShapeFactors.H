@@ -57,10 +57,10 @@ struct Compute_shape_factor
         else if constexpr (depos_order == 3){
             const auto j = static_cast<int>(xmid);
             const T xint = xmid - T(j);
-            sx[0] = T(1.0)/T(6.0)*(T(1.0) - xint)*(T(1.0) - xint)*(T(1.0) - xint);
-            sx[1] = T(2.0)/T(3.0) - xint*xint*(T(1.0) - T(0.5)*xint);
-            sx[2] = T(2.0)/T(3.0) - (T(1.0) - xint)*(T(1.0) - xint)*(T(1.0) - T(0.5)*(T(1.0) - xint));
-            sx[3] = T(1.0)/T(6.0)*xint*xint*xint;
+            sx[0] = T(1.0/6.0)*(T(1.0) - xint)*(T(1.0) - xint)*(T(1.0) - xint);
+            sx[1] = T(2.0/3.0) - xint*xint*(T(1.0) - T(0.5)*xint);
+            sx[2] = T(2.0/3.0) - (T(1.0) - xint)*(T(1.0) - xint)*(T(1.0) - T(0.5)*(T(1.0) - xint));
+            sx[3] = T(1.0/6.0)*xint*xint*xint;
             // index of the leftmost cell where particle deposits
             return j-1;
         }
