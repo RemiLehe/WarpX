@@ -744,6 +744,20 @@ WarpX::ReadParameters ()
             electromagnetic_solver_id = ElectromagneticSolverAlgo::None;
         }
 
+        // Sub-cycling is only implemented in the mesh-refinement PIC loop of the
+        // electromagnetic solvers (see WarpX::OneStep_sub1). It is silently ignored
+        // by the electrostatic/magnetostatic and hybrid-PIC PIC loops, so abort here
+        // instead, in order to avoid running with a time-stepping scheme that differs
+        // from the one requested by the user.
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !m_do_subcycling ||
+            (electromagnetic_solver_id != ElectromagneticSolverAlgo::None &&
+             electromagnetic_solver_id != ElectromagneticSolverAlgo::HybridPIC),
+            "warpx.do_subcycling = 1 is only supported with the electromagnetic solvers "
+            "(algo.maxwell_solver = yee, ckc or ect). It is not supported with the "
+            "electrostatic/magnetostatic solvers (warpx.do_electrostatic) nor with the "
+            "hybrid-PIC solver (algo.maxwell_solver = hybrid).");
+
 #if defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(electrostatic_solver_id == ElectrostaticSolverAlgo::None,
                   "Electrostatic solver not supported with 1D cylindrical and spherical");
