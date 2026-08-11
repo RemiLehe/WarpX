@@ -745,13 +745,7 @@ WarpX::ReadParameters ()
         }
 
         // Sub-cycling is only implemented for the finite-difference electromagnetic
-        // solvers, in the mesh-refinement PIC loop WarpX::OneStep_sub1. With the
-        // electrostatic/magnetostatic and hybrid-PIC solvers, WarpX::OneStep dispatches
-        // to a PIC loop that never sub-cycles, yet WarpX::ComputeDt still scales dt[0]
-        // by the refinement ratio: the simulation clock would then advance
-        // inconsistently with the particle push. Sub-cycling is not supported with
-        // PSATD either. This check is written as an allow-list, so that all the
-        // unsupported solvers abort here with an explicit message.
+        // solvers, in the mesh-refinement PIC loop WarpX::OneStep_sub1. 
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             !m_do_subcycling ||
             electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee ||
