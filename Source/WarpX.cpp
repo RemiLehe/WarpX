@@ -744,19 +744,24 @@ WarpX::ReadParameters ()
             electromagnetic_solver_id = ElectromagneticSolverAlgo::None;
         }
 
-        // Sub-cycling is only implemented in the mesh-refinement PIC loop of the
-        // electromagnetic solvers (see WarpX::OneStep_sub1). It is silently ignored
-        // by the electrostatic/magnetostatic and hybrid-PIC PIC loops, so abort here
-        // instead, in order to avoid running with a time-stepping scheme that differs
-        // from the one requested by the user.
+        // Sub-cycling is only implemented for the finite-difference electromagnetic
+        // solvers, in the mesh-refinement PIC loop WarpX::OneStep_sub1. With the
+        // electrostatic/magnetostatic and hybrid-PIC solvers, WarpX::OneStep dispatches
+        // to a PIC loop that never sub-cycles, yet WarpX::ComputeDt still scales dt[0]
+        // by the refinement ratio: the simulation clock would then advance
+        // inconsistently with the particle push. Sub-cycling is not supported with
+        // PSATD either. This check is written as an allow-list, so that all the
+        // unsupported solvers abort here with an explicit message.
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             !m_do_subcycling ||
-            (electromagnetic_solver_id != ElectromagneticSolverAlgo::None &&
-             electromagnetic_solver_id != ElectromagneticSolverAlgo::HybridPIC),
+            electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee ||
+            electromagnetic_solver_id == ElectromagneticSolverAlgo::CKC ||
+            electromagnetic_solver_id == ElectromagneticSolverAlgo::ECT,
             "warpx.do_subcycling = 1 is only supported with the electromagnetic solvers "
-            "(algo.maxwell_solver = yee, ckc or ect). It is not supported with the "
-            "electrostatic/magnetostatic solvers (warpx.do_electrostatic) nor with the "
-            "hybrid-PIC solver (algo.maxwell_solver = hybrid).");
+            "algo.maxwell_solver = yee, ckc or ect. It is not supported with the "
+            "electrostatic/magnetostatic solvers (warpx.do_electrostatic), with the "
+            "hybrid-PIC solver (algo.maxwell_solver = hybrid), nor with the spectral "
+            "solver (algo.maxwell_solver = psatd).");
 
 #if defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(electrostatic_solver_id == ElectrostaticSolverAlgo::None,

@@ -4072,12 +4072,13 @@ Additional parameters
     :pp:param:`amr.ref_ratio` is 2 in all directions. More information can be
     found at https://ieeexplore.ieee.org/document/8659392.
 
-    Sub-cycling is only implemented for the electromagnetic solvers
-    (``algo.maxwell_solver = yee``, ``ckc`` or ``ect``). It is not supported
-    with the electrostatic and magnetostatic solvers (see
-    :pp:param:`warpx.do_electrostatic`), nor with the hybrid-PIC solver
-    (``algo.maxwell_solver = hybrid``); WarpX aborts if sub-cycling is requested
-    with one of these solvers.
+    Sub-cycling is only implemented for the finite-difference electromagnetic
+    solvers (``algo.maxwell_solver = yee``, ``ckc`` or ``ect``). It is not
+    supported with the electrostatic and magnetostatic solvers (see
+    :pp:param:`warpx.do_electrostatic`), with the hybrid-PIC solver
+    (``algo.maxwell_solver = hybrid``), nor with the spectral solver
+    (``algo.maxwell_solver = psatd``); WarpX aborts if sub-cycling is requested
+    with any of these solvers.
 
 .. pp:param:: warpx.override_sync_intervals
     :type: ``string``
