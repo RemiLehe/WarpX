@@ -757,6 +757,13 @@ WarpX::ReadParameters ()
             "hybrid-PIC solver (algo.maxwell_solver = hybrid), nor with the spectral "
             "solver (algo.maxwell_solver = psatd).");
 
+        // Sub-cycling is reached only from the explicit branch of WarpX::OneStep.
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !m_do_subcycling || evolve_scheme == EvolveScheme::Explicit,
+            "warpx.do_subcycling = 1 is only supported with algo.evolve_scheme = explicit. "
+            "The implicit and semi-implicit evolve schemes advance all mesh-refinement "
+            "levels with the same time step and do not sub-cycle.");
+
 #if defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(electrostatic_solver_id == ElectrostaticSolverAlgo::None,
                   "Electrostatic solver not supported with 1D cylindrical and spherical");

@@ -4078,7 +4078,9 @@ Additional parameters
     :pp:param:`warpx.do_electrostatic`), with the hybrid-PIC solver
     (``algo.maxwell_solver = hybrid``), nor with the spectral solver
     (``algo.maxwell_solver = psatd``); WarpX aborts if sub-cycling is requested
-    with any of these solvers.
+    with any of these solvers. It also requires the explicit evolve scheme
+    (:pp:param:`algo.evolve_scheme` = ``explicit``, the default), since the
+    implicit and semi-implicit schemes do not sub-cycle.
 
 .. pp:param:: warpx.override_sync_intervals
     :type: ``string``
