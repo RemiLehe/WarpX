@@ -745,7 +745,7 @@ WarpX::ReadParameters ()
         }
 
         // Sub-cycling is only implemented for the finite-difference electromagnetic
-        // solvers, in the mesh-refinement PIC loop WarpX::OneStep_sub1. 
+        // solvers, in the mesh-refinement PIC loop WarpX::OneStep_sub1.
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             !m_do_subcycling ||
             electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee ||
