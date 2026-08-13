@@ -34,8 +34,15 @@ class LinearFunction
         LinearFunction(LinearFunction&&) noexcept = default;
         LinearFunction& operator=(LinearFunction&&) noexcept = default;
 
-        //! apply the linear function on a given vector of type T
-        virtual void apply ( T& a_dF, const T& a_dU ) = 0;
+        /**
+         * \brief Apply the linear operator A represented by this
+         *        LinearFunction object on a given vector of type T,
+         *        i.e., compute its action a_Ax = A * a_x.
+         *
+         * \param a_Ax result of applying the operator, i.e., A * a_x.
+         * \param a_x  vector the operator is applied to.
+         */
+        virtual void apply ( T& a_Ax, const T& a_x ) = 0;
 
         //! apply the preconditioner on a given vector of type T
         virtual void precond ( T& a_U, const T& a_X ) = 0;
