@@ -44,7 +44,17 @@ class LinearFunction
          */
         virtual void apply ( T& a_Ax, const T& a_x ) = 0;
 
-        //! apply the preconditioner on a given vector of type T
+        /**
+         * \brief Apply the preconditioner on a given vector of type T,
+         *        i.e., solve P * a_U = a_X for a_U, where P is an
+         *        approximation of the linear operator A represented by
+         *        this LinearFunction object (so a_U is an approximation
+         *        of the solution of A * a_U = a_X). If there is no
+         *        preconditioner, P = I and a_U is a copy of a_X.
+         *
+         * \param a_U result of applying the preconditioner, i.e., P^{-1} * a_X.
+         * \param a_X vector the preconditioner is applied to.
+         */
         virtual void precond ( T& a_U, const T& a_X ) = 0;
 
         //! update preconditioner
