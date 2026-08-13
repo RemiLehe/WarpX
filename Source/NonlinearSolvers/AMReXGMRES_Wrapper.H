@@ -21,9 +21,11 @@
  *    solver for more details. This class is templated on a vector class Vec,
  *    and an operator class Ops.
  *
- *    The Ops class must have the following function:
- *    ComputeRHS( R_vec, U_vec, time, nl_iter, from_jacobian ),
- *    where U_vec and R_vec are of type Vec.
+ *    The Ops class represents the linear operator A of the linear system
+ *    A x = b solved by solve(). It must implement the interface defined in
+ *    LinearFunction.H; in particular, an apply( Ax_vec, x_vec ) function
+ *    that computes the action A*x of the operator on a vector x. See
+ *    JacobianFunctionMF.H for an example.
  *
  *    The Vec class must have basic math operators, such as Copy, +=, -=,
  *    increment(), linComb(), scale(), etc.. See WarpXSolverVec.H for an example.
@@ -56,10 +58,13 @@ public:
     }
 
     /**
-     * \brief Solve the linear system
+     * \brief Solve the linear system A x = b for x, where A is the linear
+     *        operator whose action A*x on a vector x is computed by
+     *        Ops::apply(), and where the right-hand side b is a given
+     *        vector that does not depend on x.
      *
      * \param a_sol     unknowns, i.e., x in A x = b.
-     * \param a_rhs     RHS, i.e., b in A x = b.
+     * \param a_rhs     RHS, i.e., b in A x = b (independent of x).
      * \param a_tol_rel relative tolerance.
      * \param a_tol_abs absolute tolerance.
      * \param a_its     optional argument specifying the maximum number of iterations.
