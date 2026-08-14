@@ -45,7 +45,7 @@ public:
      *        vector that does not depend on x.
      *
      * \param a_sol     unknowns, i.e., x in A x = b.
-     * \param a_rhs     RHS, i.e., b in A x = b (independent of x).
+     * \param a_rhs     RHS, i.e., b in A x = b.
      * \param a_tol_rel relative tolerance.
      * \param a_tol_abs absolute tolerance.
      * \param a_its     optional argument specifying the maximum number of iterations.
