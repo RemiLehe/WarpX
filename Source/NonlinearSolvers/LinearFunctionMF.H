@@ -37,7 +37,7 @@ class LinearFunctionMF : public LinearFunction<T,Ops>
     LinearFunctionMF(LinearFunctionMF&&) noexcept = default;
     LinearFunctionMF& operator=(LinearFunctionMF&&) noexcept = default;
 
-    void apply ( T& a_dF, const T& a_dU ) override;
+    void apply ( T& a_Ax, const T& a_x ) override;
 
     inline
     void precond ( T& a_U, const T& a_X ) override
@@ -115,7 +115,7 @@ auto LinearFunctionMF<T,Ops>::makeVecLHS () const -> T
 }
 
 template <class T, class Ops>
-void LinearFunctionMF<T,Ops>::apply (T& a_dF, const T& a_dU)
+void LinearFunctionMF<T,Ops>::apply (T& a_Ax, const T& a_x)
 {
     BL_PROFILE("LinearFunctionMF::apply()");
 
@@ -123,7 +123,7 @@ void LinearFunctionMF<T,Ops>::apply (T& a_dF, const T& a_dU)
         isDefined(),
         "LinearFunctionMF::apply() called on undefined LinearFunctionMF");
 
-    m_ops->ComputeRHS(a_dF, a_dU, m_cur_time, -1, true );
+    m_ops->ComputeRHS(a_Ax, a_x, m_cur_time, -1, true );
 }
 
 #endif
