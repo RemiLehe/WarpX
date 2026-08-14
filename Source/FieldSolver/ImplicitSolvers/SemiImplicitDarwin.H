@@ -44,6 +44,15 @@ public:
 
     void PrintParameters () const override;
 
+    /**
+     * \brief Add the runtime particle components used by this solver: only
+     * the saved velocity sample "ux_save", "uy_save", "uz_save". Unlike the
+     * nonlinear implicit solvers, positions are not saved, since particles
+     * do not move between the velocity save and the current deposition in
+     * OneStep().
+     */
+    void CreateParticleAttributes () const override;
+
     int OneStep ( amrex::Real  start_time,
                   amrex::Real  a_dt,
                   int          a_step ) override;
@@ -57,6 +66,7 @@ public:
     void ApplySusceptibility ( ablastr::fields::MultiLevelVectorField& rhs,
                                const ablastr::fields::MultiLevelVectorField& dA);
 
+    void SaveParticleVelocities ();
     void PrepareVelocitiesForCurrentDeposition ();
     void AccumulateCurrentAndSusceptibility ();
     void CalculateSourceVector ();
