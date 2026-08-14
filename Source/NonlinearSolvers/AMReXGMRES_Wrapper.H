@@ -19,9 +19,9 @@
  *    This class is a wrapper for AMReX's GMRES algorithm that inherits from
  *    WarpX's LinearSolver base class. See the documentation of AMReX's GMRES
  *    solver for more details. This class is templated on a vector class Vec,
- *    and an operator class Ops.
+ *    and a linear operator class LinOp.
  *
- *    The Ops class represents the linear operator A of the linear system
+ *    The LinOp class represents the linear operator A of the linear system
  *    A x = b solved by solve(). It must implement the interface defined in
  *    LinearFunction.H; in particular, an apply( Ax_vec, x_vec ) function
  *    that computes the action A(x) of the operator on a vector x.
@@ -29,12 +29,12 @@
  *    The Vec class must have basic math operators, such as Copy, +=, -=,
  *    increment(), linComb(), scale(), etc.. See WarpXSolverVec.H for an example.
  */
-template <typename Vec, typename Ops>
-class AMReXGMRES : public LinearSolver<Vec,Ops>
+template <typename Vec, typename LinOp>
+class AMReXGMRES : public LinearSolver<Vec,LinOp>
 {
 public:
 
-    using RT = typename Ops::RT; // double or float
+    using RT = typename LinOp::RT; // double or float
 
     AMReXGMRES () = default;
 
@@ -46,20 +46,20 @@ public:
     AMReXGMRES(AMReXGMRES&&) noexcept = delete;
     AMReXGMRES& operator=(AMReXGMRES&&) noexcept = delete;
 
-    //! Defines with a reference to Ops. It's the user's responsibility to
-    //! keep the Ops object alive for GMRES to be functional. This function
+    //! Defines with a reference to LinOp. It's the user's responsibility to
+    //! keep the LinOp object alive for GMRES to be functional. This function
     //! must be called before solve() can be called.
     AMREX_FORCE_INLINE
-    void define (Ops& linop) override
+    void define (LinOp& linop) override
     {
-        m_solver = std::make_unique<amrex::GMRES<Vec,Ops>>();
+        m_solver = std::make_unique<amrex::GMRES<Vec,LinOp>>();
         m_solver->define(linop);
     }
 
     /**
      * \brief Solve the linear system A x = b for x, where A is the linear
      *        operator whose action A(x) on a vector x is computed by
-     *        Ops::apply(), and where the right-hand side b is a given
+     *        LinOp::apply(), and where the right-hand side b is a given
      *        vector that does not depend on x.
      *
      * \param a_sol     unknowns, i.e., x in A x = b.
@@ -103,7 +103,7 @@ public:
     RT getResidualNorm () const override { return m_solver->getResidualNorm(); }
 
 private:
-    std::unique_ptr<amrex::GMRES<Vec,Ops>> m_solver = nullptr;
+    std::unique_ptr<amrex::GMRES<Vec,LinOp>> m_solver = nullptr;
 };
 
 #endif

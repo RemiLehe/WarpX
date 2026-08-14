@@ -22,9 +22,9 @@
  *    This class is a wrapper for PETSc's KSP linear solver that inheritis from
  *    WarpX's LinearSolver base class. See the documentation of PETSc's KSP
  *    solver for more details. This class is templated on a vector class Vec,
- *    and an operator class Ops.
+ *    and a linear operator class LinOp.
  *
- *    The Ops class represents the linear operator A of the linear system
+ *    The LinOp class represents the linear operator A of the linear system
  *    A x = b solved by solve(). It must implement the interface defined in
  *    LinearFunction.H; in particular, an apply( Ax_vec, x_vec ) function
  *    that computes the action A(x) of the operator on a vector x.
@@ -37,12 +37,12 @@
  *    and consequent conflicts between PETSc and WarpX variables.
  */
 
-template <typename Vec, typename Ops>
-class PETScKSP : public LinearSolver<Vec,Ops>
+template <typename Vec, typename LinOp>
+class PETScKSP : public LinearSolver<Vec,LinOp>
 {
 public:
 
-    using RT = typename Ops::RT; // double or float
+    using RT = typename LinOp::RT; // double or float
 
     PETScKSP () = default;
 
@@ -54,10 +54,10 @@ public:
     PETScKSP(PETScKSP&&) noexcept = delete;
     PETScKSP& operator=(PETScKSP&&) noexcept = delete;
 
-    //! Defines with a reference to Ops. It's the user's responsibility to
-    //! keep the Ops object alive for GMRES to be functional. This function
+    //! Defines with a reference to LinOp. It's the user's responsibility to
+    //! keep the LinOp object alive for GMRES to be functional. This function
     //! must be called before solve() can be called.
-    void define (Ops& a_linop) override
+    void define (LinOp& a_linop) override
     {
         m_solver = std::make_unique<warpx_petsc::KSP_impl>(a_linop);
     }
@@ -65,7 +65,7 @@ public:
     /**
      * \brief Solve the linear system A x = b for x, where A is the linear
      *        operator whose action A(x) on a vector x is computed by
-     *        Ops::apply(), and where the right-hand side b is a given
+     *        LinOp::apply(), and where the right-hand side b is a given
      *        vector that does not depend on x.
      *
      * \param a_sol     unknowns, i.e., x in A x = b.
