@@ -24,8 +24,7 @@
  *    The Ops class represents the linear operator A of the linear system
  *    A x = b solved by solve(). It must implement the interface defined in
  *    LinearFunction.H; in particular, an apply( Ax_vec, x_vec ) function
- *    that computes the action A*x of the operator on a vector x. See
- *    JacobianFunctionMF.H for an example.
+ *    that computes the action A(x) of the operator on a vector x.
  *
  *    The Vec class must have basic math operators, such as Copy, +=, -=,
  *    increment(), linComb(), scale(), etc.. See WarpXSolverVec.H for an example.
@@ -59,7 +58,7 @@ public:
 
     /**
      * \brief Solve the linear system A x = b for x, where A is the linear
-     *        operator whose action A*x on a vector x is computed by
+     *        operator whose action A(x) on a vector x is computed by
      *        Ops::apply(), and where the right-hand side b is a given
      *        vector that does not depend on x.
      *
