@@ -179,6 +179,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     ExecutePythonCallback("afterdeposition");
 
     // Populate the source vector
+    // i.e. fill m_source with `2 * laplacian(B) + 2 * mu_0 curl(J)`
     CalculateSourceVector();
 
     // Solve MS equation:
@@ -395,11 +396,6 @@ void SemiImplicitDarwin::PrepareVelocitiesForCurrentDeposition ()
 
 void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
 {
-    /*
-        Note: The functionality here deposits current to the Yee grid (and
-        accumulates the susceptibility to a staggered grid). The prototype
-        Darwin solver does the depositions to nodal grids!
-    */
 
     BL_PROFILE("SemiImplicitDarwin::AccumulateCurrentAndSusceptibility()");
 

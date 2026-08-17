@@ -371,9 +371,7 @@ Overall simulation parameters
 
       This solver advances the electrostatic (longitudinal) field together with the inductive
       (magnetostatic Darwin) field, thereby retaining low-frequency magnetic effects while
-      filtering out light waves. The magnetostatic Darwin equation is solved for an auxiliary
-      vector potential using the AMReX GMRES linear solver; the resulting field is used to
-      obtain the inductive :math:`\textbf{E}`-field and to update the magnetic field.
+      filtering out light waves. 
 
       - **Requirements and restrictions:**
 
