@@ -172,8 +172,8 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // for the advanced velocity), and the advanced velocity is saved to u_n
     PrepareVelocitiesForCurrentDeposition();
 
-    // Accumulate current* and susceptibility (mass matrices)
-    AccumulateCurrentAndSusceptibility();
+    // Accumulate current* and the mass matrices
+    AccumulateCurrentAndMassMatrices();
 
     // Python callback insertion
     ExecutePythonCallback("afterdeposition");
@@ -184,6 +184,9 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
 
     // Solve the magnetoinductive equation:
     // bilaplacian(Z) + curl(chi curl(Z)) = 2 * laplacian(B) + 2 * mu_0 curl(J)
+    // where chi is the mass matrix scaled by 2 * mu_0 / dt (see
+    // ApplyScaledMassMatrices), i.e. the linear response of the deposited
+    // current to the inductive E-field that this solve produces.
     m_linear_solver->solve(m_Z, m_source, m_linsol_rtol, m_linsol_atol);
 
     // AMReX's GMRES::getStatus() returns 0 on convergence and a positive
@@ -241,6 +244,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
 
     // Computes the RHS from the given Z vector:
     //   RHS = bilaplacian(Z) + curl(chi curl(Z))
+    // where chi is the mass matrix scaled by 2 * mu_0 / dt (see ApplyScaledMassMatrices).
 
     const int lev = 0;
     const int ncomps = 1;
@@ -294,15 +298,15 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     );
 
     // include guard cells. dA_fp is E-staggered: use FillBoundaryAndSync so
-    // periodically wrapped cells agree before ApplySusceptibility reads dA_fp below.
+    // periodically wrapped cells agree before ApplyScaledMassMatrices reads dA_fp below.
     for (int ii = 0; ii < 3; ii++)
     {
         dA_fp[lev][ii]->FillBoundaryAndSync(m_WarpX->Geom(lev).periodicity());
-        // clear E_temp since ApplySusceptibility accumulates into its rhs argument
+        // clear E_temp since ApplyScaledMassMatrices accumulates into its rhs argument
         E_temp[lev][ii]->setVal(0);
     }
-    // Calculate chi dA and write into E_temp
-    ApplySusceptibility(E_temp, dA_fp);
+    // Calculate chi dA (the scaled mass matrices applied to dA) and write into E_temp
+    ApplyScaledMassMatrices(E_temp, dA_fp);
 
     // E_temp (Efield_fp) shares dA_fp's staggering (nodal transverse
     // components) - sync it too before ComputeCurlA reads it with a stencil.
@@ -394,10 +398,10 @@ void SemiImplicitDarwin::PrepareVelocitiesForCurrentDeposition ()
     }
 }
 
-void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
+void SemiImplicitDarwin::AccumulateCurrentAndMassMatrices ()
 {
 
-    BL_PROFILE("SemiImplicitDarwin::AccumulateCurrentAndSusceptibility()");
+    BL_PROFILE("SemiImplicitDarwin::AccumulateCurrentAndMassMatrices()");
 
     using warpx::fields::FieldType;
 
@@ -637,11 +641,11 @@ void SemiImplicitDarwin::FinishVelocityUpdate ()
     }
 }
 
-void SemiImplicitDarwin::ApplySusceptibility (
+void SemiImplicitDarwin::ApplyScaledMassMatrices (
     ablastr::fields::MultiLevelVectorField& rhs,
     const ablastr::fields::MultiLevelVectorField& dA )
 {
-    BL_PROFILE("SemiImplicitDarwin::ApplySusceptibility()");
+    BL_PROFILE("SemiImplicitDarwin::ApplyScaledMassMatrices()");
     using namespace amrex::literals;
 
     const amrex::Real scale = 2._prt * PhysConst::mu0 / m_dt;

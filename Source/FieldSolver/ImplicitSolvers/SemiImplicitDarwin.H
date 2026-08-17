@@ -54,11 +54,17 @@ public:
                       int              a_nl_iter,
                       bool             a_from_jacobian ) override;
 
-    void ApplySusceptibility ( ablastr::fields::MultiLevelVectorField& rhs,
-                               const ablastr::fields::MultiLevelVectorField& dA);
+    /**
+     * \brief Accumulate `chi dA` into `rhs`, where `chi` is the deposited mass
+     *  matrix scaled by `2 mu_0 / dt`. This is the plasma response term of the
+     *  magnetoinductive operator, i.e. the linear response of the deposited
+     *  current to the inductive E-field being solved for.
+     */
+    void ApplyScaledMassMatrices ( ablastr::fields::MultiLevelVectorField& rhs,
+                                   const ablastr::fields::MultiLevelVectorField& dA);
 
     void PrepareVelocitiesForCurrentDeposition ();
-    void AccumulateCurrentAndSusceptibility ();
+    void AccumulateCurrentAndMassMatrices ();
     void CalculateSourceVector ();
     void ComputeInductiveEfromdA( int astep );
     void ClearParticleVelocities ();
