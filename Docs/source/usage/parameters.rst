@@ -370,7 +370,7 @@ Overall simulation parameters
     * ``semi_implicit_darwin``: Use the semi-implicit Darwin field solver.
 
       This solver advances the electrostatic (longitudinal) field together with the inductive
-      (magnetostatic Darwin) field, thereby retaining low-frequency magnetic effects while
+      (magnetoinductive Darwin) field, thereby retaining low-frequency magnetic effects while
       filtering out light waves.
 
       - **Requirements and restrictions:**
@@ -385,7 +385,7 @@ Overall simulation parameters
           Cartesian geometry.
 
       - **Linear (GMRES) solver options:**
-        The magnetostatic solve uses the AMReX GMRES linear solver, whose parameters are set with the
+        The magnetoinductive solve uses the AMReX GMRES linear solver, whose parameters are set with the
         ``amrex_gmres`` prefix:
 
         - ``amrex_gmres.verbose_int`` (``int``, default: 2) Level of verbosity of the linear solver output.

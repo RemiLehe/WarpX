@@ -50,7 +50,7 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
         m_WarpX->m_fields.alloc_init(FieldType::dA_fp, Direction{2}, lev, ba_Ez, dm_E, 1, nge, 0.0_rt);
     }
 
-    // Define WarpXSolverVec instances for the MS equation solution (Z) and source
+    // Define WarpXSolverVec instances for the magnetoinductive equation solution (Z) and source
     m_Z.Define( m_WarpX, "Bfield_fp");
     m_Z.zero();
     m_source.Define(m_Z);
@@ -182,7 +182,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
     // i.e. fill m_source with `2 * laplacian(B) + 2 * mu_0 curl(J)`
     CalculateSourceVector();
 
-    // Solve MS equation:
+    // Solve the magnetoinductive equation:
     // bilaplacian(Z) + curl(chi curl(Z)) = 2 * laplacian(B) + 2 * mu_0 curl(J)
     m_linear_solver->solve(m_Z, m_source, m_linsol_rtol, m_linsol_atol);
 
@@ -245,7 +245,7 @@ void SemiImplicitDarwin::ComputeRHS ( WarpXSolverVec& a_RHS,
     const int lev = 0;
     const int ncomps = 1;
 
-    // Evaluate the Darwin MS operator with the given input (a_Z) and
+    // Evaluate the Darwin magnetoinductive operator with the given input (a_Z) and
     // write results into a_RHS.
     const auto& Zvec = a_Z.getArrayVec();
     auto& rhs_vec = a_RHS.getArrayVec();
@@ -430,7 +430,7 @@ void SemiImplicitDarwin::AccumulateCurrentAndSusceptibility ()
 
 void SemiImplicitDarwin::CalculateSourceVector ()
 {
-    // This function calculates the "b" vector for the linear MS equation,
+    // This function calculates the "b" vector for the linear magnetoinductive equation,
     // i.e., the source vector.
     BL_PROFILE("SemiImplicitDarwin::CalculateSourceVector()");
 
