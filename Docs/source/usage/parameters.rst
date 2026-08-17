@@ -371,7 +371,7 @@ Overall simulation parameters
 
       This solver advances the electrostatic (longitudinal) field together with the inductive
       (magnetostatic Darwin) field, thereby retaining low-frequency magnetic effects while
-      filtering out light waves. 
+      filtering out light waves.
 
       - **Requirements and restrictions:**
 
