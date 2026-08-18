@@ -250,6 +250,7 @@ void CurlCurlMLMGPC<T,Ops>::Define ( const T& a_U,
     m_solver->setFixedIter(m_max_iter);
     m_solver->setVerbose(static_cast<int>(m_verbose));
     m_solver->setBottomVerbose(static_cast<int>(m_bottom_verbose));
+    m_solver->setNoGpuSync(true);
 
     // If using GMRES solver, construct it
     if (m_use_gmres) {
