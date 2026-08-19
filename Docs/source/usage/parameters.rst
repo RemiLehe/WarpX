@@ -381,8 +381,6 @@ Overall simulation parameters
           **not** disable the electromagnetic solver, since the magnetic field is still evolved.
         - The electromagnetic solver must be the Yee solver, i.e. :pp:param:`algo.maxwell_solver` = ``yee``
           (the default). No other Maxwell solver is compatible with the Darwin scheme.
-        - The current implementation only supports periodic field boundary conditions, in 1D or 2D
-          Cartesian geometry.
 
       - **Linear (GMRES) solver options:**
         The magnetoinductive solve uses the AMReX GMRES linear solver, whose parameters are set with the
