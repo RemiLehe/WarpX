@@ -28,7 +28,7 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
 
     // The guard-cell handling throughout this solver (SumBoundaryJ and
     // FillBoundaryAndSync calls using the domain periodicity) and the GMRES
-    // operator in DarwinFieldOperator assume periodic boundaries; with conducting
+    // operator in DarwinLinearFieldOperator assume periodic boundaries; with conducting
     // (PEC) walls the run would proceed but give wrong results near the walls.
     for (int lev = 0; lev < m_num_amr_levels; ++lev) {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -71,12 +71,12 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
 
     // Define the linear operator (this also allocates the scratch space it
     // uses to evaluate the operator on each GMRES iteration)
-    m_linear_function = std::make_unique<DarwinFieldOperator>();
+    m_linear_function = std::make_unique<DarwinLinearFieldOperator>();
     m_linear_function->define(m_Z, this, PreconditionerType::none);
 
     // Define the linear solver
     if (m_linear_solver_type == LinearSolverType::amrex_gmres) {
-        m_linear_solver = std::make_unique<AMReXGMRES<WarpXSolverVec,DarwinFieldOperator>>();
+        m_linear_solver = std::make_unique<AMReXGMRES<WarpXSolverVec,DarwinLinearFieldOperator>>();
     }
     else {
         amrex::Abort("Darwin linear solver: unknown type");
@@ -222,10 +222,10 @@ void SemiImplicitDarwin::ComputeRHS ( [[maybe_unused]] WarpXSolverVec& a_RHS,
     // nonlinear solver, so it has no nonlinear residual to compute. This
     // override only exists because ImplicitSolver::ComputeRHS() is pure
     // virtual. The linear operator that GMRES applies each iteration is
-    // DarwinFieldOperator::apply() instead.
+    // DarwinLinearFieldOperator::apply() instead.
     WARPX_ABORT_WITH_MESSAGE(
         "SemiImplicitDarwin::ComputeRHS() is not implemented: the semi-implicit "
-        "Darwin solver is linear and uses DarwinFieldOperator::apply() instead.");
+        "Darwin solver is linear and uses DarwinLinearFieldOperator::apply() instead.");
 }
 
 void SemiImplicitDarwin::PrepareVelocitiesForCurrentDeposition ()

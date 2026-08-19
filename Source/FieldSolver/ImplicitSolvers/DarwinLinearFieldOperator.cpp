@@ -6,7 +6,7 @@
  *
  * License: BSD-3-Clause-LBNL
  */
-#include "DarwinFieldOperator.H"
+#include "DarwinLinearFieldOperator.H"
 
 #include "Fields.H"
 #include "SemiImplicitDarwin.H"
@@ -17,15 +17,15 @@
 
 using warpx::fields::FieldType;
 
-void DarwinFieldOperator::define ( const WarpXSolverVec& a_U,
-                                   SemiImplicitDarwin* a_ops,
-                                   const PreconditionerType& a_pc_type )
+void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
+                                         SemiImplicitDarwin* a_ops,
+                                         const PreconditionerType& a_pc_type )
 {
-    BL_PROFILE("DarwinFieldOperator::define()");
+    BL_PROFILE("DarwinLinearFieldOperator::define()");
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         a_pc_type == PreconditionerType::none,
-        "DarwinFieldOperator::define(): preconditioners are not supported");
+        "DarwinLinearFieldOperator::define(): preconditioners are not supported");
 
     m_R.Define(a_U);
     m_ops = a_ops;
@@ -53,29 +53,29 @@ void DarwinFieldOperator::define ( const WarpXSolverVec& a_U,
     m_is_defined = true;
 }
 
-auto DarwinFieldOperator::makeVecRHS () const -> WarpXSolverVec
+auto DarwinLinearFieldOperator::makeVecRHS () const -> WarpXSolverVec
 {
-    BL_PROFILE("DarwinFieldOperator::makeVecRHS()");
+    BL_PROFILE("DarwinLinearFieldOperator::makeVecRHS()");
     WarpXSolverVec x;
     x.Define(m_R);
     return x;
 }
 
-auto DarwinFieldOperator::makeVecLHS () const -> WarpXSolverVec
+auto DarwinLinearFieldOperator::makeVecLHS () const -> WarpXSolverVec
 {
-    BL_PROFILE("DarwinFieldOperator::makeVecLHS()");
+    BL_PROFILE("DarwinLinearFieldOperator::makeVecLHS()");
     WarpXSolverVec x;
     x.Define(m_R);
     return x;
 }
 
-void DarwinFieldOperator::apply ( WarpXSolverVec& a_Ax, const WarpXSolverVec& a_x )
+void DarwinLinearFieldOperator::apply ( WarpXSolverVec& a_Ax, const WarpXSolverVec& a_x )
 {
-    BL_PROFILE("DarwinFieldOperator::apply()");
+    BL_PROFILE("DarwinLinearFieldOperator::apply()");
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         isDefined(),
-        "DarwinFieldOperator::apply() called on undefined DarwinFieldOperator");
+        "DarwinLinearFieldOperator::apply() called on undefined DarwinLinearFieldOperator");
 
     // Computes the action of the Darwin field operator on the given vector:
     //   a_Ax = bilaplacian(a_x) + curl(chi curl(a_x))

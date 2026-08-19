@@ -6,8 +6,8 @@
  *
  * License: BSD-3-Clause-LBNL
  */
-#ifndef WARPX_DARWIN_FIELD_OPERATOR_H_
-#define WARPX_DARWIN_FIELD_OPERATOR_H_
+#ifndef WARPX_DARWIN_LINEAR_FIELD_OPERATOR_H_
+#define WARPX_DARWIN_LINEAR_FIELD_OPERATOR_H_
 
 #include "WarpXSolverVec.H"
 
@@ -38,18 +38,18 @@ class SemiImplicitDarwin;
  *  No preconditioner is currently implemented, so precond() applies the
  *  identity and define() rejects any preconditioner type other than `none`.
  */
-class DarwinFieldOperator final : public LinearFunction<WarpXSolverVec,SemiImplicitDarwin>
+class DarwinLinearFieldOperator final : public LinearFunction<WarpXSolverVec,SemiImplicitDarwin>
 {
 public:
 
-    DarwinFieldOperator () = default;
-    ~DarwinFieldOperator () override = default;
+    DarwinLinearFieldOperator () = default;
+    ~DarwinLinearFieldOperator () override = default;
 
     // Prohibit Move and Copy operations (this class owns MultiFab scratch space)
-    DarwinFieldOperator (const DarwinFieldOperator&) = delete;
-    DarwinFieldOperator& operator= (const DarwinFieldOperator&) = delete;
-    DarwinFieldOperator (DarwinFieldOperator&&) = delete;
-    DarwinFieldOperator& operator= (DarwinFieldOperator&&) = delete;
+    DarwinLinearFieldOperator (const DarwinLinearFieldOperator&) = delete;
+    DarwinLinearFieldOperator& operator= (const DarwinLinearFieldOperator&) = delete;
+    DarwinLinearFieldOperator (DarwinLinearFieldOperator&&) = delete;
+    DarwinLinearFieldOperator& operator= (DarwinLinearFieldOperator&&) = delete;
 
     /**
      * \brief Evaluate the action of the Darwin field operator, i.e. compute
@@ -124,4 +124,4 @@ private:
     amrex::MultiFab m_Zscratch_x, m_Zscratch_y, m_Zscratch_z;
 };
 
-#endif // WARPX_DARWIN_FIELD_OPERATOR_H_
+#endif // WARPX_DARWIN_LINEAR_FIELD_OPERATOR_H_

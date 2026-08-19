@@ -9,7 +9,7 @@
 #ifndef SEMI_IMPLICIT_DARWIN_H_
 #define SEMI_IMPLICIT_DARWIN_H_
 
-#include "DarwinFieldOperator.H"
+#include "DarwinLinearFieldOperator.H"
 #include "WarpXSolverVec.H"
 
 #include "NonlinearSolvers/LinearSolverLibrary.H"
@@ -59,7 +59,7 @@ public:
      *  builds a nonlinear residual and never installs a nonlinear solver, so
      *  this override exists only to satisfy the pure-virtual base declaration
      *  and aborts if it is ever reached. The linear operator applied by GMRES
-     *  is `DarwinFieldOperator::apply()` instead.
+     *  is `DarwinLinearFieldOperator::apply()` instead.
      */
     void ComputeRHS ( WarpXSolverVec&  a_RHS,
                       const WarpXSolverVec&  a_Z,
@@ -67,7 +67,7 @@ public:
                       int              a_nl_iter,
                       bool             a_from_jacobian ) override;
 
-    /** \brief Pointer back to the main WarpX class, used by DarwinFieldOperator */
+    /** \brief Pointer back to the main WarpX class, used by DarwinLinearFieldOperator */
     [[nodiscard]] WarpX* GetWarpX () const { return m_WarpX; }
 
     /**
@@ -107,7 +107,7 @@ private:
      *  where chi is the mass matrix scaled by 2 * mu_0 / dt. It owns the
      *  scratch space that evaluation needs.
      */
-    std::unique_ptr<DarwinFieldOperator> m_linear_function;
+    std::unique_ptr<DarwinLinearFieldOperator> m_linear_function;
 
     /**
      * \brief Choice of linear solver
@@ -117,7 +117,7 @@ private:
     /**
      * \brief The linear solver object.
      */
-    std::unique_ptr<LinearSolver<WarpXSolverVec,DarwinFieldOperator>> m_linear_solver;
+    std::unique_ptr<LinearSolver<WarpXSolverVec,DarwinLinearFieldOperator>> m_linear_solver;
 
     // Linear solver defaults
     int m_linsol_verbose_int = 2;
