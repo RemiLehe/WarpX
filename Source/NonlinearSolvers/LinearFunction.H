@@ -9,6 +9,8 @@
 
 #include "Preconditioner.H"
 
+#include <AMReX_BLProfiler.H>
+
 #include <string>
 
 /**
@@ -73,11 +75,21 @@ class LinearFunction
             a_Z.define(a_U);
         }
 
-        //! make LHS vector
-        [[nodiscard]] virtual T makeVecLHS () const = 0;
+        /**
+         * \brief Make a vector suitable to be used as the LHS x in A(x) = b.
+         *
+         * The default implementation returns a vector with the same layout as
+         * vecTemplate(). Override this only if the operator needs the LHS to
+         * have a different layout than the RHS (for instance, extra ghost
+         * cells for efficiency), which AMReX's GMRES allows for.
+         */
+        [[nodiscard]] virtual T makeVecLHS () const { return makeVec(); }
 
-        //! make RHS vector
-        [[nodiscard]] virtual T makeVecRHS () const = 0;
+        /**
+         * \brief Make a vector suitable to be used as the RHS b in A(x) = b.
+         *        See makeVecLHS() for the LHS/RHS distinction.
+         */
+        [[nodiscard]] virtual T makeVecRHS () const { return makeVec(); }
 
         //! vector copy operation
         inline void assign( T& a_Z, const T& a_U ) {
@@ -133,6 +145,23 @@ class LinearFunction
         [[nodiscard]] virtual PreconditionerType pcType () const = 0;
 
     protected:
+
+        /**
+         * \brief Return a defined vector whose layout (grids, distribution
+         *        map, number of components, ...) is that of the vectors this
+         *        linear operator acts on. It is used by makeVecLHS() and
+         *        makeVecRHS() to create new vectors.
+         */
+        [[nodiscard]] virtual const T& vecTemplate () const = 0;
+
+        //! make a new, defined vector with the same layout as vecTemplate()
+        [[nodiscard]] T makeVec () const
+        {
+            BL_PROFILE("LinearFunction::makeVec()");
+            T x;
+            x.Define(vecTemplate());
+            return x;
+        }
 
     private:
 

@@ -69,9 +69,6 @@ class JacobianFunctionMF : public LinearFunction<T,Ops>
     }
 
 
-    T makeVecLHS () const override;
-    T makeVecRHS () const override;
-
     [[nodiscard]] inline
     bool isDefined() const { return m_is_defined;  }
 
@@ -130,6 +127,12 @@ class JacobianFunctionMF : public LinearFunction<T,Ops>
     [[nodiscard]] inline
     PreconditionerType pcType () const override { return m_pc_type; }
 
+    protected:
+
+    //! the LHS and RHS vectors have the same layout as the residual vector
+    [[nodiscard]] inline
+    const T& vecTemplate () const override { return m_R; }
+
     private:
 
     bool m_is_defined = false;
@@ -174,24 +177,6 @@ void JacobianFunctionMF<T,Ops>::define ( const T& a_U,
     }
 
     m_is_defined = true;
-}
-
-template <class T, class Ops>
-auto JacobianFunctionMF<T,Ops>::makeVecRHS () const -> T
-{
-    BL_PROFILE("JacobianFunctionMF::::makeVecRHS()");
-    T x;
-    x.Define(m_R);
-    return x;
-}
-
-template <class T, class Ops>
-auto JacobianFunctionMF<T,Ops>::makeVecLHS () const -> T
-{
-    BL_PROFILE("JacobianFunctionMF::::makeVecLHS()");
-    T x;
-    x.Define(m_R);
-    return x;
 }
 
 template <class T, class Ops>
