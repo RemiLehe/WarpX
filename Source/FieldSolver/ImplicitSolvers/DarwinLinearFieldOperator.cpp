@@ -41,8 +41,9 @@ void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
     m_lapZ_z.define(Zvec[lev][2]->boxArray(), Zvec[lev][2]->DistributionMap(),
                     Zvec[lev][2]->nComp(), Zvec[lev][2]->nGrowVect());
 
-    const amrex::IntVect biharmonic_ng =
-        amrex::elemwiseMax(Zvec[lev][0]->nGrowVect(), amrex::IntVect(2));
+    // 2 ghost cells for the nabla^4 stencil in apply(), which reads i-2..i+2.
+    // This is the scratch's own width, unrelated to Z's (which is always zero).
+    const amrex::IntVect biharmonic_ng = amrex::IntVect(2);
     m_Zscratch_x.define(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
                         Zvec[lev][0]->nComp(), biharmonic_ng);
     m_Zscratch_y.define(Zvec[lev][1]->boxArray(), Zvec[lev][1]->DistributionMap(),

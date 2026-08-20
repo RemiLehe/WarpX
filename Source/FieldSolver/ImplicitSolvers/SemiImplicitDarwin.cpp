@@ -411,7 +411,7 @@ void SemiImplicitDarwin::ComputeInductiveEfromdA ( int astep )
     // Hence the copy into a local scratch one cell wider, and the boundary fill
     // on that, same as in the linear operator.
     const auto& Zfield = m_Z.getArrayVec();
-    const amrex::IntVect curl_ng = amrex::elemwiseMax(Zfield[lev][0]->nGrowVect(), amrex::IntVect(1));
+    const amrex::IntVect curl_ng = amrex::IntVect(1);
     amrex::MultiFab Zscratch_x(Zfield[lev][0]->boxArray(), Zfield[lev][0]->DistributionMap(),
                                Zfield[lev][0]->nComp(), curl_ng);
     amrex::MultiFab Zscratch_y(Zfield[lev][1]->boxArray(), Zfield[lev][1]->DistributionMap(),
