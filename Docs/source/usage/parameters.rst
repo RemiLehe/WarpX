@@ -391,6 +391,32 @@ Overall simulation parameters
         - ``amrex_gmres.max_iterations`` (``int``, default: 1000) Maximum number of iterations.
         - ``amrex_gmres.relative_tolerance`` (``float``, default: 1.0e-4) Relative tolerance of the convergence.
         - ``amrex_gmres.absolute_tolerance`` (``float``, default: 0.0) Absolute tolerance of the convergence.
+        - ``amrex_gmres.pc_type`` (``string``, default: ``none``) Preconditioner applied inside the GMRES
+          iterations. The only supported choice is ``pc_darwin_mlmg``, described below.
+
+      - **Preconditioner options:**
+        The Darwin field operator ``nabla^4(Z) + curl(chi curl(Z))``, with ``chi`` the mass-matrix
+        response scaled by ``2 mu_0 / dt``, factors on its solenoidal subspace (in the constant-``chi``
+        limit) as ``(-nabla^2)(-nabla^2 + chi)``. Setting ``amrex_gmres.pc_type = pc_darwin_mlmg``
+        applies that factorization as two successive scalar multigrid solves per vector component -- a
+        Poisson solve followed by a Helmholtz solve using the local ``chi(x)`` -- which greatly reduces
+        the GMRES iteration count. The preconditioner is applied on the right, so the reported residual
+        remains that of the true operator.
+
+        This preconditioner is only supported in 1D and 2D Cartesian geometry (in 3D a face-centered
+        field component is nodal in two dimensions, which the cell-centered multigrid solves cannot
+        represent by index identification). Its parameters use the ``pc_darwin_mlmg`` prefix:
+
+        - ``pc_darwin_mlmg.verbose`` (``bool``, default: false)
+        - ``pc_darwin_mlmg.bottom_verbose`` (``bool``, default: false)
+        - ``pc_darwin_mlmg.agglomeration`` (``bool``, default: true)
+        - ``pc_darwin_mlmg.consolidation`` (``bool``, default: true)
+        - ``pc_darwin_mlmg.max_iter`` (``int``, default: 2) Fixed number of V-cycles per multigrid
+          solve. This is deliberately fixed, so that the preconditioner stays a fixed linear operator
+          over a GMRES solve.
+        - ``pc_darwin_mlmg.max_coarsening_level`` (``int``, default: 30)
+        - ``pc_darwin_mlmg.relative_tolerance`` (``float``, default: 1.0e-4)
+        - ``pc_darwin_mlmg.absolute_tolerance`` (``float``, default: 1.0e-16)
 
 .. _param-electrostatic-pic:
 

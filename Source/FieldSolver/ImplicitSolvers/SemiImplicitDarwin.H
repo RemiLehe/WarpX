@@ -79,6 +79,18 @@ public:
     void ApplyScaledMassMatrices ( ablastr::fields::MultiLevelVectorField& rhs,
                                    const ablastr::fields::MultiLevelVectorField& dA);
 
+    /**
+     * \brief Fill a cell-centered MultiFab with the scalar susceptibility
+     *  chi(x): the (2 mu0/dt)-scaled row-sum of the diagonal mass-matrix
+     *  bands, averaged over the three diagonal blocks and interpolated from
+     *  their native (E-type) staggering to cell centers. This is the local
+     *  chi scale the curl(chi curl Z) operator term applies to a uniform dA,
+     *  used by the pc_darwin_mlmg preconditioner's Helmholtz factor. Must be
+     *  called after the mass matrices have been deposited and synced for the
+     *  current step.
+     */
+    void ComputeSusceptibilityCC ( amrex::MultiFab& a_chi_cc ) const;
+
     void PrepareVelocitiesForCurrentDeposition ();
     void AccumulateCurrentAndMassMatrices ();
     void CalculateSourceVector ();
@@ -125,6 +137,13 @@ private:
     int m_linsol_restart_length = 30;
     amrex::Real m_linsol_atol = 0.;
     amrex::Real m_linsol_rtol = 1.0e-4;
+
+    /**
+     * \brief Preconditioner for the GMRES solve (amrex_gmres.pc_type; off by
+     *  default). Only PreconditionerType::pc_darwin_mlmg is supported: the
+     *  factored-Laplacian MLMG preconditioner (see DarwinMLMGPC.H).
+     */
+    PreconditionerType m_pc_type = PreconditionerType::none;
 };
 
 #endif
