@@ -97,14 +97,13 @@ void DarwinLinearFieldOperator::apply ( WarpXSolverVec& a_Ax, const WarpXSolverV
     // Scratch space (allocated once in define()), reused below to hold curl(chi curl(Z)).
     ablastr::fields::VectorField lapZ = {&m_lapZ_x, &m_lapZ_y, &m_lapZ_z};
 
-    // GMRES builds intermediate Krylov candidates via WarpXSolverVec's
-    // arithmetic (linComb/increment/Saxpy), which only ever touch the valid
-    // region (nghost=0), so a_x's own guard cells cannot be trusted here.
-    // Copy the candidate into a B-staggered scratch (allocated once in
-    // define(), with >=2 ghost cells for the nabla^4 stencil below, which
-    // reads i-2..i+2) and FillBoundary on that scratch, which derives its
-    // guard cells from its own (just-copied) valid-region data via the
-    // periodic halo exchange.
+    // WarpXSolverVec always allocates with zero guard cells (see its Define()),
+    // so a_x has none at all - there is nothing to fill in place, and the
+    // stencils below read beyond the valid region. Copy the candidate into a
+    // B-staggered scratch (allocated once in define(), with 2 ghost cells for
+    // the nabla^4 stencil below, which reads i-2..i+2) and FillBoundary on that
+    // scratch, which derives its guard cells from its own (just-copied)
+    // valid-region data via the periodic halo exchange.
     ablastr::fields::VectorField Zscratch = {&m_Zscratch_x, &m_Zscratch_y, &m_Zscratch_z};
     for (int ii = 0; ii < 3; ii++)
     {
