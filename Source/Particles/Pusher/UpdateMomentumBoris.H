@@ -34,8 +34,14 @@ void UpdateMomentumBoris(
         uz += econst*Ez;
     }
     // Compute temporary gamma factor
-    constexpr auto inv_c2 = PhysConst::inv_c2_v< amrex::ParticleReal>;
-    const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + (ux*ux + uy*uy + uz*uz)*inv_c2);
+    // LOCAL EXPERIMENT (not for upstream): forced to the non-relativistic limit
+    // so that the Boris rotation matches the linearized response stored in the
+    // Darwin mass matrix exactly (the mass matrix is built from a rotation that
+    // must be the exact Jacobian of this push for the scheme to conserve
+    // energy). Original line kept below for reference.
+    // constexpr auto inv_c2 = PhysConst::inv_c2_v< amrex::ParticleReal>;
+    // const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + (ux*ux + uy*uy + uz*uz)*inv_c2);
+    constexpr amrex::ParticleReal inv_gamma = 1._prt;
     // Magnetic rotation
     // - Compute temporary variables
     amrex::ParticleReal tx = econst*inv_gamma*Bx;

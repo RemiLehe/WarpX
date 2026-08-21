@@ -77,7 +77,13 @@ void setMassMatricesKernels (const amrex::ParticleReal qs,
     constexpr auto inv_c2 = PhysConst::inv_c2_v<amrex::ParticleReal>;
 
     // Convert Cartesian B on particle to normalized cyclotron units with dt/2.0
-    const amrex::ParticleReal gamma_bar = std::sqrt(1._prt + (upx*upx + upy*upy + upz*upz)*inv_c2);
+    // LOCAL EXPERIMENT (not for upstream): forced to the non-relativistic
+    // limit, matching UpdateMomentumBoris. NOTE: this gamma is computed locally
+    // here, NOT via GetImplicitGammaInverse, so hijacking that routine alone
+    // does not cover it.
+    // const amrex::ParticleReal gamma_bar = std::sqrt(1._prt + (upx*upx + upy*upy + upz*upz)*inv_c2);
+    constexpr amrex::ParticleReal gamma_bar = 1._prt;
+    amrex::ignore_unused(inv_c2, upx, upy, upz);
     const amrex::ParticleReal alpha = qs/ms*0.5_prt*dt/gamma_bar;
     const amrex::ParticleReal bpx = alpha*Bpx;
     const amrex::ParticleReal bpy = alpha*Bpy;

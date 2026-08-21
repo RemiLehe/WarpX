@@ -34,8 +34,13 @@ void UpdatePosition ([[maybe_unused]] amrex::ParticleReal& x,
 
     // massive particles
     if (mass > 0.0_rt) {
-        constexpr amrex::ParticleReal inv_c2 = 1._prt/PhysConst::c2;
-        const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + u2*inv_c2);
+        // LOCAL EXPERIMENT (not for upstream): forced to the non-relativistic
+        // limit, matching UpdateMomentumBoris and GetImplicitGammaInverse. This
+        // is the position push used by SemiImplicitDarwin (via PushX), and the
+        // Python prototype advances positions as z += uz*dt.
+        // constexpr amrex::ParticleReal inv_c2 = 1._prt/PhysConst::c2;
+        // const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + u2*inv_c2);
+        constexpr amrex::ParticleReal inv_gamma = 1._prt;
 
         // Update positions over one time step
 #if !defined(WARPX_DIM_1D_Z)
@@ -83,16 +88,13 @@ amrex::ParticleReal GetImplicitGammaInverse (const amrex::ParticleReal uxp_n,
 {
     using namespace amrex::literals;
 
-    constexpr auto inv_c2 = PhysConst::inv_c2_v<amrex::ParticleReal>;
-
-    const amrex::ParticleReal uxp_np1 = 2._prt*uxp_nph - uxp_n;
-    const amrex::ParticleReal uyp_np1 = 2._prt*uyp_nph - uyp_n;
-    const amrex::ParticleReal uzp_np1 = 2._prt*uzp_nph - uzp_n;
-    const amrex::ParticleReal gamma_n = std::sqrt(1._prt + (uxp_n*uxp_n + uyp_n*uyp_n + uzp_n*uzp_n)*inv_c2);
-    const amrex::ParticleReal gamma_np1 = std::sqrt(1._prt + (uxp_np1*uxp_np1 + uyp_np1*uyp_np1 + uzp_np1*uzp_np1)*inv_c2);
-    const amrex::ParticleReal gaminv = 2._prt/(gamma_n + gamma_np1);
-
-    return gaminv;
+    // LOCAL EXPERIMENT (not for upstream): forced to the non-relativistic
+    // limit. This routine feeds the implicit current deposition
+    // (CurrentDeposition.H), the Darwin mass matrix (MassMatricesDeposition.H)
+    // and the implicit position update below, so returning 1 makes all three
+    // consistent with the non-relativistic Boris push.
+    amrex::ignore_unused(uxp_n, uyp_n, uzp_n, uxp_nph, uyp_nph, uzp_nph);
+    return 1._prt;
 }
 
 /** \brief Push the particle's positions over one timestep,
