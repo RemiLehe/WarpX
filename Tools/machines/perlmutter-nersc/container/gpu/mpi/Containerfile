@@ -14,7 +14,7 @@
 #   podman push registry.nersc.gov/m558/superfacility/warpx-perlmutter:25.11
 #
 # On Perlmutter, copy your inputs file to your present working directory (PWD) and run WarpX like this:
-#   podman-hpc run --rm --gpu --cuda-mpi --nccl -v $PWD:/opt/pwd --workdir /opt/pwd -it registry.nersc.gov/m558/superfacility/warpx-perlmutter:latest warpx.2d /opt/pwd/inputs_base_2d
+#   podman-hpc run --rm --gpu --cuda-mpi --nccl -v $PWD:/opt/pwd --workdir /opt/pwd -it registry.nersc.gov/m558/superfacility/warpx-perlmutter:latest warpx.3d /opt/pwd/inputs_base_3d
 # Prefix this line with "srun ..." in job scripts, as usual:
 #   srun --cpu-bind=cores bash -c "
 #     export CUDA_VISIBLE_DEVICES=\$((3-SLURM_LOCALID));
@@ -32,21 +32,18 @@ ARG warpx_version=25.11
 ARG NJOBS
 ENV NJOBS=$NJOBS
 
-# Perlmutter GPU: A100
-# Perlmutter CPU: Zen v3
-ENV AMREX_CUDA_ARCH=8.0        \
-    CUDAARCHS=80               \
-    CXXFLAGS="-march=znver3"   \
-    CFLAGS="-march=znver3"
+# Local workstation GPU: RTX A4000 (GA104, sm_86)
+# The host CPU flags assume the image is built on the machine that runs it.
+ENV AMREX_CUDA_ARCH=8.6        \
+    CUDAARCHS=86               \
+    CXXFLAGS="-march=native"   \
+    CFLAGS="-march=native"
 
 # Ubuntu apt global options
 ENV DEBIAN_FRONTEND=noninteractive
 
 # CMake global options
 ENV CMAKE_GENERATOR="Ninja"
-
-# Autotools global options
-ENV FORCE_UNSAFE_CONFIGURE=1
 
 # Pip global options
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -57,13 +54,13 @@ ENV LD_LIBRARY_PATH="/opt/warpx/lib:${LD_LIBRARY_PATH}"
 ENV CMAKE_PREFIX_PATH="/opt/warpx:${CMAKE_PREFIX_PATH}"
 
 # Install essential system dependencies (development)
-# Perlmutter MPICH: cray-mpich/8.1.30 based on MPICH 3.4a2
-# Ubuntu 22.04 ships MPICH 4.0, so we build from source
+# MPI comes from the Ubuntu 22.04 packages (MPICH 4.0). MPICH keeps a stable ABI
+# across releases, so the binaries built here can still be swapped for the host
+# MPI on Perlmutter via the Podman-HPC plugin (--mpi/--cuda-mpi).
 RUN apt-get update           && \
     apt-get install             \
         -y                      \
         --no-install-recommends \
-        autoconf                \
         build-essential         \
         ca-certificates         \
         cmake                   \
@@ -81,38 +78,12 @@ RUN apt-get update           && \
         libbz2-dev              \
         libpng-dev              \
         liblapack-dev           \
+        libmpich-dev            \
         libzstd-dev             \
         ninja-build             \
         zlib1g-dev           && \
     rm -rf /var/lib/apt/lists/*
 
-# Install MPICH 3.4 support from source
-#   after https://docs.nersc.gov/development/containers/shifter/how-to-use/#using-mpi-in-shifter
-# Note:
-#   w/o GPUdirect here, because we will swap out the MPI binaries on Perlmutter using a Podman-HPC
-#   plugin (--mpi/--cuda-mpi). This only works if we do NOT build GPUdirect here, this we skip:
-#     --with-ch4-shmmods=posix,gpudirect
-# Perlmutter MPICH: cray-mpich/8.1.30 based on MPICH 3.4a2
-# TODO: install libfabric from source and depend on it (or expose where embedded libfabric gets installed)
-ARG mpich=3.4.3
-ARG mpich_prefix=mpich-$mpich
-
-RUN \
-    curl -Lo $mpich_prefix.tar.gz https://www.mpich.org/static/downloads/$mpich/$mpich_prefix.tar.gz && \
-    tar xzf $mpich_prefix.tar.gz                                            && \
-    cd $mpich_prefix                                                        && \
-    FFLAGS=-fallow-argument-mismatch FCFLAGS=-fallow-argument-mismatch         \
-      ./configure                                                              \
-        --disable-fortran                                                      \
-        --prefix=/opt/warpx                                                    \
-        --with-device=ch4:ofi                                               && \
-    make -j ${NJOBS}                                                        && \
-    make install                                                            && \
-    make clean                                                              && \
-    cd ..                                                                   && \
-    rm -rf ${mpich_prefix}*
-
-RUN /sbin/ldconfig
 # ENV MPICH_GPU_SUPPORT_ENABLED=1
 
 # Install c-blosc from source
@@ -137,7 +108,6 @@ RUN git clone                               \
     rm -rf /tmp/c-blosc2*
 
 # Install ADIOS2 from source
-# TODO: install libfabric from source and depend on it (or expose where MPICH-embedded libfabric gets installed)
 # TODO: -DADIOS2_USE_SST=ON
 RUN git clone                                   \
         -b v2.10.2                              \
@@ -241,7 +211,6 @@ RUN python3 -m venv /opt/venv && \
 #        optimas[all]
 
 # Build WarpX
-# TODO: -DWarpX_DIMS="1;2;RCYLINDER;RSPHERE;RZ;3"
 # TODO: -DWarpX_QED_TABLE_GEN=ON (needs boost math)
 RUN git clone                       \
         -b ${warpx_version}         \
@@ -253,7 +222,7 @@ RUN git clone                       \
         -DBUILD_SHARED_LIBS=ON      \
         -DCMAKE_INSTALL_PREFIX=/opt/warpx \
         -DWarpX_COMPUTE=CUDA        \
-        -DWarpX_DIMS="1;2;RZ;3"     \
+        -DWarpX_DIMS="3"            \
         -DWarpX_FFT=ON              \
         -DWarpX_PYTHON=ON           \
         -DWarpX_QED_TABLE_GEN=OFF   \
@@ -267,9 +236,6 @@ RUN git clone                       \
           -j${NJOBS}                \
                                  && \
     rm -rf /tmp/warpx*           && \
-    ln -s /opt/warpx/bin/warpx.1d* /opt/warpx/bin/warpx.1d  && \
-    ln -s /opt/warpx/bin/warpx.2d* /opt/warpx/bin/warpx.2d  && \
-    ln -s /opt/warpx/bin/warpx.rz* /opt/warpx/bin/warpx.rz  && \
     ln -s /opt/warpx/bin/warpx.3d* /opt/warpx/bin/warpx.3d  && \
     rm -rf /opt/warpx/lib/*.a
 
@@ -283,6 +249,7 @@ RUN apt-get update            && \
         --no-install-recommends  \
         ca-certificates     \
         coreutils           \
+        mpich               \
         python3             \
         python3-pip         \
         python3-venv        \
