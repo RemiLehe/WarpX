@@ -246,7 +246,6 @@ void CurlCurlMLMGPC<T,Ops>::Define ( const T& a_U,
 
     // Construct the MLMG solver
     m_solver = std::make_unique<MLMGT<MFArr>>(*m_curl_curl);
-    m_solver->setMaxIter(m_max_iter);
     m_solver->setFixedIter(m_max_iter);
     m_solver->setVerbose(static_cast<int>(m_verbose));
     m_solver->setBottomVerbose(static_cast<int>(m_bottom_verbose));
@@ -392,7 +391,9 @@ void CurlCurlMLMGPC<T,Ops>::Apply (T& a_x, const T& a_b)
         if (m_use_gmres) {
             m_gmres_solver->solve(solution, rhs, m_rtol, m_atol);
         } else {
-            m_solver->solve({&solution}, {&rhs}, m_rtol, m_atol);
+            // Zero tolerances: MLMG performs exactly m_max_iter V-cycles for any right-hand
+            // side, so that the preconditioner is a fixed linear operator, as required by GMRES.
+            m_solver->solve({&solution}, {&rhs}, RT(0.0), RT(0.0));
         }
     }
 }
