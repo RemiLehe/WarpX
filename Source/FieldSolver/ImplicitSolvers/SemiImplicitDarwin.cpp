@@ -37,6 +37,14 @@ void SemiImplicitDarwin::Define ( WarpX*  a_WarpX, bool from_restart)
             "conditions in all directions.");
     }
 
+    // The frozen-gamma path (BorisGammaMode) that makes the mass matrix the
+    // exact Jacobian of the corrector push is only wired through the direct
+    // current deposition, which is what this scheme uses anyway.
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        WarpX::current_deposition_algo == CurrentDepositionAlgo::Direct,
+        "The semi-implicit Darwin solver requires "
+        "algo.current_deposition = direct.");
+
     // Define dA MultiFabs
     using ablastr::fields::Direction;
     for (int lev = 0; lev < m_num_amr_levels; ++lev) {
@@ -141,7 +149,12 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev),
-            MomentumPushType::Full
+            MomentumPushType::Full,
+            // Freeze gamma_bar = gamma(u^{n-1/2} + q dt E_irr^n / 2m), i.e. the
+            // Lorentz factor this (electrostatic-only) push computes internally.
+            // It does not depend on the inductive field, which is what keeps the
+            // magnetoinductive system linear in E_sol.
+            BorisGammaMode::ComputeAndStore
         );
     }
 
@@ -194,7 +207,13 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{0}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{1}, lev),
             *m_WarpX->m_fields.get(FieldType::Bfield_fp, Direction{2}, lev),
-            MomentumPushType::Full
+            MomentumPushType::Full,
+            // The velocities were zeroed above, so a gamma recomputed here would
+            // be that of the response velocity (i.e. essentially 1) rather than
+            // the particle's. Reuse the frozen gamma_bar so that this rotation is
+            // identical to the predictor's, which makes the predictor/corrector
+            // splitting exact and makes chi the exact Jacobian of the push.
+            BorisGammaMode::UseStored
         );
     }
 

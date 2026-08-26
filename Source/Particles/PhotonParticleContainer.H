@@ -88,7 +88,8 @@ public:
                         const amrex::MultiFab& /*Bx*/,
                         const amrex::MultiFab& /*By*/,
                         const amrex::MultiFab& /*Bz*/,
-                        MomentumPushType /*momentum_push_type*/) override {}
+                        MomentumPushType /*momentum_push_type*/,
+                        BorisGammaMode /*gamma_mode*/ = BorisGammaMode::Compute) override {}
 
     // DepositCharge should do nothing for photons
     void DepositCharge (WarpXParIter& /*pti*/,

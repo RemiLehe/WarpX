@@ -1203,7 +1203,8 @@ void
 PhysicalParticleContainer::PushP (int lev, Real dt,
                                   const MultiFab& Ex, const MultiFab& Ey, const MultiFab& Ez,
                                   const MultiFab& Bx, const MultiFab& By, const MultiFab& Bz,
-                                  MomentumPushType momentum_push_type)
+                                  MomentumPushType momentum_push_type,
+                                  BorisGammaMode gamma_mode)
 {
     ABLASTR_PROFILE("PhysicalParticleContainer::PushP()");
 
@@ -1273,6 +1274,15 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                 ion_lev = pti.GetiAttribs("ionizationLevel").dataPtr();
             }
 
+            // Frozen Lorentz factor used by the semi-implicit Darwin scheme so
+            // that the predictor and corrector halves of the split Boris push
+            // rotate by exactly the same angle (see BorisGammaMode).
+            ParticleReal* AMREX_RESTRICT inv_gamma_bar = nullptr;
+            if (gamma_mode != BorisGammaMode::Compute) {
+                inv_gamma_bar = pti.GetAttribs("inv_gamma_bar").dataPtr();
+            }
+            const auto t_gamma_mode = gamma_mode;
+
             // Loop over the particles and update their momentum
             const amrex::ParticleReal q = this->m_charge;
             const amrex::ParticleReal mass = this->m_mass;
@@ -1326,7 +1336,9 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                     if (ion_lev) { qp *= ion_lev[ip]; }
                     UpdateMomentumBoris( ux[ip], uy[ip], uz[ip],
                                          Exp, Eyp, Ezp, Bxp,
-                                         Byp, Bzp, qp, mass, dt, momentum_push_type);
+                                         Byp, Bzp, qp, mass, dt, momentum_push_type,
+                                         t_gamma_mode,
+                                         inv_gamma_bar ? inv_gamma_bar + ip : nullptr);
                 } else if (pusher_algo == ParticlePusherAlgo::Vay) {
                     amrex::ParticleReal qp = q;
                     if (ion_lev){ qp *= ion_lev[ip]; }

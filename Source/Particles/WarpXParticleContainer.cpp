@@ -890,6 +890,12 @@ WarpXParticleContainer::DepositCurrent (WarpXParIter& pti,
                 auto& uxp_n = pti.GetAttribs("ux_n");
                 auto& uyp_n = pti.GetAttribs("uy_n");
                 auto& uzp_n = pti.GetAttribs("uz_n");
+                // See the corresponding comment in DepositMassMatrices(): the
+                // Darwin scheme must deposit with the Lorentz factor frozen by
+                // its predictor push, not with a recomputed time-centered one.
+                const amrex::ParticleReal* inv_gamma_bar =
+                    (WarpX::GetInstance().evolve_scheme == EvolveScheme::Semi_Implicit_Darwin)
+                        ? pti.GetAttribs("inv_gamma_bar").dataPtr() + offset : nullptr;
                 if        (WarpX::nox == 1){
                     doDepositionShapeNImplicit<1>(
                         GetPosition, wp.dataPtr() + offset,
@@ -897,7 +903,7 @@ WarpXParticleContainer::DepositCurrent (WarpXParIter& pti,
                         uxp.dataPtr() + offset, uyp.dataPtr() + offset, uzp.dataPtr() + offset,
                         ion_lev,
                         jx_fab, jy_fab, jz_fab, np_to_deposit, dinv,
-                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes);
+                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes, inv_gamma_bar);
                 } else if (WarpX::nox == 2){
                     doDepositionShapeNImplicit<2>(
                         GetPosition, wp.dataPtr() + offset,
@@ -905,7 +911,7 @@ WarpXParticleContainer::DepositCurrent (WarpXParIter& pti,
                         uxp.dataPtr() + offset, uyp.dataPtr() + offset, uzp.dataPtr() + offset,
                         ion_lev,
                         jx_fab, jy_fab, jz_fab, np_to_deposit, dinv,
-                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes);
+                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes, inv_gamma_bar);
                 } else if (WarpX::nox == 3){
                     doDepositionShapeNImplicit<3>(
                         GetPosition, wp.dataPtr() + offset,
@@ -913,7 +919,7 @@ WarpXParticleContainer::DepositCurrent (WarpXParIter& pti,
                         uxp.dataPtr() + offset, uyp.dataPtr() + offset, uzp.dataPtr() + offset,
                         ion_lev,
                         jx_fab, jy_fab, jz_fab, np_to_deposit, dinv,
-                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes);
+                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes, inv_gamma_bar);
                 } else if (WarpX::nox == 4){
                     doDepositionShapeNImplicit<4>(
                         GetPosition, wp.dataPtr() + offset,
@@ -921,7 +927,7 @@ WarpXParticleContainer::DepositCurrent (WarpXParIter& pti,
                         uxp.dataPtr() + offset, uyp.dataPtr() + offset, uzp.dataPtr() + offset,
                         ion_lev,
                         jx_fab, jy_fab, jz_fab, np_to_deposit, dinv,
-                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes);
+                        xyzmin, lo, q, WarpX::n_rz_azimuthal_modes, inv_gamma_bar);
                 }
             }
         }
@@ -1161,6 +1167,14 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
 
     const int* nsuborbits = (HasiAttrib("nsuborbits") ? pti.GetiAttribs("nsuborbits").dataPtr() + offset : nullptr);
 
+    // Lorentz factor frozen by the Darwin predictor push. When present, the
+    // mass matrices must be built with exactly this value (and the current
+    // deposited with exactly this value), otherwise the mass matrix is not the
+    // Jacobian of the corrector push and energy is not conserved.
+    const amrex::ParticleReal* inv_gamma_bar =
+        (WarpX::GetInstance().evolve_scheme == EvolveScheme::Semi_Implicit_Darwin)
+            ? pti.GetAttribs("inv_gamma_bar").dataPtr() + offset : nullptr;
+
     // Not doing shared memory deposition, call normal kernels
     if (WarpX::current_deposition_algo == CurrentDepositionAlgo::Villasenor) {
 
@@ -1307,7 +1321,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if  (WarpX::nox == 1 && !full_mass_matrices) {
             doDirectSigmaDeposition<1,false>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1319,7 +1333,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if (WarpX::nox == 2 && full_mass_matrices) {
             doDirectSigmaDeposition<2,true>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1331,7 +1345,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if (WarpX::nox == 2 && !full_mass_matrices) {
             doDirectSigmaDeposition<2,false>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1343,7 +1357,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if (WarpX::nox == 3 && full_mass_matrices) {
             doDirectSigmaDeposition<3,true>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1355,7 +1369,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if (WarpX::nox == 3 && !full_mass_matrices) {
             doDirectSigmaDeposition<3,false>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1367,7 +1381,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if (WarpX::nox == 4 && full_mass_matrices) {
             doDirectSigmaDeposition<4,true>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1379,7 +1393,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         } else if (WarpX::nox == 4 && !full_mass_matrices) {
             doDirectSigmaDeposition<4,false>(
                     GetPosition, nsuborbits, wp.dataPtr() + offset,
@@ -1391,7 +1405,7 @@ WarpXParticleContainer::DepositMassMatrices (WarpXParIter& pti, const RealVector
                     Sxx_type, Syy_type, Szz_type,
                     getExternalEB, Bx_ext, By_ext, Bz_ext,
                     Bx_arr, By_arr, Bz_arr, Bx_type, By_type, Bz_type,
-                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass);
+                    np_to_deposit, dt, dinv, xyzmin, lo, qs, mass, inv_gamma_bar);
         }
 
     }

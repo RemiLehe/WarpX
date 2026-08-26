@@ -28,6 +28,12 @@ void ImplicitSolver::CreateParticleAttributes () const
         pc->AddRealComp("uy_n", comm);
         pc->AddRealComp("uz_n", comm);
 
+        // Inverse Lorentz factor frozen by the predictor push and reused by the
+        // corrector push, the current deposition and the mass matrices, so that
+        // the mass matrix is the exact Jacobian of the push that is applied.
+        // Only written/read within a single time step, hence comm = 0 as above.
+        pc->AddRealComp("inv_gamma_bar", comm);
+
         if (m_particle_suborbits) {
             pc->AddIntComp("nsuborbits", comm);
         }

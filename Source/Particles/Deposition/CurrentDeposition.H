@@ -399,7 +399,8 @@ void doDepositionShapeNImplicit(const GetParticlePosition<PIdx>& GetPosition,
                                 const amrex::XDim3 & xyzmin,
                                 const amrex::Dim3 lo,
                                 const amrex::Real q,
-                                [[maybe_unused]]const int n_rz_azimuthal_modes)
+                                [[maybe_unused]]const int n_rz_azimuthal_modes,
+                                const amrex::ParticleReal* inv_gamma_bar = nullptr)
 {
     using namespace amrex::literals;
 
@@ -424,9 +425,15 @@ void doDepositionShapeNImplicit(const GetParticlePosition<PIdx>& GetPosition,
             amrex::ParticleReal xp, yp, zp;
             GetPosition(ip, xp, yp, zp);
 
-            // Compute inverse Lorentz factor, the average of gamma at time levels n and n+1
-            const amrex::ParticleReal gaminv = GetImplicitGammaInverse(uxp_n[ip], uyp_n[ip], uzp_n[ip],
-                                                                       uxp_nph[ip], uyp_nph[ip], uzp_nph[ip]);
+            // Compute inverse Lorentz factor, the average of gamma at time levels n and n+1.
+            // The Darwin scheme instead supplies the factor frozen by its predictor push,
+            // so that the deposited velocity is exactly the one appearing in the v x B term
+            // of the push (required by the energy-conservation proof).
+            const amrex::ParticleReal gaminv =
+                (inv_gamma_bar != nullptr)
+                    ? inv_gamma_bar[ip]
+                    : GetImplicitGammaInverse(uxp_n[ip], uyp_n[ip], uzp_n[ip],
+                                              uxp_nph[ip], uyp_nph[ip], uzp_nph[ip]);
 
             const amrex::Real vx  = uxp_nph[ip]*gaminv;
             const amrex::Real vy  = uyp_nph[ip]*gaminv;

@@ -552,10 +552,11 @@ void
 MultiParticleContainer::PushP (int lev, Real dt,
                                const MultiFab& Ex, const MultiFab& Ey, const MultiFab& Ez,
                                const MultiFab& Bx, const MultiFab& By, const MultiFab& Bz,
-                               MomentumPushType momentum_push_type)
+                               MomentumPushType momentum_push_type,
+                               BorisGammaMode gamma_mode)
 {
     for (auto& pc : allcontainers) {
-        pc->PushP(lev, dt, Ex, Ey, Ez, Bx, By, Bz, momentum_push_type);
+        pc->PushP(lev, dt, Ex, Ey, Ez, Bx, By, Bz, momentum_push_type, gamma_mode);
     }
 }
 

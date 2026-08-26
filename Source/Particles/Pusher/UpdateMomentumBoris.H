@@ -21,7 +21,9 @@ void UpdateMomentumBoris(
     amrex::ParticleReal& ux, amrex::ParticleReal& uy, amrex::ParticleReal& uz,
     const amrex::ParticleReal Ex, const amrex::ParticleReal Ey, const amrex::ParticleReal Ez,
     const amrex::ParticleReal Bx, const amrex::ParticleReal By, const amrex::ParticleReal Bz,
-    const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt, MomentumPushType momentum_push_type = MomentumPushType::Full)
+    const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt, MomentumPushType momentum_push_type = MomentumPushType::Full,
+    BorisGammaMode gamma_mode = BorisGammaMode::Compute,
+    amrex::ParticleReal* inv_gamma_bar = nullptr)
 {
     using namespace amrex::literals;
 
@@ -33,9 +35,17 @@ void UpdateMomentumBoris(
         uy += econst*Ey;
         uz += econst*Ez;
     }
-    // Compute temporary gamma factor
-    constexpr auto inv_c2 = PhysConst::inv_c2_v< amrex::ParticleReal>;
-    const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + (ux*ux + uy*uy + uz*uz)*inv_c2);
+    // Compute temporary gamma factor. For BorisGammaMode::UseStored the factor
+    // frozen by an earlier push is reused instead, so that this push is affine
+    // in E (see BorisGammaMode in WarpXAlgorithmSelection.H).
+    amrex::ParticleReal inv_gamma;
+    if (gamma_mode == BorisGammaMode::UseStored) {
+        inv_gamma = *inv_gamma_bar;
+    } else {
+        constexpr auto inv_c2 = PhysConst::inv_c2_v< amrex::ParticleReal>;
+        inv_gamma = 1._prt/std::sqrt(1._prt + (ux*ux + uy*uy + uz*uz)*inv_c2);
+        if (gamma_mode == BorisGammaMode::ComputeAndStore) { *inv_gamma_bar = inv_gamma; }
+    }
     // Magnetic rotation
     // - Compute temporary variables
     amrex::ParticleReal tx = econst*inv_gamma*Bx;

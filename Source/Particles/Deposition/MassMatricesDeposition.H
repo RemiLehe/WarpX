@@ -46,6 +46,12 @@
  * \param fpxx,fpxy,fpxz  Mass matrices kernels corresponding to dJx
  * \param fpyx,fpyy,fpyz  Mass matrices kernels corresponding to dJy
  * \param fpzx,fpzy,fpzz  Mass matrices kernels corresponding to dJz
+ * \param inv_gamma_bar_in  If positive, the frozen inverse Lorentz factor to
+ *                          use instead of recomputing one from upx,upy,upz.
+ *                          The semi-implicit Darwin scheme passes the value
+ *                          frozen by the predictor push here, so that this
+ *                          matrix is the exact Jacobian of the Boris rotation
+ *                          that the corrector push applies.
  */
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void setMassMatricesKernels (const amrex::ParticleReal qs,
@@ -70,21 +76,31 @@ void setMassMatricesKernels (const amrex::ParticleReal qs,
                              amrex::ParticleReal& fpyz,
                              amrex::ParticleReal& fpzx,
                              amrex::ParticleReal& fpzy,
-                             amrex::ParticleReal& fpzz)
+                             amrex::ParticleReal& fpzz,
+                             const amrex::ParticleReal inv_gamma_bar_in = amrex::ParticleReal(-1.0))
 {
     using namespace amrex::literals;
 
     constexpr auto inv_c2 = PhysConst::inv_c2_v<amrex::ParticleReal>;
 
     // Convert Cartesian B on particle to normalized cyclotron units with dt/2.0
-    const amrex::ParticleReal gamma_bar = std::sqrt(1._prt + (upx*upx + upy*upy + upz*upz)*inv_c2);
-    const amrex::ParticleReal alpha = qs/ms*0.5_prt*dt/gamma_bar;
+    const amrex::ParticleReal inv_gamma_bar =
+        (inv_gamma_bar_in > 0._prt)
+            ? inv_gamma_bar_in
+            : 1._prt/std::sqrt(1._prt + (upx*upx + upy*upy + upz*upz)*inv_c2);
+    const amrex::ParticleReal alpha = qs/ms*0.5_prt*dt*inv_gamma_bar;
     const amrex::ParticleReal bpx = alpha*Bpx;
     const amrex::ParticleReal bpy = alpha*Bpy;
     const amrex::ParticleReal bpz = alpha*Bpz;
 
     const amrex::ParticleReal bpsq = bpx*bpx + bpy*bpy + bpz*bpz;
-    const amrex::ParticleReal arogp = alpha*rhop/(1.0_prt + bpsq);
+    // The mass matrix is the Jacobian dJ/dE of the deposited current. With
+    // J = q w S v / V and v = u_nph/gamma, freezing gamma gives
+    //     dJ/dE = (q w / V) * (1/gamma) * R * (q dt / 2m),
+    // i.e. a single power of 1/gamma, which is already carried by rhop (see
+    // the doc comment above). Using `alpha` as the prefactor as well would
+    // apply 1/gamma twice; `alpha` is only the scale of the rotation vector.
+    const amrex::ParticleReal arogp = qs/ms*0.5_prt*dt*rhop/(1.0_prt + bpsq);
 
     // Compute Mass Matrix kernels (non-relativistic for now)
     fpxx = arogp*(bpx*bpx + 1.0_rt);
@@ -633,7 +649,8 @@ void doDirectSigmaDeposition (const GetParticlePosition<PIdx>& GetPosition,
                               const amrex::XDim3& xyzmin,
                               const amrex::Dim3 lo,
                               const amrex::Real qs,
-                              const amrex::Real ms)
+                              const amrex::Real ms,
+                              const amrex::ParticleReal* inv_gamma_bar = nullptr)
 {
     using namespace amrex::literals;
 
@@ -678,9 +695,13 @@ void doDirectSigmaDeposition (const GetParticlePosition<PIdx>& GetPosition,
                                     Bx_type, By_type, Bz_type,
                                     dinv, xyzmin, lo, /*n_rz_azimuthal_modes=*/0 );
 
-            // Compute inverse Lorentz factor, the average of gamma at time levels n and n+1
-            const amrex::ParticleReal gaminv = GetImplicitGammaInverse(uxp_n[ip], uyp_n[ip], uzp_n[ip],
-                                                                       uxp_nph[ip], uyp_nph[ip], uzp_nph[ip]);
+            // Compute inverse Lorentz factor, the average of gamma at time levels n and n+1.
+            // The Darwin scheme instead supplies the factor frozen by its predictor push.
+            const amrex::ParticleReal gaminv =
+                (inv_gamma_bar != nullptr)
+                    ? inv_gamma_bar[ip]
+                    : GetImplicitGammaInverse(uxp_n[ip], uyp_n[ip], uzp_n[ip],
+                                              uxp_nph[ip], uyp_nph[ip], uzp_nph[ip]);
 
             // Compute current density kernels to deposit
             const amrex::Real wq_invvol = qs*wp[ip]*invvol;
@@ -707,7 +728,8 @@ void doDirectSigmaDeposition (const GetParticlePosition<PIdx>& GetPosition,
                                    Bxp, Byp, Bzp,
                                    fpxx, fpxy, fpxz,
                                    fpyx, fpyy, fpyz,
-                                   fpzx, fpzy, fpzz);
+                                   fpzx, fpzy, fpzz,
+                                   (inv_gamma_bar != nullptr) ? inv_gamma_bar[ip] : -1._prt);
 
             // Pass dummy arrays for Jx, Jy, Jz (which will not be used)
             amrex::Array4<amrex::Real> const dummy_Jx{};
@@ -1874,7 +1896,8 @@ void doVillasenorSigmaDeposition ([[maybe_unused]] const amrex::ParticleReal* xp
                                   const amrex::GpuArray<amrex::GpuArray<bool,2>, AMREX_SPACEDIM> & do_cropping,
                                   const amrex::Dim3 lo,
                                   const amrex::Real qs,
-                                  const amrex::Real ms)
+                                  const amrex::Real ms,
+                                  const amrex::ParticleReal* inv_gamma_bar = nullptr)
 {
     using namespace amrex::literals;
 
@@ -1973,9 +1996,13 @@ void doVillasenorSigmaDeposition ([[maybe_unused]] const amrex::ParticleReal* xp
             Bzp += B3p;
 #endif
 
-            // Compute inverse Lorentz factor, the average of gamma at time levels n and n+1
-            const amrex::ParticleReal gaminv = GetImplicitGammaInverse(uxp_n[ip], uyp_n[ip], uzp_n[ip],
-                                                                       uxp_nph[ip], uyp_nph[ip], uzp_nph[ip]);
+            // Compute inverse Lorentz factor, the average of gamma at time levels n and n+1.
+            // The Darwin scheme instead supplies the factor frozen by its predictor push.
+            const amrex::ParticleReal gaminv =
+                (inv_gamma_bar != nullptr)
+                    ? inv_gamma_bar[ip]
+                    : GetImplicitGammaInverse(uxp_n[ip], uyp_n[ip], uzp_n[ip],
+                                              uxp_nph[ip], uyp_nph[ip], uzp_nph[ip]);
 
             // Compute current density kernels to deposit
             const amrex::Real wq_invvol = qs*wp[ip]*invvol;
@@ -1993,7 +2020,8 @@ void doVillasenorSigmaDeposition ([[maybe_unused]] const amrex::ParticleReal* xp
                                    Bxp, Byp, Bzp,
                                    fpxx, fpxy, fpxz,
                                    fpyx, fpyy, fpyz,
-                                   fpzx, fpzy, fpzz);
+                                   fpzx, fpzy, fpzz,
+                                   (inv_gamma_bar != nullptr) ? inv_gamma_bar[ip] : -1._prt);
 
             // Pass dummy arrays for Jx, Jy, Jz (which will not be used)
             amrex::Array4<amrex::Real> const dummy_Jx{};

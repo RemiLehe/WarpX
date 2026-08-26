@@ -784,7 +784,8 @@ void
 LaserParticleContainer::PushP (int /*lev*/, Real /*dt*/,
                                const MultiFab&, const MultiFab&, const MultiFab&,
                                const MultiFab&, const MultiFab&, const MultiFab&,
-                               MomentumPushType /*momentum_push_type*/)
+                               MomentumPushType /*momentum_push_type*/,
+                               BorisGammaMode /*gamma_mode*/)
 {
     // Laser particles are not advanced using a particle pusher.
     // Therefore, PushP does nothing in this implementation.

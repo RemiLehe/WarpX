@@ -296,7 +296,8 @@ public:
                         const amrex::MultiFab& Bx,
                         const amrex::MultiFab& By,
                         const amrex::MultiFab& Bz,
-                        MomentumPushType momentum_push_type = MomentumPushType::Full) = 0;
+                        MomentumPushType momentum_push_type = MomentumPushType::Full,
+                        BorisGammaMode gamma_mode = BorisGammaMode::Compute) = 0;
 
     /**
      * \brief Deposit current density.

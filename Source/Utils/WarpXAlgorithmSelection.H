@@ -184,6 +184,31 @@ AMREX_ENUM(MomentumPushType,
            SecondHalf,
            Default = Full);
 
+/** \brief How the Boris rotation obtains the Lorentz factor gamma_bar.
+ *
+ * The semi-implicit Darwin scheme splits one Boris push into a predictor
+ * (electrostatic field only) and a corrector (inductive field only, applied to
+ * zeroed velocities). That split is exact only if both halves rotate with the
+ * *same* gamma_bar, which must also be the gamma_bar used to build the mass
+ * matrix, otherwise the mass matrix is not the Jacobian of the push that is
+ * actually applied and the energy-conservation proof does not close.
+ *
+ * Freezing gamma_bar at a value that does not depend on the inductive field is
+ * also what keeps the implicit system linear in E_sol.
+ *
+ * Compute       : usual behaviour, gamma is recomputed inside the pusher.
+ * ComputeAndStore: compute gamma as usual and save it to the `inv_gamma_bar`
+ *                  particle attribute (used by the Darwin predictor push).
+ * UseStored     : rotate with the previously stored `inv_gamma_bar` (used by
+ *                 the Darwin corrector push, where the velocities are zeroed
+ *                 and an internally computed gamma would be meaningless).
+ */
+AMREX_ENUM(BorisGammaMode,
+           Compute,
+           ComputeAndStore,
+           UseStored,
+           Default = Compute);
+
 /** \brief Particle shuffling method for binary collisions */
 AMREX_ENUM(
     ParticleShufflingMethod,
