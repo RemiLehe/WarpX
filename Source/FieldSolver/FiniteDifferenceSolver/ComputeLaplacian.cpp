@@ -335,4 +335,3 @@ void FiniteDifferenceSolver::ComputeVectorLaplacianCartesian (
     }
 }
 #endif
-
