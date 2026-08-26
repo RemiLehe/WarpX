@@ -83,24 +83,21 @@ void setMassMatricesKernels (const amrex::ParticleReal qs,
 
     constexpr auto inv_c2 = PhysConst::inv_c2_v<amrex::ParticleReal>;
 
-    // Convert Cartesian B on particle to normalized cyclotron units with dt/2.0
+    // Convert Cartesian B on particle to normalized cyclotron units with dt/2.0.
+    // The Darwin scheme passes in the factor frozen by its predictor push, so
+    // that this matrix is the exact Jacobian of the rotation that its corrector
+    // push applies; other callers recompute it from the time-centered velocity.
     const amrex::ParticleReal inv_gamma_bar =
         (inv_gamma_bar_in > 0._prt)
             ? inv_gamma_bar_in
             : 1._prt/std::sqrt(1._prt + (upx*upx + upy*upy + upz*upz)*inv_c2);
-    const amrex::ParticleReal alpha = qs/ms*0.5_prt*dt*inv_gamma_bar;
-    const amrex::ParticleReal bpx = alpha*Bpx;
-    const amrex::ParticleReal bpy = alpha*Bpy;
-    const amrex::ParticleReal bpz = alpha*Bpz;
+    const amrex::ParticleReal alpha = qs/ms*0.5_prt*dt;
+    const amrex::ParticleReal bpx = alpha*Bpx*inv_gamma_bar;
+    const amrex::ParticleReal bpy = alpha*Bpy*inv_gamma_bar;
+    const amrex::ParticleReal bpz = alpha*Bpz*inv_gamma_bar;
 
     const amrex::ParticleReal bpsq = bpx*bpx + bpy*bpy + bpz*bpz;
-    // The mass matrix is the Jacobian dJ/dE of the deposited current. With
-    // J = q w S v / V and v = u_nph/gamma, freezing gamma gives
-    //     dJ/dE = (q w / V) * (1/gamma) * R * (q dt / 2m),
-    // i.e. a single power of 1/gamma, which is already carried by rhop (see
-    // the doc comment above). Using `alpha` as the prefactor as well would
-    // apply 1/gamma twice; `alpha` is only the scale of the rotation vector.
-    const amrex::ParticleReal arogp = qs/ms*0.5_prt*dt*rhop/(1.0_prt + bpsq);
+    const amrex::ParticleReal arogp = alpha*rhop/(1.0_prt + bpsq);
 
     // Compute Mass Matrix kernels (non-relativistic for now)
     fpxx = arogp*(bpx*bpx + 1.0_rt);
