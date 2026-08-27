@@ -14,7 +14,9 @@
 #include <AMReX_Array.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_MLLinOp.H>
 #include <AMReX_MLMG.H>
+#include <AMReX_MLNodeLinOp.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Parser.H>
 
@@ -132,6 +134,31 @@ class EBCalcEfromPhiPerLevel {
         using namespace amrex::literals;
 
         mlmg.getGradSolution({m_e_field[lev]});
+        for (auto &field: m_e_field[lev]) {
+            field->mult(-1._rt);
+        }
+    }
+
+    /** \brief Same, but computed directly from the linear operator and `phi`
+     *
+     * `amrex::MLMG::getGradSolution` takes the potential from the internal state
+     * that `amrex::MLMG::solve` leaves behind, so it can only be used right after
+     * an MLMG solve. This overload is for the solvers that compute `phi` without
+     * going through `amrex::MLMG::solve`, such as the PETSc Poisson solver.
+     *
+     * \param[in] linop the linear operator of the Poisson solve
+     * \param[inout] phi the potential; only its ghost nodes are modified
+     * \param[in] lev the mesh refinement level
+     */
+    void operator()(amrex::MLNodeLinOp & linop, amrex::MultiFab & phi, int const lev) {
+        using namespace amrex::literals;
+
+        // Fill the ghost nodes of `phi`, in particular the ones that lie outside
+        // of a Neumann boundary, which `compGrad` reads. `amrex::MLMG::solve`
+        // does this internally on the potential that it hands to `compGrad`.
+        linop.applyBC(0, 0, phi, amrex::MLNodeLinOp::BCMode::Inhomogeneous,
+                      amrex::MLNodeLinOp::StateMode::Solution);
+        linop.compGrad(0, m_e_field[lev], phi, amrex::MLNodeLinOp::Location::FaceCenter);
         for (auto &field: m_e_field[lev]) {
             field->mult(-1._rt);
         }

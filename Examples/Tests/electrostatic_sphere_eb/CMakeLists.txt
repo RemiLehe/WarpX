@@ -25,6 +25,21 @@ if(WarpX_EB)
     )
 endif()
 
+if(WarpX_EB AND WarpX_PETSC)
+    # No checksum: the reference values still have to be generated on a build
+    # with PETSc. Same setup as test_3d_electrostatic_sphere_eb_mixed_bc, but
+    # solved with PETSc, so the two can be compared against each other.
+    add_warpx_test(
+        test_3d_electrostatic_sphere_eb_petsc  # name
+        3  # dims
+        2  # nprocs
+        inputs_test_3d_electrostatic_sphere_eb_petsc  # inputs
+        OFF  # analysis
+        OFF  # checksum
+        OFF  # dependency
+    )
+endif()
+
 if(WarpX_EB)
     add_warpx_test(
         test_3d_electrostatic_sphere_eb_picmi  # name

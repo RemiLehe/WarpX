@@ -446,6 +446,11 @@ void PETScPoissonSolver::solve (amrex::MultiFab & phi,
 
     // phi = phi - cor
     amrex::MultiFab::Saxpy(phi, -1._rt, m_cor, 0, 0, 1, amrex::IntVect(0));
+
+    // `amrex::MLMG::solve` ends with this; for the embedded-boundary operator it
+    // writes the prescribed potential into the nodes that the EB covers.
+    linop.postSolve({&phi});
+
     phi.FillBoundary(m_geom.periodicity());
 
     // Report on the solve

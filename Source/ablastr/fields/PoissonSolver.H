@@ -426,12 +426,8 @@ computePhi (
 
         // Solve Poisson equation at lev
 #ifdef AMREX_USE_PETSC
-        if (petsc_options.use_petsc_ksp) {
-            // The PETSc solver only computes `phi`, whereas the operations below
-            // (currently only the calculation of the E field with embedded
-            // boundaries) need the internal state of a completed MLMG solve.
-            ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(!eb_enabled,
-                "The PETSc Poisson solver does not support embedded boundaries yet");
+        bool const use_petsc_ksp = petsc_options.use_petsc_ksp;
+        if (use_petsc_ksp) {
             petscPoissonSolve( mlmg, *phi[lev], *rho[lev], geom[lev],
                                relative_tolerance, absolute_tolerance,
                                max_iters, petsc_options );
@@ -463,7 +459,16 @@ computePhi (
         // Run additional operations, such as calculation of the E field for embedded boundaries
         if constexpr (!std::is_same_v<T_PostPhiCalculationFunctor, std::nullopt_t>) {
             if (post_phi_calculation.has_value()) {
-                post_phi_calculation.value()(mlmg, lev);
+#ifdef AMREX_USE_PETSC
+                if (use_petsc_ksp) {
+                    // `mlmg` did not solve, so it holds no solution to work from:
+                    // hand over the linear operator and `phi` instead
+                    post_phi_calculation.value()(*linop, *phi[lev], lev);
+                } else
+#endif
+                {
+                    post_phi_calculation.value()(mlmg, lev);
+                }
             }
         }
         rho[lev]->mult(-ablastr::constant::SI::epsilon_0);  // Multiply rho by epsilon again
