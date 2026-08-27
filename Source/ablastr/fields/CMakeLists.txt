@@ -4,6 +4,7 @@ foreach(D IN LISTS WarpX_DIMS)
     target_sources(ablastr_${SD}
       PRIVATE
         MultiFabRegister.cpp
+        PETScPoissonSolver.cpp
     )
 
     if(ABLASTR_FFT AND D EQUAL 3)

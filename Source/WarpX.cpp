@@ -802,6 +802,24 @@ WarpX::ReadParameters ()
         poisson_solver_id!=PoissonSolverAlgo::IntegratedGreenFunction,
         "To use the FFT Poisson solver, compile with -DWarpX_FFT=ON.");
 #endif
+
+#ifndef AMREX_USE_PETSC
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        poisson_solver_id!=PoissonSolverAlgo::PETSc,
+        "To use the PETSc Poisson solver, compile with -DWarpX_PETSC=ON.");
+#endif
+
+        // The effective-potential solver does not go through the same Poisson
+        // solve as the other electrostatic solvers, so it would silently ignore
+        // the PETSc solver.
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        (
+            electrostatic_solver_id!=ElectrostaticSolverAlgo::LabFrameEffectivePotential ||
+            poisson_solver_id!=PoissonSolverAlgo::PETSc
+        ),
+        "The PETSc Poisson solver is not implemented in labframe-effective-potential mode yet."
+        );
+
         // Read magnetostatic solver parameters
         // First use self_fields_* as defaults for backward compatibility,
         // then allow explicit magnetostatic_solver_* parameters to override
@@ -1192,7 +1210,7 @@ WarpX::ReadParameters ()
             ||  WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::HybridPIC
             ||  ( (WarpX::electrostatic_solver_id == ElectrostaticSolverAlgo::LabFrame
                 || WarpX::electrostatic_solver_id == ElectrostaticSolverAlgo::LabFrameElectroMagnetostatic)
-                && WarpX::poisson_solver_id == PoissonSolverAlgo::Multigrid)))
+                && WarpX::poisson_solver_id != PoissonSolverAlgo::IntegratedGreenFunction)))
         {
             m_do_initial_div_cleaning = true;
         }

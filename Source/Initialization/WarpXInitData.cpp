@@ -591,6 +591,9 @@ WarpX::PrintMainPICparameters ()
         else if(poisson_solver_id == PoissonSolverAlgo::Multigrid){
             amrex::Print() << "Poisson solver:       | multigrid" << "\n";
         }
+        else if(poisson_solver_id == PoissonSolverAlgo::PETSc){
+            amrex::Print() << "Poisson solver:       | PETSc (multigrid preconditioner)" << "\n";
+        }
     }
 
     amrex::Print() << "-------------------------------------------------------------------------------\n";

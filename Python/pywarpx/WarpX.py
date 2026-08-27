@@ -23,6 +23,7 @@ from .HybridPICModel import external_vector_potential, hybridpicmodel
 from .Interpolation import interpolation
 from .Lasers import lasers, lasers_list
 from .Particles import particles, particles_list
+from .PETScPoisson import petsc_poisson
 from .PSATD import psatd
 
 
@@ -55,6 +56,7 @@ class WarpX(Bucket):
         argv += interpolation.attrlist()
         argv += psatd.attrlist()
         argv += eb2.attrlist()
+        argv += petsc_poisson.attrlist()
 
         argv += particles.attrlist()
         for particle in particles_list:
@@ -223,6 +225,7 @@ class WarpX(Bucket):
             lasers,
             my_constants,
             particles,
+            petsc_poisson,
             psatd,
             reduced_diagnostics,
             self,

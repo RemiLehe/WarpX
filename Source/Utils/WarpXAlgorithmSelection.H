@@ -70,6 +70,7 @@ AMREX_ENUM(PoissonSolverAlgo,
            Multigrid,
            IntegratedGreenFunction,
            fft = IntegratedGreenFunction,
+           PETSc,
            Default = Multigrid);
 
 AMREX_ENUM(ParticlePusherAlgo,

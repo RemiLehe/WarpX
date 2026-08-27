@@ -81,7 +81,9 @@ void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
     amrex::ignore_unused(geom);
 #endif
     for (int idim=dim_start; idim<AMREX_SPACEDIM; idim++){
-        if (WarpX::poisson_solver_id == PoissonSolverAlgo::Multigrid){
+        // The grid-based solvers (multigrid, and PETSc preconditioned by it)
+        // share the same boundary conditions
+        if (WarpX::poisson_solver_id != PoissonSolverAlgo::IntegratedGreenFunction){
             if ( WarpX::field_boundary_lo[idim] == FieldBoundaryType::Periodic
                     && WarpX::field_boundary_hi[idim] == FieldBoundaryType::Periodic ) {
                 lobc[idim] = LinOpBCType::Periodic;
@@ -102,7 +104,7 @@ void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
                 else {
                     WARPX_ABORT_WITH_MESSAGE(
                         "Field boundary conditions have to be either periodic, PEC or neumann "
-                        "when using the electrostatic Multigrid solver,  but they are " + amrex::getEnumNameString(WarpX::field_boundary_lo[idim])
+                        "when using the electrostatic Multigrid or PETSc solver,  but they are " + amrex::getEnumNameString(WarpX::field_boundary_lo[idim])
                     );
                 }
 
@@ -117,7 +119,7 @@ void PoissonBoundaryHandler::DefinePhiBCs (const amrex::Geometry& geom)
                 else {
                     WARPX_ABORT_WITH_MESSAGE(
                         "Field boundary conditions have to be either periodic, PEC or neumann "
-                        "when using the electrostatic Multigrid solver,  but they are " + amrex::getEnumNameString(WarpX::field_boundary_hi[idim])
+                        "when using the electrostatic Multigrid or PETSc solver,  but they are " + amrex::getEnumNameString(WarpX::field_boundary_hi[idim])
                     );
                 }
             }

@@ -13,6 +13,7 @@
 #include "Fluids/MultiFluidContainer.H"
 #include "Particles/MultiParticleContainer.H"
 
+#include <ablastr/fields/PETScPoissonSolver.H>
 #include <ablastr/profiler/ProfilerWrapper.H>
 #include <AMReX_Array.H>
 
@@ -158,6 +159,9 @@ public:
     int self_fields_verbosity = 2;
     /** MLGM number of smoothing sweeps */
     int self_fields_num_final_sweeps = 8;
+
+    /** Settings of the optional PETSc Krylov solver for the Poisson equation */
+    ablastr::fields::PETScPoissonOptions m_petsc_options;
 
     /** Parameters for FFT Poisson solver aka IGF */
     // 0: full 3D, 1: many 2D z-slices (quasi-3D)

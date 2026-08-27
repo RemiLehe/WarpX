@@ -1,5 +1,6 @@
 
 CEXE_sources += MultiFabRegister.cpp
+CEXE_sources += PETScPoissonSolver.cpp
 
 ifeq ($(USE_FFT),TRUE)
     ifeq ($(DIM),3)

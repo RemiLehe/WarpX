@@ -15,6 +15,7 @@
 #include <ablastr/math/fft/AnyFFT.H>
 #include <ablastr/fields/Interpolate.H>
 #include <ablastr/fields/MultiFabRegister.H>
+#include <ablastr/fields/PETScPoissonSolver.H>
 #include <ablastr/profiler/ProfilerWrapper.H>
 
 #if defined(ABLASTR_USE_FFT) && defined(WARPX_DIM_3D)
@@ -185,6 +186,7 @@ inline void interpolatePhiBetweenLevels (
  * \param[in] rel_ref_ratio mesh refinement ratio between levels (default: 1)
  * \param[in] num_final_sweeps Optional MLMG final smoothing count. If set, it is used for final smoothing.
  * Otherwise, the default AMReX MLMG value (8) is used.
+ * \param[in] petsc_options Settings of the optional PETSc Krylov solver (default: use MLMG)
  * \param[in] post_phi_calculation perform a calculation per level directly after phi was calculated; required for embedded boundaries (default: none)
  * \param[in] boundary_handler a handler for boundary conditions, for example @see ElectrostaticSolver::PoissonBoundaryHandler
  * \param[in] current_time the current time; required for embedded boundaries (default: none)
@@ -214,6 +216,7 @@ computePhi (
     bool do_single_precision_comms = false,
     std::optional<amrex::Vector<amrex::IntVect> > rel_ref_ratio = std::nullopt,
     std::optional<int> num_final_sweeps = std::nullopt,
+    [[maybe_unused]] PETScPoissonOptions const & petsc_options = PETScPoissonOptions{},
     [[maybe_unused]] T_PostPhiCalculationFunctor post_phi_calculation = std::nullopt,
     [[maybe_unused]] T_BoundaryHandler const& boundary_handler = std::nullopt,
     [[maybe_unused]] std::optional<amrex::Real const> current_time = std::nullopt, // only used for EB
@@ -422,8 +425,22 @@ computePhi (
         rho[lev]->OverrideSync(geom[lev].periodicity());
 
         // Solve Poisson equation at lev
-        mlmg.solve( {phi[lev]}, {rho[lev]},
-                     relative_tolerance, absolute_tolerance );
+#ifdef AMREX_USE_PETSC
+        if (petsc_options.use_petsc_ksp) {
+            // The PETSc solver only computes `phi`, whereas the operations below
+            // (currently only the calculation of the E field with embedded
+            // boundaries) need the internal state of a completed MLMG solve.
+            ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(!eb_enabled,
+                "The PETSc Poisson solver does not support embedded boundaries yet");
+            petscPoissonSolve( mlmg, *phi[lev], *rho[lev], geom[lev],
+                               relative_tolerance, absolute_tolerance,
+                               max_iters, petsc_options );
+        } else
+#endif
+        {
+            mlmg.solve( {phi[lev]}, {rho[lev]},
+                         relative_tolerance, absolute_tolerance );
+        }
 
         const amrex::IntVect& refratio = rel_ref_ratio.value()[lev];
         const int ncomp = linop->getNComp();

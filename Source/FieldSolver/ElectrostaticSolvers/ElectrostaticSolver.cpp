@@ -47,6 +47,23 @@ void ElectrostaticSolver::ReadParameters () {
             self_fields_num_final_sweeps > 0,
             "warpx.self_fields_num_final_sweeps must be > 0");
     }
+
+    // With warpx.poisson_solver = petsc, the Poisson equation is solved by one
+    // of PETSc's Krylov solvers, preconditioned by MLMG
+    m_petsc_options.use_petsc_ksp =
+        (WarpX::poisson_solver_id == PoissonSolverAlgo::PETSc);
+    if (m_petsc_options.use_petsc_ksp) {
+        ParmParse const pp_petsc("petsc_poisson");
+        pp_petsc.query("ksp_type", m_petsc_options.ksp_type);
+        pp_petsc.query("use_mlmg_preconditioner", m_petsc_options.use_mlmg_preconditioner);
+        utils::parser::queryWithParser(
+            pp_petsc, "restart_length", m_petsc_options.restart_length);
+        utils::parser::queryWithParser(
+            pp_petsc, "precond_num_iters", m_petsc_options.precond_num_iters);
+        m_petsc_options.verbosity = self_fields_verbosity;
+        utils::parser::queryWithParser(pp_petsc, "verbose", m_petsc_options.verbosity);
+    }
+
     // FFT solver flags
     utils::parser::queryWithParser(
         pp_warpx, "use_2d_slices_fft_solver", is_igf_2d_slices);
@@ -221,6 +238,7 @@ ElectrostaticSolver::computePhi (
         WarpX::do_single_precision_comms,
         warpx.refRatio(),
         self_fields_num_final_sweeps,
+        m_petsc_options,
         post_phi_calculation,
         *m_poisson_boundary_handler,
         warpx.gett_new(0),

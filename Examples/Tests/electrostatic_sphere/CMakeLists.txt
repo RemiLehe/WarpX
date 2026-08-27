@@ -21,6 +21,21 @@ add_warpx_test(
     OFF  # dependency
 )
 
+if(WarpX_PETSC)
+    # No checksum: the reference values still have to be generated on a build
+    # with PETSc. The physics analysis below already checks the solution against
+    # the analytical solution of the expanding sphere.
+    add_warpx_test(
+        test_3d_electrostatic_sphere_lab_frame_petsc  # name
+        3  # dims
+        2  # nprocs
+        inputs_test_3d_electrostatic_sphere_lab_frame_petsc  # inputs
+        "analysis_electrostatic_sphere.py diags/diag1000030"  # analysis
+        OFF  # checksum
+        OFF  # dependency
+    )
+endif()
+
 add_warpx_test(
     test_3d_electrostatic_sphere_lab_frame_mr_emass_10  # name
     3  # dims

@@ -38,6 +38,7 @@ from .Interpolation import interpolation  # noqa
 from .Lasers import lasers  # noqa
 from .LoadThirdParty import load_cupy  # noqa
 from .Particles import new_species, particles  # noqa
+from .PETScPoisson import petsc_poisson  # noqa
 from .PSATD import psatd  # noqa
 from .WarpX import warpx  # noqa
 
