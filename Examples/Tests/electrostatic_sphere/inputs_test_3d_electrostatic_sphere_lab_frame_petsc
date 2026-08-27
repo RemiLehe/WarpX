@@ -8,5 +8,3 @@ warpx.do_electrostatic = labframe
 # solve the Poisson equation with PETSc's GMRES, preconditioned by the AMReX
 # multigrid, instead of using the multigrid directly
 warpx.poisson_solver = petsc
-petsc_poisson.ksp_type = gmres
-petsc_poisson.precond_num_iters = 1

@@ -54,10 +54,7 @@ void ElectrostaticSolver::ReadParameters () {
         (WarpX::poisson_solver_id == PoissonSolverAlgo::PETSc);
     if (m_petsc_options.use_petsc_ksp) {
         ParmParse const pp_petsc("petsc_poisson");
-        pp_petsc.query("ksp_type", m_petsc_options.ksp_type);
         pp_petsc.query("use_mlmg_preconditioner", m_petsc_options.use_mlmg_preconditioner);
-        utils::parser::queryWithParser(
-            pp_petsc, "restart_length", m_petsc_options.restart_length);
         utils::parser::queryWithParser(
             pp_petsc, "precond_num_iters", m_petsc_options.precond_num_iters);
         m_petsc_options.verbosity = self_fields_verbosity;

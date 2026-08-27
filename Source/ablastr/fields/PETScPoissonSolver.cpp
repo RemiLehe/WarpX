@@ -13,8 +13,6 @@
 
 #include <AMReX.H>
 #include <AMReX_Box.H>
-#include <AMReX_BoxArray.H>
-#include <AMReX_DistributionMapping.H>
 #include <AMReX_GpuControl.H>
 #include <AMReX_GpuDevice.H>
 #include <AMReX_GpuLaunch.H>
@@ -23,9 +21,10 @@
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_Print.H>
 #include <AMReX_Scan.H>
+#include <AMReX_iMultiFab.H>
 
+#include <memory>
 #include <string>
-#include <utility>
 
 // The PETSc headers must be included before PETScPoissonSolver.H, see the
 // comment in Source/NonlinearSolvers/WarpX_PETSc.cpp
@@ -39,9 +38,9 @@
 
 namespace ablastr::fields {
 
-namespace petsc_poisson {
+namespace {
 
-//! Wrapper for a PETSc KSP object
+//! RAII wrapper for a PETSc KSP object
 struct KSPObj
 {
     KSPObj () = default;
@@ -53,7 +52,7 @@ struct KSPObj
     KSP obj = nullptr;
 };
 
-//! Wrapper for a PETSc Mat object
+//! RAII wrapper for a PETSc Mat object
 struct MatObj
 {
     MatObj () = default;
@@ -65,7 +64,7 @@ struct MatObj
     Mat obj = nullptr;
 };
 
-//! Wrapper for a PETSc Vec object
+//! RAII wrapper for a PETSc Vec object
 struct VecObj
 {
     VecObj () = default;
@@ -77,21 +76,143 @@ struct VecObj
     Vec obj = nullptr;
 };
 
+/** Data shared between petscPoissonSolve() and the PETSc callbacks
+ *
+ * The degrees of freedom of the PETSc vectors are the nodes that this MPI rank
+ * owns: nodes shared between boxes, or with a periodic image, appear only once.
+ * Dirichlet nodes are kept as degrees of freedom; they simply remain zero
+ * throughout the Krylov solve, since both the right-hand side and the operator
+ * output are zeroed on them (this is also how `amrex::GMRESMLMG` treats them).
+ */
+struct PoissonCtx
+{
+    amrex::MLMG * mlmg = nullptr;
+    amrex::Geometry geom;
+    PETScPoissonOptions options;
+
+    //! Local index of the degree of freedom of each node, -1 if it is not one
+    std::unique_ptr<amrex::iMultiFab> dof;
+    //! Number of degrees of freedom owned by this MPI rank / in total
+    amrex::Long ndofs_local = 0;
+    amrex::Long ndofs_global = 0;
+
+    //! Work arrays (one ghost layer), reused by the operator and the
+    //! preconditioner callbacks, and by petscPoissonSolve() itself
+    amrex::MultiFab work_in;
+    amrex::MultiFab work_out;
+
+    //! Number the degrees of freedom that this MPI rank owns
+    void buildDOFMap (amrex::MultiFab const & phi)
+    {
+        ABLASTR_PROFILE("petsc_poisson::buildDOFMap()");
+
+        // Owner is the box with the lowest index containing the node; the same
+        // convention is used by OverrideSync in copyFromArray() below.
+        auto const owner_mask = amrex::OwnerMask(phi, geom.periodicity());
+
+        dof = std::make_unique<amrex::iMultiFab>(phi.boxArray(),
+                                                 phi.DistributionMap(), 1, 0);
+        dof->setVal(-1);
+
+        for (amrex::MFIter mfi(*dof); mfi.isValid(); ++mfi)
+        {
+            amrex::Box const & bx = mfi.validbox();
+            auto const npts = static_cast<int>(bx.numPts());
+            amrex::BoxIndexer const box_indexer(bx);
+
+            auto const & owner_arr = owner_mask->const_array(mfi);
+            auto const & dof_arr = dof->array(mfi);
+            auto const first_dof = static_cast<int>(ndofs_local);
+
+            auto const ndofs = amrex::Scan::PrefixSum<int>(
+                npts,
+                [=] AMREX_GPU_DEVICE (int offset) -> int
+                {
+                    auto const [i,j,k] = box_indexer(offset);
+                    return owner_arr(i,j,k) ? 1 : 0;
+                },
+                [=] AMREX_GPU_DEVICE (int offset, int ps)
+                {
+                    auto const [i,j,k] = box_indexer(offset);
+                    if (owner_arr(i,j,k)) {
+                        dof_arr(i,j,k) = ps + first_dof;
+                    }
+                },
+                amrex::Scan::Type::exclusive, amrex::Scan::retSum);
+
+            ndofs_local += ndofs;
+        }
+
+        ndofs_global = ndofs_local;
+        amrex::ParallelDescriptor::ReduceLongSum(ndofs_global);
+    }
+
+    //! Gather the degrees of freedom of `mf` into the PETSc array `arr`
+    void copyToArray (amrex::MultiFab const & mf, amrex::Real * arr) const
+    {
+        ABLASTR_PROFILE("petsc_poisson::copyToArray()");
+
+        for (amrex::MFIter mfi(*dof); mfi.isValid(); ++mfi)
+        {
+            auto const & mf_arr = mf.const_array(mfi);
+            auto const & dof_arr = dof->const_array(mfi);
+            amrex::ParallelFor(mfi.validbox(),
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                int const idx = dof_arr(i,j,k);
+                if (idx >= 0) { arr[idx] = mf_arr(i,j,k); }
+            });
+        }
+        amrex::Gpu::streamSynchronize();
+    }
+
+    //! Scatter the PETSc array `arr` into `mf`, and make `mf` consistent
+    void copyFromArray (amrex::MultiFab & mf, amrex::Real const * arr) const
+    {
+        ABLASTR_PROFILE("petsc_poisson::copyFromArray()");
+
+        using namespace amrex::literals;
+
+        mf.setVal(0._rt);
+        for (amrex::MFIter mfi(*dof); mfi.isValid(); ++mfi)
+        {
+            auto const & mf_arr = mf.array(mfi);
+            auto const & dof_arr = dof->const_array(mfi);
+            amrex::ParallelFor(mfi.validbox(),
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                int const idx = dof_arr(i,j,k);
+                if (idx >= 0) { mf_arr(i,j,k) = arr[idx]; }
+            });
+        }
+        amrex::Gpu::streamSynchronize();
+
+        // Fill the nodes owned by another box from their owner (OverrideSync
+        // uses the same OwnerMask convention as buildDOFMap), then the ghosts
+        mf.OverrideSync(geom.periodicity());
+        mf.FillBoundary(geom.periodicity());
+    }
+};
+
 //! Apply the matrix-free linear operator, called back by PETSc
 PetscErrorCode applyOperator (Mat a_A, Vec a_in, Vec a_out)
 {
     PetscFunctionBeginUser;
 
-    PETScPoissonSolver * solver = nullptr;
-    PetscCall(MatShellGetContext(a_A, &solver));
+    PoissonCtx * ctx = nullptr;
+    PetscCall(MatShellGetContext(a_A, &ctx));
 
     PetscScalar const * in_arr = nullptr;
     PetscScalar * out_arr = nullptr;
     PetscCall(VecGetArrayRead(a_in, &in_arr));
     PetscCall(VecGetArrayWrite(a_out, &out_arr));
 
-    solver->applyOperator( static_cast<amrex::Real*>(out_arr),
-                           static_cast<amrex::Real const*>(in_arr) );
+    ctx->copyFromArray(ctx->work_in, static_cast<amrex::Real const*>(in_arr));
+    // `applyPrecond` applies the operator with homogeneous boundary conditions,
+    // which is the operator that the correction equation uses
+    ctx->mlmg->applyPrecond({&ctx->work_out}, {&ctx->work_in});
+    ctx->mlmg->getLinOp().setDirichletNodesToZero(0, 0, ctx->work_out);
+    ctx->copyToArray(ctx->work_out, static_cast<amrex::Real*>(out_arr));
 
     PetscCall(VecRestoreArrayWrite(a_out, &out_arr));
     PetscCall(VecRestoreArrayRead(a_in, &in_arr));
@@ -104,16 +225,21 @@ PetscErrorCode applyPreconditioner (PC a_pc, Vec a_in, Vec a_out)
 {
     PetscFunctionBeginUser;
 
-    PETScPoissonSolver * solver = nullptr;
-    PetscCall(PCShellGetContext(a_pc, &solver));
+    using namespace amrex::literals;
+
+    PoissonCtx * ctx = nullptr;
+    PetscCall(PCShellGetContext(a_pc, &ctx));
 
     PetscScalar const * in_arr = nullptr;
     PetscScalar * out_arr = nullptr;
     PetscCall(VecGetArrayRead(a_in, &in_arr));
     PetscCall(VecGetArrayWrite(a_out, &out_arr));
 
-    solver->applyPreconditioner( static_cast<amrex::Real*>(out_arr),
-                                 static_cast<amrex::Real const*>(in_arr) );
+    ctx->copyFromArray(ctx->work_in, static_cast<amrex::Real const*>(in_arr));
+    ctx->mlmg->setPrecondIter(ctx->options.precond_num_iters);
+    ctx->work_out.setVal(0._rt);
+    ctx->mlmg->precond({&ctx->work_out}, {&ctx->work_in}, 0._rt, 0._rt);
+    ctx->copyToArray(ctx->work_out, static_cast<amrex::Real*>(out_arr));
 
     PetscCall(VecRestoreArrayWrite(a_out, &out_arr));
     PetscCall(VecRestoreArrayRead(a_in, &in_arr));
@@ -131,353 +257,7 @@ PetscErrorCode printResidual (KSP a_ksp, PetscInt a_n, PetscReal a_rnorm, void *
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-//! Is `a_type` one of the GMRES variants of PETSc?
-bool isGMRES (std::string const & a_type)
-{
-    return (a_type == "gmres") || (a_type == "fgmres")
-        || (a_type == "lgmres") || (a_type == "dgmres")
-        || (a_type == "pgmres") || (a_type == "pipefgmres");
-}
-
-} // namespace petsc_poisson
-
-
-PETScPoissonSolver::PETScPoissonSolver (amrex::MLMG & mlmg,
-                                        amrex::MultiFab const & phi_prototype,
-                                        amrex::Geometry const & geom,
-                                        PETScPoissonOptions const & options)
-    : m_mlmg(&mlmg), m_geom(geom), m_options(options)
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::PETScPoissonSolver()");
-
-    // This builds the multigrid hierarchy and the masks of the linear operator,
-    // which the operator, the preconditioner and buildDOFMap() below all need.
-    m_mlmg->preparePrecond();
-
-    buildDOFMap(phi_prototype);
-
-    // The work arrays are created by the linear operator itself, so that they
-    // have the right layout and factory. The inputs of the operator and of the
-    // preconditioner need one layer of ghost nodes, as in
-    // amrex::GMRESMLMG::makeVecLHS().
-    auto & linop = m_mlmg->getLinOp();
-    m_op_in = linop.make(0, 0, amrex::IntVect(1));
-    m_op_out = linop.make(0, 0, amrex::IntVect(0));
-    m_pc_in = linop.make(0, 0, amrex::IntVect(1));
-    m_pc_out = linop.make(0, 0, amrex::IntVect(1));
-    m_res = linop.make(0, 0, amrex::IntVect(1));
-    m_cor = linop.make(0, 0, amrex::IntVect(1));
-
-    m_A = std::make_unique<petsc_poisson::MatObj>();
-    m_x = std::make_unique<petsc_poisson::VecObj>();
-    m_b = std::make_unique<petsc_poisson::VecObj>();
-    m_ksp = std::make_unique<petsc_poisson::KSPObj>();
-
-    // Vectors
-    VecCreate(PETSC_COMM_WORLD, &m_x->obj);
-#ifdef AMREX_USE_GPU
-#   if defined(AMREX_USE_CUDA)
-    VecSetType(m_x->obj, VECCUDA);
-#   elif defined(AMREX_USE_HIP)
-    VecSetType(m_x->obj, VECHIP);
-#   else
-    ABLASTR_ABORT_WITH_MESSAGE(
-        "The PETSc Poisson solver is not yet implemented for non-CUDA/HIP GPUs");
-#   endif
-#else
-    VecSetType(m_x->obj, VECSTANDARD);
-#endif
-    auto const ndofs_local = static_cast<PetscInt>(m_ndofs_local);
-    auto const ndofs_global = static_cast<PetscInt>(m_ndofs_global);
-    VecSetSizes(m_x->obj, ndofs_local, ndofs_global);
-    VecSetFromOptions(m_x->obj);
-    VecDuplicate(m_x->obj, &m_b->obj);
-
-    // Matrix-free linear operator
-    MatCreateShell( PETSC_COMM_WORLD,
-                    ndofs_local, ndofs_local,
-                    ndofs_global, ndofs_global,
-                    this, &m_A->obj );
-    MatShellSetOperation( m_A->obj, MATOP_MULT,
-                          (void(*)())petsc_poisson::applyOperator ); // NOLINT
-    MatSetUp(m_A->obj);
-
-    // Krylov solver
-    KSPCreate(PETSC_COMM_WORLD, &m_ksp->obj);
-    KSPSetType(m_ksp->obj, m_options.ksp_type.c_str());
-    KSPSetOperators(m_ksp->obj, m_A->obj, m_A->obj);
-    if (petsc_poisson::isGMRES(m_options.ksp_type)) {
-        KSPGMRESSetRestart(m_ksp->obj, m_options.restart_length);
-        // Right preconditioning, so that the residual that PETSc monitors and
-        // uses for its convergence test is the residual of the actual system
-        KSPSetPCSide(m_ksp->obj, PC_RIGHT);
-        KSPSetNormType(m_ksp->obj, KSP_NORM_UNPRECONDITIONED);
-    }
-
-    PC pc = nullptr;
-    KSPGetPC(m_ksp->obj, &pc);
-    if (m_options.use_mlmg_preconditioner) {
-        PCSetType(pc, PCSHELL);
-        PCShellSetApply(pc, petsc_poisson::applyPreconditioner);
-        PCShellSetContext(pc, this);
-        PCShellSetName(pc, "AMReX MLMG");
-    } else {
-        PCSetType(pc, PCNONE);
-    }
-
-    if (m_options.verbosity > 1) {
-        KSPMonitorSet(m_ksp->obj, petsc_poisson::printResidual, nullptr, nullptr);
-    }
-    // Command-line and input-file PETSc options take precedence over the above
-    KSPSetFromOptions(m_ksp->obj);
-
-    if (m_options.verbosity > 0) {
-        amrex::Print() << "PETScPoissonSolver: using PETSc's KSP (" << m_options.ksp_type
-                       << ") with "
-                       << (m_options.use_mlmg_preconditioner ? "the AMReX MLMG" : "no")
-                       << " preconditioner (total DOFs = " << m_ndofs_global << ").\n";
-    }
-}
-
-PETScPoissonSolver::~PETScPoissonSolver () = default;
-
-void PETScPoissonSolver::buildDOFMap (amrex::MultiFab const & phi_prototype)
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::buildDOFMap()");
-
-    using namespace amrex::literals;
-
-    // The nodes that sit on the boundary between two boxes (or on the boundary
-    // between a box and the periodic image of another one) belong to the valid
-    // region of both boxes, but they are a single unknown of the linear system:
-    // only the node of the "owner" box is a degree of freedom.
-    auto const owner_mask = amrex::OwnerMask(phi_prototype, m_geom.periodicity());
-
-    // The nodes on which a Dirichlet boundary condition is applied are not
-    // unknowns of the linear system either. `setDirichletNodesToZero` is the
-    // public interface through which the AMReX linear operator exposes them.
-    auto & linop = m_mlmg->getLinOp();
-    amrex::MultiFab dirichlet_indicator = linop.make(0, 0, amrex::IntVect(0));
-    dirichlet_indicator.setVal(1._rt);
-    linop.setDirichletNodesToZero(0, 0, dirichlet_indicator);
-
-    m_dof = std::make_unique<amrex::iMultiFab>(phi_prototype.boxArray(),
-                                               phi_prototype.DistributionMap(), 1, 0);
-    m_dof->setVal(-1);
-
-    m_ndofs_local = 0;
-    for (amrex::MFIter mfi(*m_dof); mfi.isValid(); ++mfi)
-    {
-        amrex::Box const & bx = mfi.validbox();
-        auto const npts = static_cast<int>(bx.numPts());
-        amrex::BoxIndexer const box_indexer(bx);
-
-        auto const & owner_arr = owner_mask->const_array(mfi);
-        auto const & dirichlet_arr = dirichlet_indicator.const_array(mfi);
-        auto const & dof_arr = m_dof->array(mfi);
-        auto const first_dof = static_cast<int>(m_ndofs_local);
-
-        auto const ndofs = amrex::Scan::PrefixSum<int>(
-            npts,
-            [=] AMREX_GPU_DEVICE (int offset) -> int
-            {
-                auto const [i,j,k] = box_indexer(offset);
-                return (owner_arr(i,j,k) && (dirichlet_arr(i,j,k) > 0.5_rt)) ? 1 : 0;
-            },
-            [=] AMREX_GPU_DEVICE (int offset, int ps)
-            {
-                auto const [i,j,k] = box_indexer(offset);
-                if (owner_arr(i,j,k) && (dirichlet_arr(i,j,k) > 0.5_rt)) {
-                    dof_arr(i,j,k) = ps + first_dof;
-                }
-            },
-            amrex::Scan::Type::exclusive, amrex::Scan::retSum);
-
-        m_ndofs_local += ndofs;
-    }
-
-    m_ndofs_global = m_ndofs_local;
-    amrex::ParallelDescriptor::ReduceLongSum(m_ndofs_global);
-
-    ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(m_ndofs_global > 0,
-        "PETScPoissonSolver: the linear system has no degree of freedom");
-}
-
-void PETScPoissonSolver::copyToArray (amrex::MultiFab const & mf, amrex::Real * arr) const
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::copyToArray()");
-
-    for (amrex::MFIter mfi(*m_dof); mfi.isValid(); ++mfi)
-    {
-        amrex::Box const & bx = mfi.validbox();
-        auto const & mf_arr = mf.const_array(mfi);
-        auto const & dof_arr = m_dof->const_array(mfi);
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            int const dof = dof_arr(i,j,k);
-            if (dof >= 0) { arr[dof] = mf_arr(i,j,k); }
-        });
-    }
-    amrex::Gpu::streamSynchronize();
-}
-
-void PETScPoissonSolver::copyFromArray (amrex::MultiFab & mf, amrex::Real const * arr) const
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::copyFromArray()");
-
-    using namespace amrex::literals;
-
-    // The nodes that are not degrees of freedom (Dirichlet nodes, and the nodes
-    // that another box owns) are set to zero here, and the ones that another box
-    // owns are then filled from their owner by `OverrideSync` below.
-    mf.setVal(0._rt);
-
-    for (amrex::MFIter mfi(*m_dof); mfi.isValid(); ++mfi)
-    {
-        amrex::Box const & bx = mfi.validbox();
-        auto const & mf_arr = mf.array(mfi);
-        auto const & dof_arr = m_dof->const_array(mfi);
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            int const dof = dof_arr(i,j,k);
-            if (dof >= 0) { mf_arr(i,j,k) = arr[dof]; }
-        });
-    }
-    amrex::Gpu::streamSynchronize();
-
-    // `OverrideSync` uses the same `amrex::OwnerMask` as `buildDOFMap` above,
-    // so the nodes that are shared between boxes are filled from the very box
-    // whose node was numbered as a degree of freedom.
-    mf.OverrideSync(m_geom.periodicity());
-    mf.FillBoundary(m_geom.periodicity());
-}
-
-void PETScPoissonSolver::applyOperator (amrex::Real * out, amrex::Real const * in)
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::applyOperator()");
-
-    copyFromArray(m_op_in, in);
-    // `applyPrecond` applies the operator with homogeneous boundary conditions,
-    // which is the operator that the correction equation solved here uses
-    m_mlmg->applyPrecond({&m_op_out}, {&m_op_in});
-    m_mlmg->getLinOp().setDirichletNodesToZero(0, 0, m_op_out);
-    copyToArray(m_op_out, out);
-}
-
-void PETScPoissonSolver::applyPreconditioner (amrex::Real * out, amrex::Real const * in)
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::applyPreconditioner()");
-
-    using namespace amrex::literals;
-
-    copyFromArray(m_pc_in, in);
-    m_mlmg->setPrecondIter(m_options.precond_num_iters);
-    m_pc_out.setVal(0._rt);
-    m_mlmg->precond({&m_pc_out}, {&m_pc_in}, 0._rt, 0._rt);
-    copyToArray(m_pc_out, out);
-}
-
-void PETScPoissonSolver::solve (amrex::MultiFab & phi,
-                                amrex::MultiFab const & rho,
-                                amrex::Real relative_tolerance,
-                                amrex::Real absolute_tolerance,
-                                int max_iters)
-{
-    ABLASTR_PROFILE("PETScPoissonSolver::solve()");
-
-    using namespace amrex::literals;
-
-    auto & linop = m_mlmg->getLinOp();
-
-    // MLMG is only used as a preconditioner here, so its bottom solve must be
-    // cheap and linear; this mirrors what amrex::GMRESMLMG does.
-    auto const bottom_solver = m_mlmg->getBottomSolver();
-    auto const mlmg_verbose = m_mlmg->getVerbose();
-    auto const mlmg_bottom_verbose = m_mlmg->getBottomVerbose();
-    if (bottom_solver != amrex::BottomSolver::smoother &&
-        bottom_solver != amrex::BottomSolver::hypre &&
-        bottom_solver != amrex::BottomSolver::petsc)
-    {
-        m_mlmg->setBottomSolver(amrex::BottomSolver::smoother);
-    }
-    m_mlmg->setVerbose(0);
-    m_mlmg->setBottomVerbose(0);
-
-    // Residual of the initial guess: res = L(phi) - rho. Note that `apply` uses
-    // the inhomogeneous operator, so that the Dirichlet values that `phi` holds
-    // contribute to the residual.
-    m_res.setVal(0._rt);
-    m_mlmg->apply({&m_res}, {&phi});
-
-    amrex::MultiFab scaled_rho;
-    amrex::MultiFab const * rhs = &rho;
-    if (linop.scaleRHS(0, nullptr)) {
-        scaled_rho.define(rho.boxArray(), rho.DistributionMap(), 1, 0);
-        amrex::MultiFab::Copy(scaled_rho, rho, 0, 0, 1, 0);
-        auto const scaled = linop.scaleRHS(0, &scaled_rho);
-        amrex::ignore_unused(scaled);
-        rhs = &scaled_rho;
-    }
-    amrex::MultiFab::Saxpy(m_res, -1._rt, *rhs, 0, 0, 1, amrex::IntVect(0));
-    linop.setDirichletNodesToZero(0, 0, m_res);
-
-    // Solve L(cor) = res for the correction, with PETSc's Krylov solver
-    {
-        PetscScalar * b_arr = nullptr;
-        VecGetArrayWrite(m_b->obj, &b_arr);
-        copyToArray(m_res, static_cast<amrex::Real*>(b_arr));
-        VecRestoreArrayWrite(m_b->obj, &b_arr);
-    }
-    VecZeroEntries(m_x->obj);
-
-    KSPSetTolerances( m_ksp->obj,
-                      relative_tolerance,
-                      absolute_tolerance,
-                      PETSC_CURRENT,
-                      (max_iters > 0 ? max_iters : PETSC_CURRENT) );
-    KSPSolve(m_ksp->obj, m_b->obj, m_x->obj);
-
-    {
-        PetscScalar const * x_arr = nullptr;
-        VecGetArrayRead(m_x->obj, &x_arr);
-        copyFromArray(m_cor, static_cast<amrex::Real const*>(x_arr));
-        VecRestoreArrayRead(m_x->obj, &x_arr);
-    }
-
-    // phi = phi - cor
-    amrex::MultiFab::Saxpy(phi, -1._rt, m_cor, 0, 0, 1, amrex::IntVect(0));
-
-    // `amrex::MLMG::solve` ends with this; for the embedded-boundary operator it
-    // writes the prescribed potential into the nodes that the EB covers.
-    linop.postSolve({&phi});
-
-    phi.FillBoundary(m_geom.periodicity());
-
-    // Report on the solve
-    PetscInt niters = -1;
-    KSPGetIterationNumber(m_ksp->obj, &niters);
-    m_num_iters = static_cast<int>(niters);
-    PetscReal norm = -1;
-    KSPGetResidualNorm(m_ksp->obj, &norm);
-    m_residual_norm = static_cast<amrex::Real>(norm);
-
-    KSPConvergedReason reason;
-    KSPGetConvergedReason(m_ksp->obj, &reason);
-    char const * reason_string = nullptr;
-    KSPGetConvergedReasonString(m_ksp->obj, &reason_string);
-
-    if (m_options.verbosity > 0) {
-        amrex::Print() << "Poisson (PETSc KSP): " << m_num_iters << " iterations, exited due to \""
-                       << reason_string << "\" (abs. norm = " << m_residual_norm << ").\n";
-    }
-    ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(reason > 0,
-        std::string("The PETSc Poisson solver failed to converge: ") + reason_string);
-
-    // Restore the settings of the multigrid solver
-    m_mlmg->setBottomSolver(bottom_solver);
-    m_mlmg->setVerbose(mlmg_verbose);
-    m_mlmg->setBottomVerbose(mlmg_bottom_verbose);
-}
+} // anonymous namespace
 
 void
 petscPoissonSolve (amrex::MLMG & mlmg,
@@ -489,8 +269,156 @@ petscPoissonSolve (amrex::MLMG & mlmg,
                    int max_iters,
                    PETScPoissonOptions const & options)
 {
-    PETScPoissonSolver solver(mlmg, phi, geom, options);
-    solver.solve(phi, rho, relative_tolerance, absolute_tolerance, max_iters);
+    ABLASTR_PROFILE("petscPoissonSolve()");
+
+#ifdef AMREX_USE_GPU
+    ABLASTR_ABORT_WITH_MESSAGE(
+        "The PETSc Poisson solver is not yet implemented on GPUs");
+#endif
+
+    using namespace amrex::literals;
+
+    // This builds the multigrid hierarchy and the masks of the linear operator,
+    // which the operator, the preconditioner and the DOF map all need
+    mlmg.preparePrecond();
+    auto & linop = mlmg.getLinOp();
+
+    PoissonCtx ctx;
+    ctx.mlmg = &mlmg;
+    ctx.geom = geom;
+    ctx.options = options;
+    ctx.buildDOFMap(phi);
+    // The work arrays are created by the linear operator itself, so that they
+    // have the right layout; their ghost layer is needed by the AMReX operators
+    // (as in amrex::GMRESMLMG::makeVecLHS)
+    ctx.work_in = linop.make(0, 0, amrex::IntVect(1));
+    ctx.work_out = linop.make(0, 0, amrex::IntVect(1));
+
+    // PETSc vectors and matrix-free operator
+    VecObj x, b;
+    MatObj A;
+    KSPObj ksp;
+    auto const ndofs_l = static_cast<PetscInt>(ctx.ndofs_local);
+    auto const ndofs_g = static_cast<PetscInt>(ctx.ndofs_global);
+    VecCreate(PETSC_COMM_WORLD, &x.obj);
+    VecSetType(x.obj, VECSTANDARD);
+    VecSetSizes(x.obj, ndofs_l, ndofs_g);
+    VecDuplicate(x.obj, &b.obj);
+    MatCreateShell(PETSC_COMM_WORLD, ndofs_l, ndofs_l, ndofs_g, ndofs_g,
+                   &ctx, &A.obj);
+    MatShellSetOperation(A.obj, MATOP_MULT, (void (*)(void))applyOperator);
+    MatSetUp(A.obj);
+
+    // GMRES, right-preconditioned so that the monitored residual is the
+    // residual of the actual system
+    KSPCreate(PETSC_COMM_WORLD, &ksp.obj);
+    KSPSetType(ksp.obj, KSPGMRES);
+    KSPSetOperators(ksp.obj, A.obj, A.obj);
+    KSPSetPCSide(ksp.obj, PC_RIGHT);
+    KSPSetNormType(ksp.obj, KSP_NORM_UNPRECONDITIONED);
+    PC pc = nullptr;
+    KSPGetPC(ksp.obj, &pc);
+    if (options.use_mlmg_preconditioner) {
+        PCSetType(pc, PCSHELL);
+        PCShellSetApply(pc, applyPreconditioner);
+        PCShellSetContext(pc, &ctx);
+        PCShellSetName(pc, "AMReX MLMG");
+    } else {
+        PCSetType(pc, PCNONE);
+    }
+    KSPSetTolerances(ksp.obj, relative_tolerance, absolute_tolerance,
+                     PETSC_CURRENT, (max_iters > 0 ? max_iters : PETSC_CURRENT));
+    if (options.verbosity > 1) {
+        KSPMonitorSet(ksp.obj, printResidual, nullptr, nullptr);
+    }
+    // PETSc runtime options (e.g. -ksp_type) take precedence over the above
+    KSPSetFromOptions(ksp.obj);
+
+    if (options.verbosity > 0) {
+        amrex::Print() << "Poisson (PETSc KSP): "
+                       << (options.use_mlmg_preconditioner ? "MLMG-preconditioned"
+                                                           : "unpreconditioned")
+                       << " solve, total DOFs = " << ctx.ndofs_global << ".\n";
+    }
+
+    // MLMG is only used as a preconditioner here, so its bottom solve must be
+    // cheap and linear; this mirrors what amrex::GMRESMLMG does
+    auto const bottom_solver = mlmg.getBottomSolver();
+    auto const mlmg_verbose = mlmg.getVerbose();
+    auto const mlmg_bottom_verbose = mlmg.getBottomVerbose();
+    if (bottom_solver != amrex::BottomSolver::smoother &&
+        bottom_solver != amrex::BottomSolver::hypre &&
+        bottom_solver != amrex::BottomSolver::petsc)
+    {
+        mlmg.setBottomSolver(amrex::BottomSolver::smoother);
+    }
+    mlmg.setVerbose(0);
+    mlmg.setBottomVerbose(0);
+
+    // Residual of the initial guess: res = L(phi) - rho. Note that `apply` uses
+    // the inhomogeneous operator, so that the Dirichlet values that `phi` holds
+    // contribute to the residual. `work_in` is free until KSPSolve starts.
+    amrex::MultiFab & res = ctx.work_in;
+    res.setVal(0._rt);
+    mlmg.apply({&res}, {&phi});
+
+    amrex::MultiFab scaled_rho;
+    amrex::MultiFab const * rhs = &rho;
+    if (linop.scaleRHS(0, nullptr)) {
+        scaled_rho.define(rho.boxArray(), rho.DistributionMap(), 1, 0);
+        amrex::MultiFab::Copy(scaled_rho, rho, 0, 0, 1, 0);
+        auto const scaled = linop.scaleRHS(0, &scaled_rho);
+        amrex::ignore_unused(scaled);
+        rhs = &scaled_rho;
+    }
+    amrex::MultiFab::Saxpy(res, -1._rt, *rhs, 0, 0, 1, amrex::IntVect(0));
+    linop.setDirichletNodesToZero(0, 0, res);
+
+    // Solve L(cor) = res for the correction
+    {
+        PetscScalar * b_arr = nullptr;
+        VecGetArrayWrite(b.obj, &b_arr);
+        ctx.copyToArray(res, static_cast<amrex::Real*>(b_arr));
+        VecRestoreArrayWrite(b.obj, &b_arr);
+    }
+    KSPSolve(ksp.obj, b.obj, x.obj);
+
+    // phi = phi - cor. `work_in` is free again once KSPSolve has returned.
+    amrex::MultiFab & cor = ctx.work_in;
+    {
+        PetscScalar const * x_arr = nullptr;
+        VecGetArrayRead(x.obj, &x_arr);
+        ctx.copyFromArray(cor, static_cast<amrex::Real const*>(x_arr));
+        VecRestoreArrayRead(x.obj, &x_arr);
+    }
+    amrex::MultiFab::Saxpy(phi, -1._rt, cor, 0, 0, 1, amrex::IntVect(0));
+
+    // `amrex::MLMG::solve` ends with this; for the embedded-boundary operator it
+    // writes the prescribed potential into the nodes that the EB covers
+    linop.postSolve({&phi});
+    phi.FillBoundary(geom.periodicity());
+
+    // Report on the solve, and abort if it failed (as MLMG does)
+    PetscInt niters = -1;
+    KSPGetIterationNumber(ksp.obj, &niters);
+    PetscReal norm = -1;
+    KSPGetResidualNorm(ksp.obj, &norm);
+    KSPConvergedReason reason;
+    KSPGetConvergedReason(ksp.obj, &reason);
+    char const * reason_string = nullptr;
+    KSPGetConvergedReasonString(ksp.obj, &reason_string);
+    if (options.verbosity > 0) {
+        amrex::Print() << "Poisson (PETSc KSP): " << niters
+                       << " iterations, exited due to \"" << reason_string
+                       << "\" (abs. norm = " << norm << ").\n";
+    }
+    ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(reason > 0,
+        std::string("The PETSc Poisson solver failed to converge: ") + reason_string);
+
+    // Restore the settings of the multigrid solver
+    mlmg.setBottomSolver(bottom_solver);
+    mlmg.setVerbose(mlmg_verbose);
+    mlmg.setBottomVerbose(mlmg_bottom_verbose);
 }
 
 } // namespace ablastr::fields

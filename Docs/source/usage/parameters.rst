@@ -450,25 +450,20 @@ Overall simulation parameters
             The extended simulation box size in real space is :math:`2n_x-1, 2n_y-1, 2n_z-1` with the 3D solver, :math:`2n_x-1, 2n_y -1, n_z` with the 2D solver.
             The extended simulation box size in spectral space is :math:`n_x, 2n_y-1, 2n_z-1` with the 3D solver, :math:`n_x, 2n_y-1, n_z` with the 2D solver.
 
-    * ``petsc``: Poisson's equation is solved by one of PETSc's Krylov solvers, preconditioned by the AMReX multigrid.
+    * ``petsc``: Poisson's equation is solved by PETSc's GMRES, right-preconditioned by the AMReX multigrid.
         This is the electrostatic counterpart of the PETSc interface that the implicit electromagnetic solvers
         offer for the curl-curl equation (``newton.linear_solver = petsc_ksp``): the linear system is
         handed to PETSc as a matrix-free operator, whose action, as well as that of the multigrid preconditioner,
         is computed by AMReX. It therefore discretizes Poisson's equation exactly like ``multigrid`` does, and
         accepts the same boundary conditions; only the outer iteration differs.
-        It requires the compilation flag ``-DWarpX_PETSC=ON``.
+        It requires the compilation flag ``-DWarpX_PETSC=ON``, and is not yet implemented on GPUs.
         It is not supported in ``labframe-effective-potential`` mode.
         Note that in 1D with ``warpx.do_electrostatic = labframe``, and with the ``poissonsolver`` Python callback,
         Poisson's equation is solved by a dedicated solver and this option has no effect.
 
-        Any PETSc option that is set on the command line or in a PETSc option file (e.g. ``-ksp_type``)
-        takes precedence over the parameters below.
-
-          * ``petsc_poisson.ksp_type`` (``string``) optional (default: ``gmres``): The type of the PETSc ``KSP``
-            object, e.g. ``gmres``, ``fgmres``, ``bcgs`` or ``cg``.
-
-          * ``petsc_poisson.restart_length`` (``int``) optional (default: 30): The restart length, only used by
-            the GMRES variants.
+        Further customization of the Krylov solver (e.g. ``-ksp_type``, ``-ksp_gmres_restart``) is available
+        through PETSc's own runtime options (command line or option file), which take precedence over the
+        parameters below.
 
           * ``petsc_poisson.use_mlmg_preconditioner`` (``bool``) optional (default: 1): Whether to use the AMReX
             multigrid V-cycles as a preconditioner, through PETSc's ``PCShell`` interface. Setting this to 0 runs
