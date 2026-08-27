@@ -117,7 +117,7 @@ class CurlCurlMLMGPC : public Preconditioner<T,Ops>
         bool m_use_gmres = false;
         bool m_use_gmres_pc = true;
 
-        int m_max_iter = 10;
+        int m_max_iter = 1;
         int m_max_coarsening_level = 30;
 
         bool m_beta_scalar = true;
