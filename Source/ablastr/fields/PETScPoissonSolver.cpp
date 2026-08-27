@@ -278,6 +278,9 @@ petscPoissonSolve (amrex::MLMG & mlmg,
 
     using namespace amrex::literals;
 
+    ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(phi.nGrowVect().allGE(amrex::IntVect(1)),
+        "petscPoissonSolve: phi must have (at least) one ghost layer");
+
     // This builds the multigrid hierarchy and the masks of the linear operator,
     // which the operator, the preconditioner and the DOF map all need
     mlmg.preparePrecond();
@@ -288,11 +291,14 @@ petscPoissonSolve (amrex::MLMG & mlmg,
     ctx.geom = geom;
     ctx.options = options;
     ctx.buildDOFMap(phi);
-    // The work arrays are created by the linear operator itself, so that they
-    // have the right layout; their ghost layer is needed by the AMReX operators
-    // (as in amrex::GMRESMLMG::makeVecLHS)
-    ctx.work_in = linop.make(0, 0, amrex::IntVect(1));
-    ctx.work_out = linop.make(0, 0, amrex::IntVect(1));
+    // The work arrays share the layout (and factory) of `phi`; their ghost
+    // layer is needed by the AMReX operators (as in amrex::GMRESMLMG::makeVecLHS).
+    // Note that `phi` must be nodal with one ghost layer, like the vectors that
+    // amrex::MLMG::solve would create internally.
+    ctx.work_in.define(phi.boxArray(), phi.DistributionMap(), 1, 1,
+                       amrex::MFInfo(), phi.Factory());
+    ctx.work_out.define(phi.boxArray(), phi.DistributionMap(), 1, 1,
+                        amrex::MFInfo(), phi.Factory());
 
     // PETSc vectors and matrix-free operator
     VecObj x, b;
