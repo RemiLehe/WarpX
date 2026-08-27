@@ -122,8 +122,10 @@ class CurlCurlMLMGPC : public Preconditioner<T,Ops>
 
         bool m_beta_scalar = true;
 
-        RT m_atol = 1.0e-16;
-        RT m_rtol = 1.0e-4;
+        // Zero by default, so that the solve performs a fixed number of iterations,
+        // and the preconditioner is thus a fixed linear operator, as required by GMRES.
+        RT m_atol = 0.0;
+        RT m_rtol = 0.0;
 
         Ops* m_ops = nullptr;
 
@@ -391,9 +393,10 @@ void CurlCurlMLMGPC<T,Ops>::Apply (T& a_x, const T& a_b)
         if (m_use_gmres) {
             m_gmres_solver->solve(solution, rhs, m_rtol, m_atol);
         } else {
-            // Zero tolerances: MLMG performs exactly m_max_iter V-cycles for any right-hand
-            // side, so that the preconditioner is a fixed linear operator, as required by GMRES.
-            m_solver->solve({&solution}, {&rhs}, RT(0.0), RT(0.0));
+            // m_rtol and m_atol are zero by default: this ensures that MLMG performs a fixed
+            // number of iterations (m_max_iter V-cycles), for any right-hand side, so that the
+            // preconditioner is a fixed linear operator, as required by GMRES.
+            m_solver->solve({&solution}, {&rhs}, m_rtol, m_atol);
         }
     }
 }
