@@ -456,7 +456,8 @@ Overall simulation parameters
         handed to PETSc as a matrix-free operator, whose action, as well as that of the multigrid preconditioner,
         is computed by AMReX. It therefore discretizes Poisson's equation exactly like ``multigrid`` does, and
         accepts the same boundary conditions; only the outer iteration differs.
-        It requires the compilation flag ``-DWarpX_PETSC=ON``, and is not yet implemented on GPUs.
+        It requires the compilation flag ``-DWarpX_PETSC=ON``, and PETSc itself must be built with
+        CUDA (or HIP) support in order to run on GPUs.
         It is not supported in ``labframe-effective-potential`` mode.
         Note that in 1D with ``warpx.do_electrostatic = labframe``, and with the ``poissonsolver`` Python callback,
         Poisson's equation is solved by a dedicated solver and this option has no effect.

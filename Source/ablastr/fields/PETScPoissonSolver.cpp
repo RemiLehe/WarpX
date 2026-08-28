@@ -147,7 +147,15 @@ struct PoissonCtx
         amrex::ParallelDescriptor::ReduceLongSum(ndofs_global);
     }
 
-    //! Gather the degrees of freedom of `mf` into the PETSc array `arr`
+    /** Gather the degrees of freedom of `mf` into the PETSc array `arr`
+     *
+     * Note that on GPUs `arr` comes from `VecGetArray`, i.e. it is the host-side
+     * array of the PETSc vector (PETSc copies it back to the device before the
+     * next device operation). The kernel below writes it from device code, which
+     * assumes that this allocation is addressable from the device. This is the
+     * same assumption that `WarpXSolverVec::copyTo/copyFrom` makes for the
+     * curl-curl solver, see Source/FieldSolver/ImplicitSolvers/WarpXSolverVec.cpp.
+     */
     void copyToArray (amrex::MultiFab const & mf, amrex::Real * arr) const
     {
         ABLASTR_PROFILE("petsc_poisson::copyToArray()");
@@ -271,11 +279,6 @@ petscPoissonSolve (amrex::MLMG & mlmg,
 {
     ABLASTR_PROFILE("petscPoissonSolve()");
 
-#ifdef AMREX_USE_GPU
-    ABLASTR_ABORT_WITH_MESSAGE(
-        "The PETSc Poisson solver is not yet implemented on GPUs");
-#endif
-
     using namespace amrex::literals;
 
     ABLASTR_ALWAYS_ASSERT_WITH_MESSAGE(phi.nGrowVect().allGE(amrex::IntVect(1)),
@@ -307,8 +310,20 @@ petscPoissonSolve (amrex::MLMG & mlmg,
     auto const ndofs_l = static_cast<PetscInt>(ctx.ndofs_local);
     auto const ndofs_g = static_cast<PetscInt>(ctx.ndofs_global);
     VecCreate(PETSC_COMM_WORLD, &x.obj);
+#ifdef AMREX_USE_GPU
+#   if defined(AMREX_USE_CUDA)
+    VecSetType(x.obj, VECCUDA);
+#   elif defined(AMREX_USE_HIP)
+    VecSetType(x.obj, VECHIP);
+#   else
+    ABLASTR_ABORT_WITH_MESSAGE(
+        "The PETSc Poisson solver is not yet implemented for non-CUDA/HIP GPUs");
+#   endif
+#else
     VecSetType(x.obj, VECSTANDARD);
+#endif
     VecSetSizes(x.obj, ndofs_l, ndofs_g);
+    VecSetFromOptions(x.obj);
     VecDuplicate(x.obj, &b.obj);
     MatCreateShell(PETSC_COMM_WORLD, ndofs_l, ndofs_l, ndofs_g, ndofs_g,
                    &ctx, &A.obj);
