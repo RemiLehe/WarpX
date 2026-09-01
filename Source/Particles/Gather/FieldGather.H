@@ -488,6 +488,30 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     int l_cell = 0;
     int l_node_v = 0;
     int l_cell_v = 0;
+#if defined(WARPX_DIM_1D_Z)
+    // LOCAL EXPERIMENT (not for upstream): gather B with uniform (full-order)
+    // shape factors even when galerkin_interpolation is on, while E keeps the
+    // reduced-order factors. This isolates whether the Galerkin override that
+    // #7082 applies around the Darwin predictor push breaks energy
+    // conservation through the B gather: in that test the electrostatic field
+    // is zero, so B is the only channel the override can act through.
+    // Scoped to 1D because the 2D/3D/RZ gather loops below still use the
+    // reduced loop bounds for Bx/By and would silently drop a term.
+    if ((ex_type[zdir] == NODE) || (ey_type[zdir] == NODE) || (bz_type[zdir] == NODE) ||
+        (bx_type[zdir] == NODE) || (by_type[zdir] == NODE)) {
+        l_node = compute_shape_factor(sz_node, z);
+    }
+    if ((ex_type[zdir] == CELL) || (ey_type[zdir] == CELL) || (bz_type[zdir] == CELL) ||
+        (bx_type[zdir] == CELL) || (by_type[zdir] == CELL)) {
+        l_cell = compute_shape_factor(sz_cell, z - 0.5_rt);
+    }
+    if (ez_type[zdir] == NODE) {
+        l_node_v = compute_shape_factor_galerkin(sz_node_v, z);
+    }
+    if (ez_type[zdir] == CELL) {
+        l_cell_v = compute_shape_factor_galerkin(sz_cell_v, z - 0.5_rt);
+    }
+#else
     if ((ex_type[zdir] == NODE) || (ey_type[zdir] == NODE) || (bz_type[zdir] == NODE)) {
         l_node = compute_shape_factor(sz_node, z);
     }
@@ -500,17 +524,29 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     if ((ez_type[zdir] == CELL) || (bx_type[zdir] == CELL) || (by_type[zdir] == CELL)) {
         l_cell_v = compute_shape_factor_galerkin(sz_cell_v, z - 0.5_rt);
     }
+#endif
     const amrex::Real (&sz_ex)[depos_order + 1             ] = ((ex_type[zdir] == NODE) ? sz_node   : sz_cell  );
     const amrex::Real (&sz_ey)[depos_order + 1             ] = ((ey_type[zdir] == NODE) ? sz_node   : sz_cell  );
     const amrex::Real (&sz_ez)[depos_order + 1 - galerkin_interpolation] = ((ez_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
+#if defined(WARPX_DIM_1D_Z)
+    // LOCAL EXPERIMENT (not for upstream): B at full order, see comment above
+    const amrex::Real (&sz_bx)[depos_order + 1             ] = ((bx_type[zdir] == NODE) ? sz_node   : sz_cell  );
+    const amrex::Real (&sz_by)[depos_order + 1             ] = ((by_type[zdir] == NODE) ? sz_node   : sz_cell  );
+#else
     const amrex::Real (&sz_bx)[depos_order + 1 - galerkin_interpolation] = ((bx_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
     const amrex::Real (&sz_by)[depos_order + 1 - galerkin_interpolation] = ((by_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
+#endif
     const amrex::Real (&sz_bz)[depos_order + 1             ] = ((bz_type[zdir] == NODE) ? sz_node   : sz_cell  );
     int const l_ex = ((ex_type[zdir] == NODE) ? l_node   : l_cell  );
     int const l_ey = ((ey_type[zdir] == NODE) ? l_node   : l_cell  );
     int const l_ez = ((ez_type[zdir] == NODE) ? l_node_v : l_cell_v);
+#if defined(WARPX_DIM_1D_Z)
+    int const l_bx = ((bx_type[zdir] == NODE) ? l_node   : l_cell  );
+    int const l_by = ((by_type[zdir] == NODE) ? l_node   : l_cell  );
+#else
     int const l_bx = ((bx_type[zdir] == NODE) ? l_node_v : l_cell_v);
     int const l_by = ((by_type[zdir] == NODE) ? l_node_v : l_cell_v);
+#endif
     int const l_bz = ((bz_type[zdir] == NODE) ? l_node   : l_cell  );
 #endif
 
@@ -523,6 +559,8 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     // Gather field on particle Eyp from field on grid ey_arr
     // Gather field on particle Exp from field on grid ex_arr
     // Gather field on particle Bzp from field on grid bz_arr
+    // LOCAL EXPERIMENT (not for upstream): Bxp and Byp are gathered here as
+    // well, at full order, rather than in the reduced-order loop below.
     for (int iz=0; iz<=depos_order; iz++){
         Eyp += sz_ey[iz]*
             ey_arr(lo.x+l_ey+iz, 0, 0, 0);
@@ -530,18 +568,16 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
             ex_arr(lo.x+l_ex+iz, 0, 0, 0);
         Bzp += sz_bz[iz]*
             bz_arr(lo.x+l_bz+iz, 0, 0, 0);
-    }
-
-    // Gather field on particle Byp from field on grid by_arr
-    // Gather field on particle Ezp from field on grid ez_arr
-    // Gather field on particle Bxp from field on grid bx_arr
-    for (int iz=0; iz<=depos_order-galerkin_interpolation; iz++){
-        Ezp += sz_ez[iz]*
-            ez_arr(lo.x+l_ez+iz, 0, 0, 0);
         Bxp += sz_bx[iz]*
             bx_arr(lo.x+l_bx+iz, 0, 0, 0);
         Byp += sz_by[iz]*
             by_arr(lo.x+l_by+iz, 0, 0, 0);
+    }
+
+    // Gather field on particle Ezp from field on grid ez_arr
+    for (int iz=0; iz<=depos_order-galerkin_interpolation; iz++){
+        Ezp += sz_ez[iz]*
+            ez_arr(lo.x+l_ez+iz, 0, 0, 0);
     }
 
 #elif defined(WARPX_DIM_XZ)
