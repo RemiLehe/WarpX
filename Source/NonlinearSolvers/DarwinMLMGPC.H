@@ -136,8 +136,10 @@ class DarwinMLMGPC : public Preconditioner<T,Ops>
         int m_max_iter = 2;
         int m_max_coarsening_level = 30;
 
-        RT m_atol = 1.0e-16;
-        RT m_rtol = 1.0e-4;
+        // Zero by default, so that the solve performs a fixed number of iterations,
+        // and the preconditioner is thus a fixed linear operator, as required by GMRES.
+        RT m_atol = 0.0;
+        RT m_rtol = 0.0;
 
         Ops* m_ops = nullptr;
 
@@ -289,7 +291,6 @@ void DarwinMLMGPC<T,Ops>::Define ( const T& a_U,
     m_poisson_mg = std::make_unique<MLMG>(*m_poisson);
     m_helmholtz_mg = std::make_unique<MLMG>(*m_helmholtz);
     for (auto* mg : {m_poisson_mg.get(), m_helmholtz_mg.get()}) {
-        mg->setMaxIter(m_max_iter);
         mg->setFixedIter(m_max_iter);
         mg->setVerbose(static_cast<int>(m_verbose));
         mg->setBottomVerbose(static_cast<int>(m_bottom_verbose));
