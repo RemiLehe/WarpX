@@ -60,9 +60,8 @@
  *  quality, not correctness: amrex::GMRES applies the preconditioner on the
  *  right, so the reported residual is always that of the true operator.
  *
- *  This requires each B-staggered component to be nodal in at most one
- *  dimension, which holds in 1D and 2D Cartesian geometry but not in 3D
- *  (where e.g. Bx is nodal in both y and z); Define() aborts otherwise. The
+ *  This relies on each B-staggered component being nodal in at most one
+ *  dimension, which holds in 1D, 2D, and 3D Cartesian geometry. The
  *  cell-centered operators are fully periodic, matching the periodic-only
  *  restriction that SemiImplicitDarwin::Define() already enforces, and are
  *  therefore singular - the constant null space is handled by MLMG's
@@ -234,23 +233,6 @@ void DarwinMLMGPC<T,Ops>::Define ( const T& a_U,
     m_dmap = u_mfarrvec[0][0]->DistributionMap();
     m_grids = u_mfarrvec[0][0]->boxArray();
     m_grids.enclosedCells();
-
-    // The cell-centered solves stand in for the operator on each B-staggered
-    // component by index identification, which needs every component to be
-    // nodal in at most one dimension (true in 1D/2D Cartesian, false in 3D
-    // where e.g. Bx is nodal in both y and z).
-    for (int comp = 0; comp < 3; ++comp) {
-        int nodal_dims = 0;
-        const IntVect itype = u_mfarrvec[0][comp]->ixType().toIntVect();
-        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-            if (itype[idim] == 1) { ++nodal_dims; }
-        }
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            nodal_dims <= 1,
-            "DarwinMLMGPC::Define(): a solver vector component is nodal in "
-            "more than one dimension. This preconditioner is only supported "
-            "in 1D and 2D Cartesian geometry.");
-    }
 
     // The Darwin solver is restricted to fully periodic domains (see
     // SemiImplicitDarwin::Define()), so the cell-centered operators are too.
