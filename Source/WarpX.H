@@ -433,7 +433,7 @@ public:
      */
     amrex::Real GlobalPlasmaFrequencyMax ();
     amrex::Real GlobalCyclotronFrequencyMax ();
-    void ApplyDtLimiters ();
+    void ApplyDtLimiters (int step);
 
     /** Print main PIC parameters to stdout */
     void PrintMainPICparameters ();
@@ -1218,7 +1218,9 @@ private:
     amrex::Vector<amrex::Real> dt;
     // How often to update the timestep when using adaptive timestepping
     ablastr::utils::text::IntervalsParser m_dt_update_interval;
+    ablastr::utils::text::IntervalsParser m_dt_update_write_interval;
     std::string m_dt_update_diagnostic_file;
+    void WriteDtUpdateFileHeader ();
 
     bool m_safe_guard_cells = false;
 
@@ -1272,10 +1274,12 @@ private:
      */
     amrex::Vector<  std::unique_ptr<amrex::iMultiFab> > m_eb_reduce_particle_shape;
 
-    /** EB: for every mesh face flag_info_face contains a:
-     *          * 0 if the face needs to be extended
-     *          * 1 if the face is large enough to lend area to other faces
-     *          * 2 if the face is actually intruded by other face
+    /** EB: for every mesh face flag_info_face contains one of the FaceInfo::Flag values:
+     *          * FaceInfo::extended if the face needs to be extended
+     *          * FaceInfo::available if the face is large enough to lend area to other faces
+     *          * FaceInfo::intruded if the face is actually intruded by other face
+     *          * FaceInfo::bck_stabilized if the face could not be extended and was stabilized
+     *            with the BCK correction instead
      * It is initialized in WarpX::MarkExtensionCells
      * This is only used for the ECT solver.*/
     amrex::Vector<std::array< std::unique_ptr<amrex::iMultiFab>, 3 > > m_flag_info_face;
