@@ -401,8 +401,8 @@ Overall simulation parameters
         as a preconditioner within the GMRes iteration. Because the Darwin magnetoinductive equation
         :math:`\nabla^4 Z + \nabla \times ( \chi(x) \nabla\times Z) = ...` is not well-adapted for multi-grid
         (and because the preconditioner does not need to solve for the exact equation), here the multigrid
-        solver uses the approximate equation :math:`\nabla^2 ( \nabla^2 + \chi ) Z` ; this
-        is equivalent to the original magnetostatic equation if :math:`Z` is divergence-free and if
+        solver uses the approximate equation :math:`\nabla^2 ( \nabla^2 + \chi ) Z = ...`; this
+        is equivalent to the original magnetostatic equation if :math:`Z` is divergence-free and
         `\chi` is a slowly varying function of space. In practice, two separate passes of multigrid are
         used in the preconditioner, in order to invert the operators  :math:`\nabla^2 + \chi` and `\nabla^2`
         respectively.
@@ -413,7 +413,7 @@ Overall simulation parameters
         - ``pc_darwin_mlmg.consolidation`` (``bool``, default: true)
         - ``pc_darwin_mlmg.max_iter`` (``int``, default: 2) Fixed number of V-cycles per multigrid
           solve. This is deliberately fixed, so that the preconditioner stays a fixed linear operator
-          over a GMRES solve.
+          over a GMRES solve (only true when solver tolerance is set to 0, as by default).
         - ``pc_darwin_mlmg.max_coarsening_level`` (``int``, default: 30)
         - ``pc_darwin_mlmg.relative_tolerance`` (``float``, default: 0)
         - ``pc_darwin_mlmg.absolute_tolerance`` (``float``, default: 0)

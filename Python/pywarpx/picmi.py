@@ -1681,7 +1681,7 @@ class GMRESLinearSolver(LinearSolverBase):
 
         if pc_type is not None:
             assert isinstance(pc_type, PreconditionerBase)
-            assert pc_type.name is not None, (
+            assert pc_type.supports_direct_gmres, (
                 f"{type(pc_type).__name__} cannot be selected directly on the "
                 "GMRES solver; pass it to the nonlinear solver instead"
             )
@@ -1715,10 +1715,19 @@ class PETScKSPLinearSolver(LinearSolverBase):
 
 
 class PreconditionerBase(picmistandard.base._ClassWithInit):
-    # Name of the WarpX preconditioner type, set by subclasses that can be
-    # selected directly on a linear solver (rather than via a nonlinear
-    # solver's Jacobian).
+    # Name of the WarpX preconditioner type, set by subclasses.
     name = None
+
+    # Whether this preconditioner can be selected directly on a linear
+    # solver (rather than only via a nonlinear solver's Jacobian).
+    supports_direct_gmres = False
+
+    def preconditioner_type_initialize_inputs(self, jacobian=None):
+        if jacobian is not None:
+            jacobian.pc_type = self.name
+        bucket = pywarpx.warpx.get_bucket(self.name)
+        for attr, value in vars(self).items():
+            setattr(bucket, attr, value)
 
 
 class CurlCurlMLMGPreconditioner(PreconditionerBase):
@@ -1750,6 +1759,8 @@ class CurlCurlMLMGPreconditioner(PreconditionerBase):
         Absoluate tolerence of the convergence
     """
 
+    name = "pc_curl_curl_mlmg"
+
     def __init__(
         self,
         verbose,
@@ -1769,19 +1780,6 @@ class CurlCurlMLMGPreconditioner(PreconditionerBase):
         self.max_coarsening_level = max_coarsening_level
         self.relative_tolerance = relative_tolerance
         self.absolute_tolerance = absolute_tolerance
-
-    def preconditioner_type_initialize_inputs(self, jacobian=None):
-        if jacobian is not None:
-            jacobian.pc_type = "pc_curl_curl_mlmg"
-        pc_curl_curl_mlmg = pywarpx.warpx.get_bucket("pc_curl_curl_mlmg")
-        pc_curl_curl_mlmg.verbose = self.verbose
-        pc_curl_curl_mlmg.bottom_verbose = self.bottom_verbose
-        pc_curl_curl_mlmg.agglomeration = self.agglomeration
-        pc_curl_curl_mlmg.consolidation = self.consolidation
-        pc_curl_curl_mlmg.max_iter = self.max_iter
-        pc_curl_curl_mlmg.max_coarsening_level = self.max_coarsening_level
-        pc_curl_curl_mlmg.relative_tolerance = self.relative_tolerance
-        pc_curl_curl_mlmg.absolute_tolerance = self.absolute_tolerance
 
 
 class DarwinMLMGPreconditioner(PreconditionerBase):
@@ -1821,6 +1819,7 @@ class DarwinMLMGPreconditioner(PreconditionerBase):
     """
 
     name = "pc_darwin_mlmg"
+    supports_direct_gmres = True
 
     def __init__(
         self,
@@ -1842,19 +1841,6 @@ class DarwinMLMGPreconditioner(PreconditionerBase):
         self.relative_tolerance = relative_tolerance
         self.absolute_tolerance = absolute_tolerance
 
-    def preconditioner_type_initialize_inputs(self, jacobian=None):
-        if jacobian is not None:
-            jacobian.pc_type = self.name
-        pc_darwin_mlmg = pywarpx.warpx.get_bucket(self.name)
-        pc_darwin_mlmg.verbose = self.verbose
-        pc_darwin_mlmg.bottom_verbose = self.bottom_verbose
-        pc_darwin_mlmg.agglomeration = self.agglomeration
-        pc_darwin_mlmg.consolidation = self.consolidation
-        pc_darwin_mlmg.max_iter = self.max_iter
-        pc_darwin_mlmg.max_coarsening_level = self.max_coarsening_level
-        pc_darwin_mlmg.relative_tolerance = self.relative_tolerance
-        pc_darwin_mlmg.absolute_tolerance = self.absolute_tolerance
-
 
 class JacobiPreconditioner(PreconditionerBase):
     """
@@ -1875,6 +1861,8 @@ class JacobiPreconditioner(PreconditionerBase):
         Absoluate tolerence of the convergence
     """
 
+    name = "pc_jacobi"
+
     def __init__(
         self,
         verbose,
@@ -1886,15 +1874,6 @@ class JacobiPreconditioner(PreconditionerBase):
         self.max_iter = max_iter
         self.relative_tolerance = relative_tolerance
         self.absolute_tolerance = absolute_tolerance
-
-    def preconditioner_type_initialize_inputs(self, jacobian=None):
-        if jacobian is not None:
-            jacobian.pc_type = "pc_jacobi"
-        pc_jacobi = pywarpx.warpx.get_bucket("pc_jacobi")
-        pc_jacobi.verbose = self.verbose
-        pc_jacobi.max_iter = self.max_iter
-        pc_jacobi.relative_tolerance = self.relative_tolerance
-        pc_jacobi.absolute_tolerance = self.absolute_tolerance
 
 
 class PETScPreconditioner(PreconditionerBase):
@@ -1922,6 +1901,8 @@ class PETScPreconditioner(PreconditionerBase):
         When type is "hypre" and hypre_type is "euclid"
     """
 
+    name = "pc_petsc"
+
     def __init__(
         self,
         type,
@@ -1937,17 +1918,6 @@ class PETScPreconditioner(PreconditionerBase):
         self.ilu_factor_levels = ilu_factor_levels
         self.hypre_type = hypre_type
         self.euclid_factor_levels = euclid_factor_levels
-
-    def preconditioner_type_initialize_inputs(self, jacobian=None):
-        if jacobian is not None:
-            jacobian.pc_type = "pc_petsc"
-        pc_petsc = pywarpx.warpx.get_bucket("pc_petsc")
-        pc_petsc.type = self.type
-        pc_petsc.asm_overlap = self.asm_overlap
-        pc_petsc.sub_type = self.sub_type
-        pc_petsc.ilu_factor_levels = self.ilu_factor_levels
-        pc_petsc.hypre_type = self.hypre_type
-        pc_petsc.euclid_factor_levels = self.euclid_factor_levels
 
 
 class NonlinearSolverBase(picmistandard.base._ClassWithInit):
