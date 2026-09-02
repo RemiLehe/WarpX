@@ -20,8 +20,10 @@
 #include <AMReX_Array.H>
 #include <AMReX_Vector.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_iMultiFab.H>
 
-#include <utility>
+#include <array>
+#include <memory>
 
 namespace MatrixPCUtils
 {
@@ -189,12 +191,12 @@ class MatrixPC : public Preconditioner<T,Ops>
         int m_ndofs_g = 0;
 
         /**
-         * \brief The DOF numbering object of the solver vector, cached in
-         *  Define(). The solver vector class owns a single instance of it that
-         *  lives until AMReX finalization, so a non-owning pointer is safe.
+         * \brief The per-level, per-direction DOF index maps of the solver
+         *  vector, cached in Define(). The solver vector class owns a single
+         *  DOF object that lives until AMReX finalization, so a non-owning
+         *  pointer is safe.
          */
-        using DOFsPtr = decltype(std::declval<const T&>().getDOFsObject().get());
-        DOFsPtr m_dofs = nullptr;
+        const amrex::Vector<std::array<std::unique_ptr<amrex::iMultiFab>,3>>* m_dofs_array = nullptr;
 
         bool m_pc_diag_only = false;
         int m_pc_mat_nnz = 1;
@@ -269,15 +271,13 @@ void MatrixPC<T,Ops>::Define ( const T& a_U,
         m_geom[n] = m_ops->GetGeometry(n);
     }
 
-    // Cache the DOF numbering object, so that Assemble() can read the local
-    // and global DOF index maps without being handed a vector.
-    m_dofs = a_U.getDOFsObject().get();
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-        (m_dofs != nullptr),
-        "MatrixPC::Define(): the solver vector has no DOF object" );
-
     m_ndofs_l = a_U.nDOF_local();
     m_ndofs_g = a_U.nDOF_global();
+
+    // Cache the DOF index maps, so that Assemble() can read them without being
+    // handed a vector. The nDOF queries above already assert that the solver
+    // vector's DOF object exists.
+    m_dofs_array = &a_U.getDOFsObject()->m_array;
 
     auto n_rows = size_t(m_ndofs_l);
     auto n_cols = size_t(m_pc_mat_nnz) * size_t(m_ndofs_l);
@@ -362,10 +362,8 @@ int MatrixPC<T,Ops>::Assemble ()
                        << "alpha = " << alpha << "\n";
     }
 
-    // DOF object cached in Define()
-    const auto& dofs_mfarrvec = m_dofs->m_array;
-    AMREX_ALWAYS_ASSERT(m_ndofs_l == m_dofs->m_nDoFs_l);
-    AMREX_ALWAYS_ASSERT(m_ndofs_g == m_dofs->m_nDoFs_g);
+    // DOF index maps cached in Define()
+    const auto& dofs_mfarrvec = *m_dofs_array;
 
     m_r_indices_g.clear();
     m_num_nz.clear();
