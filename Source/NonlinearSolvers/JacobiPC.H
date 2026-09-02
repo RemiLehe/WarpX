@@ -276,9 +276,8 @@ void JacobiPC<T,Ops>::Define ( const T& a_U,
     m_num_amr_levels = m_ops->numAMRLevels();
     m_bcoefs = m_ops->GetMassMatricesCoeff();
 
-    // Cache the grid layout of the solver vector. The scratch MultiFabs are
-    // allocated lazily in Update(), once the mass-matrix coefficients are
-    // known, but their layout is already fixed here.
+    // Save the grid layout of the solver vector. This is then used in 
+    // `Update` to allocate temporary MultiFabs
     const auto& u_mfarrvec = a_U.getArrayVec();
     m_grids.resize(m_num_amr_levels);
     m_dmap.resize(m_num_amr_levels);
