@@ -57,12 +57,6 @@ class Preconditioner
 
         /**
          * \brief Update the preconditioner
-         *
-         *  This takes no argument: preconditioners draw the state they need
-         *  from the Ops object and the grid layout they cached in Define(),
-         *  plus the time and time step size set via CurTime()/CurTimeStep().
-         *  Should a preconditioner ever need to re-linearize about the
-         *  current iterate, pass it in here.
          */
         virtual void Update () = 0;
 
