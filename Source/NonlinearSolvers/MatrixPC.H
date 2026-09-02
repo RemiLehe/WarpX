@@ -345,8 +345,7 @@ int MatrixPC<T,Ops>::Assemble ()
                        << "alpha = " << alpha << "\n";
     }
 
-    // The DOF object is shared by every solver vector, so it can be reached
-    // without one.
+    // The DOF object is shared by every solver vector.
     const auto& dofs_mfarrvec = T::getDOFsObject()->m_array;
 
     m_r_indices_g.clear();
