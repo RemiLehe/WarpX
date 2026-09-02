@@ -88,8 +88,18 @@ public:
      *  used by the pc_darwin_mlmg preconditioner's Helmholtz factor. Must be
      *  called after the mass matrices have been deposited and synced for the
      *  current step.
+     *
+     *  The full mass matrix is a 3x3 block tensor (one block per Jx/Jy/Jz
+     *  row/column pair) at every point of each block's native E-type
+     *  staggering, and each block is itself stored sparsely as several
+     *  components representing the deposition-stencil bands rather than as
+     *  a dense matrix. a_chi_cc collapses all of that to a single scalar per
+     *  cell: it keeps only the 3 diagonal blocks (xx, yy, zz), sums each
+     *  block's stencil-band components into a per-point row-sum, averages
+     *  that row-sum over the 3 diagonal blocks, and interpolates the result
+     *  from the staggered points onto the cell center.
      */
-    void ComputeSusceptibilityCC ( amrex::MultiFab& a_chi_cc ) const;
+    void ScaledMassMatrixCC ( amrex::MultiFab& a_chi_cc ) const;
 
     void PrepareVelocitiesForCurrentDeposition ();
     void AccumulateCurrentAndMassMatrices ();

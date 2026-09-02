@@ -101,7 +101,7 @@ class DarwinMLMGPC : public Preconditioner<T,Ops>
 
         /**
          * \brief Update the preconditioner: refresh chi(x) from the freshly
-         *  deposited mass matrices (via Ops::ComputeSusceptibilityCC).
+         *  deposited mass matrices (via Ops::ScaledMassMatrixCC).
          */
         void Update (const T& a_U) override;
 
@@ -298,7 +298,7 @@ void DarwinMLMGPC<T,Ops>::Update (const T& a_U)
     // a_U is not needed for a linear operator
     amrex::ignore_unused(a_U);
 
-    m_ops->ComputeSusceptibilityCC(m_chi_cc);
+    m_ops->ScaledMassMatrixCC(m_chi_cc);
     m_helmholtz->setACoeffs(0, m_chi_cc);
 
     if (m_verbose) {
