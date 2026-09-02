@@ -613,9 +613,8 @@ void SemiImplicitDarwin::ScaledMassMatrixCC ( amrex::MultiFab& a_chi_cc ) const
     for (int d = 0; d < 3; ++d) {
         const int nc = Sdiag[d]->nComp();
         const amrex::IntVect et = Sdiag[d]->ixType().toIntVect();
-        int e0 = 0;
-        int e1 = 0;
-        int e2 = 0;
+        int e0, e1, e2;
+        e0 = e1 = e2 = 0;
         AMREX_D_TERM(e0 = et[0];, e1 = et[1];, e2 = et[2];)
         // Each staggered point contributes with equal weight to the average
         // onto the cell center (2 points per nodal dimension of the block).
