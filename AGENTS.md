@@ -73,6 +73,7 @@ Test output goes to `build/bin/<test_name>/`.
 - When debugging/fixing tests: do not modify the tolerance of assert statements in the Python analysis files just to make the tests pass (unless explicitly asked to do so).
 
 ### Where CI is Configured
+
 - **Compile-time tests: `.github/workflows/`** — build-only jobs across compilers and backends
   (AppleClang, Clang, GCC, HIP, NVCC, Intel, ...). The exception is `clang_sanitizers.yml`,
   which also runs `ctest` under the UB/address sanitizers.
