@@ -397,13 +397,13 @@ Overall simulation parameters
           iterations. The only supported options are ``none`` and ``pc_darwin_mlmg``, described below.
 
       - **Preconditioner options:**
-        Setting ``amrex_gmres.pc_type = pc_darwin_mlmg`` use the multi-grid algorithm 
+        Setting ``amrex_gmres.pc_type = pc_darwin_mlmg`` use the multi-grid algorithm
         as a preconditioner within the GMRes iteration. Because the Darwin magnetoinductive equation
         :math:`\nabla^4 Z + \nabla \times ( \chi(x) \nabla\times Z) = ...` is not well-adapted for multi-grid
         (and because the preconditioner does not need to solve for the exact equation), here the multigrid
-        solver uses the approximate equation :math:`\nabla^2 ( \nabla^2 + \chi ) Z` ; this 
-        is equivalent to the original magnetostatic equation if :math:`Z` is divergence-free and if 
-        `\chi` is a slowly varying function of space. In practice, two separate passes of multigrid are 
+        solver uses the approximate equation :math:`\nabla^2 ( \nabla^2 + \chi ) Z` ; this
+        is equivalent to the original magnetostatic equation if :math:`Z` is divergence-free and if
+        `\chi` is a slowly varying function of space. In practice, two separate passes of multigrid are
         used in the preconditioner, in order to invert the operators  :math:`\nabla^2 + \chi` and `\nabla^2`
         respectively.
 
