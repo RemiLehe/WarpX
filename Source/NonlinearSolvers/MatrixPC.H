@@ -20,10 +20,6 @@
 #include <AMReX_Array.H>
 #include <AMReX_Vector.H>
 #include <AMReX_MultiFab.H>
-#include <AMReX_iMultiFab.H>
-
-#include <array>
-#include <memory>
 
 namespace MatrixPCUtils
 {
@@ -190,14 +186,6 @@ class MatrixPC : public Preconditioner<T,Ops>
         int m_ndofs_l = 0;
         int m_ndofs_g = 0;
 
-        /**
-         * \brief The per-level, per-direction DOF index maps of the solver
-         *  vector, cached in Define(). The solver vector class owns a single
-         *  DOF object that lives until AMReX finalization, so a non-owning
-         *  pointer is safe.
-         */
-        const amrex::Vector<std::array<std::unique_ptr<amrex::iMultiFab>,3>>* m_dofs_array = nullptr;
-
         bool m_pc_diag_only = false;
         int m_pc_mat_nnz = 1;
         bool m_include_mass_matrices = false;
@@ -273,11 +261,6 @@ void MatrixPC<T,Ops>::Define ( const T& a_U,
 
     m_ndofs_l = a_U.nDOF_local();
     m_ndofs_g = a_U.nDOF_global();
-
-    // Cache the DOF index maps, so that Assemble() can read them without being
-    // handed a vector. The nDOF queries above already assert that the solver
-    // vector's DOF object exists.
-    m_dofs_array = &a_U.getDOFsObject()->m_array;
 
     auto n_rows = size_t(m_ndofs_l);
     auto n_cols = size_t(m_pc_mat_nnz) * size_t(m_ndofs_l);
@@ -362,8 +345,9 @@ int MatrixPC<T,Ops>::Assemble ()
                        << "alpha = " << alpha << "\n";
     }
 
-    // DOF index maps cached in Define()
-    const auto& dofs_mfarrvec = *m_dofs_array;
+    // The DOF object is shared by every solver vector, so it can be reached
+    // without one.
+    const auto& dofs_mfarrvec = T::getDOFsObject()->m_array;
 
     m_r_indices_g.clear();
     m_num_nz.clear();

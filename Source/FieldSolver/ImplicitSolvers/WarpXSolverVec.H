@@ -313,8 +313,9 @@ public:
     // return the number of AMR levels
     [[nodiscard]] auto numAMRLevels () const { return m_num_amr_levels; }
 
-    // return DOFs object pointer
-    [[nodiscard]] inline const auto& getDOFsObject () const { return m_dofs; }
+    // return DOFs object pointer. Static, since the DOF object is shared by
+    // every solver vector, so callers do not need an instance to reach it.
+    [[nodiscard]] inline static const auto& getDOFsObject () { return m_dofs; }
 
 private:
 
