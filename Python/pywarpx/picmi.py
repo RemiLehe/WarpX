@@ -1793,9 +1793,6 @@ class DarwinMLMGPreconditioner(PreconditionerBase):
     multigrid solves (Poisson then Helmholtz with the spatially varying
     susceptibility) per vector component.
 
-    This is only supported in 1D and 2D Cartesian geometry, and requires
-    periodic field boundaries (as the Darwin solver itself does).
-
     Parameters
     ----------
     verbose: bool, default=False

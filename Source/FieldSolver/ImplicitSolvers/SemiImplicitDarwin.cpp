@@ -613,11 +613,9 @@ void SemiImplicitDarwin::ComputeSusceptibilityCC ( amrex::MultiFab& a_chi_cc ) c
     for (int d = 0; d < 3; ++d) {
         const int nc = Sdiag[d]->nComp();
         const amrex::IntVect et = Sdiag[d]->ixType().toIntVect();
-        int e[3] = {0, 0, 0};
-        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) { e[idim] = et[idim]; }
-        const int e0 = e[0];
-        const int e1 = e[1];
-        const int e2 = e[2];
+        const int e0 = et[0];
+        const int e1 = et[1];
+        const int e2 = et[2];
         // Each staggered point contributes with equal weight to the average
         // onto the cell center (2 points per nodal dimension of the block).
         const amrex::Real wt =

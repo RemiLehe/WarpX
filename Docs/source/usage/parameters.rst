@@ -394,20 +394,18 @@ Overall simulation parameters
         - ``amrex_gmres.relative_tolerance`` (``float``, default: 1.0e-4) Relative tolerance of the convergence.
         - ``amrex_gmres.absolute_tolerance`` (``float``, default: 0.0) Absolute tolerance of the convergence.
         - ``amrex_gmres.pc_type`` (``string``, default: ``none``) Preconditioner applied inside the GMRES
-          iterations. The only supported choice is ``pc_darwin_mlmg``, described below.
+          iterations. The only supported options are ``none`` and ``pc_darwin_mlmg``, described below.
 
       - **Preconditioner options:**
-        The Darwin field operator ``nabla^4(Z) + curl(chi curl(Z))``, with ``chi`` the mass-matrix
-        response scaled by ``2 mu_0 / dt``, factors on its solenoidal subspace (in the constant-``chi``
-        limit) as ``(-nabla^2)(-nabla^2 + chi)``. Setting ``amrex_gmres.pc_type = pc_darwin_mlmg``
-        applies that factorization as two successive scalar multigrid solves per vector component -- a
-        Poisson solve followed by a Helmholtz solve using the local ``chi(x)`` -- which greatly reduces
-        the GMRES iteration count. The preconditioner is applied on the right, so the reported residual
-        remains that of the true operator.
-
-        This preconditioner is only supported in 1D and 2D Cartesian geometry (in 3D a face-centered
-        field component is nodal in two dimensions, which the cell-centered multigrid solves cannot
-        represent by index identification). Its parameters use the ``pc_darwin_mlmg`` prefix:
+        Setting ``amrex_gmres.pc_type = pc_darwin_mlmg`` use the multi-grid algorithm 
+        as a preconditioner within the GMRes iteration. Because the Darwin magnetoinductive equation
+        :math:`\nabla^4 Z + \nabla \times ( \chi(x) \nabla\times Z) = ...` is not well-adapted for multi-grid
+        (and because the preconditioner does not need to solve for the exact equation), here the multigrid
+        solver uses the approximate equation :math:`\nabla^2 ( \nabla^2 + \chi ) Z` ; this 
+        is equivalent to the original magnetostatic equation if :math:`Z` is divergence-free and if 
+        `\chi` is a slowly varying function of space. In practice, two separate passes of multigrid are 
+        used in the preconditioner, in order to invert the operators  :math:`\nabla^2 + \chi` and `\nabla^2`
+        respectively.
 
         - ``pc_darwin_mlmg.verbose`` (``bool``, default: false)
         - ``pc_darwin_mlmg.bottom_verbose`` (``bool``, default: false)
@@ -417,8 +415,8 @@ Overall simulation parameters
           solve. This is deliberately fixed, so that the preconditioner stays a fixed linear operator
           over a GMRES solve.
         - ``pc_darwin_mlmg.max_coarsening_level`` (``int``, default: 30)
-        - ``pc_darwin_mlmg.relative_tolerance`` (``float``, default: 1.0e-4)
-        - ``pc_darwin_mlmg.absolute_tolerance`` (``float``, default: 1.0e-16)
+        - ``pc_darwin_mlmg.relative_tolerance`` (``float``, default: 0)
+        - ``pc_darwin_mlmg.absolute_tolerance`` (``float``, default: 0)
 
 .. _param-electrostatic-pic:
 

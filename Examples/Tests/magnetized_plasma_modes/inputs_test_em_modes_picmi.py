@@ -551,7 +551,7 @@ parser.add_argument(
 parser.add_argument(
     "--use_preconditioner",
     help="Darwin only: precondition the GMRES solve with the factored-Laplacian "
-    "multigrid preconditioner (1D/2D Cartesian only)",
+    "multigrid preconditioner",
     action="store_true",
 )
 parser.add_argument(
