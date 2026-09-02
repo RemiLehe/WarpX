@@ -21,6 +21,8 @@
 #include <AMReX_Vector.H>
 #include <AMReX_MultiFab.H>
 
+#include <utility>
+
 namespace MatrixPCUtils
 {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -104,7 +106,7 @@ class MatrixPC : public Preconditioner<T,Ops>
         /**
          * \brief Update the preconditioner
          */
-        void Update (const T& a_U) override;
+        void Update () override;
 
         /**
          * \brief Assemble the matrix
@@ -114,7 +116,7 @@ class MatrixPC : public Preconditioner<T,Ops>
          * non-zero elements (return value is difference in current number
          * of nonzero elements and the desired number).
          */
-        int Assemble (const T& a_U);
+        int Assemble ();
 
         /**
          * \brief Apply (solve) the preconditioner given a RHS
@@ -185,6 +187,15 @@ class MatrixPC : public Preconditioner<T,Ops>
 
         int m_ndofs_l = 0;
         int m_ndofs_g = 0;
+
+        /**
+         * \brief The DOF numbering object of the solver vector, cached in
+         *  Define(). The solver vector class owns a single instance of it that
+         *  lives until AMReX finalization, so a non-owning pointer is safe.
+         */
+        using DOFsPtr = decltype(std::declval<const T&>().getDOFsObject().get());
+        DOFsPtr m_dofs = nullptr;
+
         bool m_pc_diag_only = false;
         int m_pc_mat_nnz = 1;
         bool m_include_mass_matrices = false;
@@ -247,9 +258,6 @@ void MatrixPC<T,Ops>::Define ( const T& a_U,
     // read preconditioner parameters
     readParameters();
 
-    // a_U is not needed
-    amrex::ignore_unused(a_U);
-
     // Set number of AMR levels and create geometry, grids, and
     // distribution mapping vectors.
     m_num_amr_levels = m_ops->numAMRLevels();
@@ -260,6 +268,13 @@ void MatrixPC<T,Ops>::Define ( const T& a_U,
     for (int n = 0; n < m_num_amr_levels; n++) {
         m_geom[n] = m_ops->GetGeometry(n);
     }
+
+    // Cache the DOF numbering object, so that Assemble() can read the local
+    // and global DOF index maps without being handed a vector.
+    m_dofs = a_U.getDOFsObject().get();
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        (m_dofs != nullptr),
+        "MatrixPC::Define(): the solver vector has no DOF object" );
 
     m_ndofs_l = a_U.nDOF_local();
     m_ndofs_g = a_U.nDOF_global();
@@ -282,7 +297,7 @@ void MatrixPC<T,Ops>::Define ( const T& a_U,
 }
 
 template <class T, class Ops>
-void MatrixPC<T,Ops>::Update (const T& a_U)
+void MatrixPC<T,Ops>::Update ()
 {
     BL_PROFILE("MatrixPC::Update()");
     using namespace amrex;
@@ -293,7 +308,7 @@ void MatrixPC<T,Ops>::Update (const T& a_U)
 
     while(true) {
 
-        auto nnz_diff = Assemble(a_U);
+        auto nnz_diff = Assemble();
         AMREX_ALWAYS_ASSERT(nnz_diff >= 0);
         if (nnz_diff) {
 
@@ -315,7 +330,7 @@ void MatrixPC<T,Ops>::Update (const T& a_U)
 }
 
 template <class T, class Ops>
-int MatrixPC<T,Ops>::Assemble (const T& a_U)
+int MatrixPC<T,Ops>::Assemble ()
 {
     // Assemble the sparse matrix representation of the preconditioner
     //      A = curl (alpha * curl []) + M
@@ -347,11 +362,10 @@ int MatrixPC<T,Ops>::Assemble (const T& a_U)
                        << "alpha = " << alpha << "\n";
     }
 
-    // Get DOF object from a_U
-    const auto& dofs_obj = a_U.getDOFsObject();
-    const auto& dofs_mfarrvec = dofs_obj->m_array;
-    AMREX_ALWAYS_ASSERT(m_ndofs_l == dofs_obj->m_nDoFs_l);
-    AMREX_ALWAYS_ASSERT(m_ndofs_g == dofs_obj->m_nDoFs_g);
+    // DOF object cached in Define()
+    const auto& dofs_mfarrvec = m_dofs->m_array;
+    AMREX_ALWAYS_ASSERT(m_ndofs_l == m_dofs->m_nDoFs_l);
+    AMREX_ALWAYS_ASSERT(m_ndofs_g == m_dofs->m_nDoFs_g);
 
     m_r_indices_g.clear();
     m_num_nz.clear();
