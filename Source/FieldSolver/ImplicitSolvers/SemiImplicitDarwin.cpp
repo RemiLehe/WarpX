@@ -193,7 +193,7 @@ int SemiImplicitDarwin::OneStep ( [[maybe_unused]] amrex::Real  start_time,
 
     // Refresh the preconditioner from the freshly deposited mass matrices
     // (no-op unless a preconditioner is enabled).
-    m_linear_function->updatePreCondMat(m_Z);
+    m_linear_function->updatePreCondMat();
 
     // Solve the magnetoinductive equation:
     // bilaplacian(Z) + curl(chi curl(Z)) = 2 * laplacian(B) + 2 * mu_0 curl(J)

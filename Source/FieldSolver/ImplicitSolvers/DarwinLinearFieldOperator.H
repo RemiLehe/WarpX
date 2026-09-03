@@ -74,9 +74,9 @@ public:
     /** \brief Refresh the preconditioner from the current state of the solver
      *  (the freshly deposited mass matrices). A no-op without a preconditioner. */
     inline
-    void updatePreCondMat ( const WarpXSolverVec& a_X ) override
+    void updatePreCondMat () override
     {
-        if (m_preCond) { m_preCond->Update(a_X); }
+        if (m_preCond) { m_preCond->Update(); }
     }
 
     /** \brief Print the preconditioner's parameters, if there is one. */

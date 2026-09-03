@@ -103,7 +103,7 @@ class DarwinMLMGPC : public Preconditioner<T,Ops>
          * \brief Update the preconditioner: refresh chi(x) from the freshly
          *  deposited mass matrices (via Ops::ScaledMassMatrixCC).
          */
-        void Update (const T& a_U) override;
+        void Update () override;
 
         /**
          * \brief Apply (approximately solve) the preconditioner given a RHS:
@@ -287,16 +287,13 @@ void DarwinMLMGPC<T,Ops>::Define ( const T& a_U,
 }
 
 template <class T, class Ops>
-void DarwinMLMGPC<T,Ops>::Update (const T& a_U)
+void DarwinMLMGPC<T,Ops>::Update ()
 {
     BL_PROFILE("DarwinMLMGPC::Update()");
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
         IsDefined(),
         "DarwinMLMGPC::Update() called on undefined object" );
-
-    // a_U is not needed for a linear operator
-    amrex::ignore_unused(a_U);
 
     m_ops->ScaledMassMatrixCC(m_chi_cc);
     m_helmholtz->setACoeffs(0, m_chi_cc);
