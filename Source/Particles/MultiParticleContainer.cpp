@@ -1921,34 +1921,6 @@ void MultiParticleContainer::doQedQuantumSync (int lev,
             }
             auto wt = static_cast<amrex::Real>(amrex::second());
 
-            // Advance the optical depth of every particle of the source species over one
-            // time step. This has to happen before the emission filter below, which selects
-            // the particles whose optical depth has just become negative. The fields are
-            // gathered here rather than reused from the particle pusher, so that neither
-            // the explicit nor the implicit momentum push has to carry a compile-time QED
-            // option, and so that the optical depth stays out of the nonlinear iteration.
-            {
-                auto& attribs = pti.GetAttribs();
-                const auto np = pti.numParticles();
-
-                auto EvolveOpticalDepth = QuantumSyncEvolveOpticalDepthFunc(
-                      m_shr_p_qs_engine->build_evolve_functor(),
-                      attribs[PIdx::ux].dataPtr(),
-                      attribs[PIdx::uy].dataPtr(),
-                      attribs[PIdx::uz].dataPtr(),
-                      pti.GetAttribs("opticalDepthQSR").dataPtr(),
-                      dt,
-                      pti, lev, Ex.nGrowVect(),
-                      Ex[pti], Ey[pti], Ez[pti],
-                      Bx[pti], By[pti], Bz[pti],
-                      phys_pc_ptr->m_E_external_particle,
-                      phys_pc_ptr->m_B_external_particle);
-
-                // The functor is passed directly rather than wrapped in a lambda: nvcc does
-                // not allow an extended __device__ lambda inside a protected member function.
-                amrex::ParallelFor(np, EvolveOpticalDepth);
-            }
-
             auto Transform = PhotonEmissionTransformFunc(
                   m_shr_p_qs_engine->build_optical_depth_functor(),
                   pc_source->GetRealCompIndex("opticalDepthQSR") - WarpXParticleContainer::NArrayReal,
@@ -1973,6 +1945,40 @@ void MultiParticleContainer::doQedQuantumSync (int lev,
             cleanLowEnergyPhotons(
                                   dst_tile, np_dst, num_added,
                                   m_quantum_sync_photon_creation_energy_threshold);
+
+            // Advance the optical depth of every particle of the source species over one time
+            // step. This must happen *after* the emission above, not before, so that the
+            // sequencing matches what the pusher used to do: a particle emits on the strength
+            // of the optical depth accumulated during previous steps, and only then accumulates
+            // this step's contribution. Evolving first would let a particle be created (by
+            // Breit-Wheeler pair production, or by a preceding emission that resamples its
+            // optical depth) and radiate within the same step, which shifts emission one step
+            // earlier and breaks pair-production energy conservation in short runs.
+            //
+            // The fields are gathered here rather than reused from the pusher, so that neither
+            // the explicit nor the implicit momentum push has to carry a compile-time QED
+            // option, and so that the optical depth stays out of the nonlinear iteration.
+            {
+                auto& attribs = pti.GetAttribs();
+                const auto np = pti.numParticles();
+
+                auto EvolveOpticalDepth = QuantumSyncEvolveOpticalDepthFunc(
+                      m_shr_p_qs_engine->build_evolve_functor(),
+                      attribs[PIdx::ux].dataPtr(),
+                      attribs[PIdx::uy].dataPtr(),
+                      attribs[PIdx::uz].dataPtr(),
+                      pti.GetAttribs("opticalDepthQSR").dataPtr(),
+                      dt,
+                      pti, lev, Ex.nGrowVect(),
+                      Ex[pti], Ey[pti], Ez[pti],
+                      Bx[pti], By[pti], Bz[pti],
+                      phys_pc_ptr->m_E_external_particle,
+                      phys_pc_ptr->m_B_external_particle);
+
+                // The functor is passed directly rather than wrapped in a lambda: nvcc does
+                // not allow an extended __device__ lambda inside a protected member function.
+                amrex::ParallelFor(np, EvolveOpticalDepth);
+            }
 
             if (cost && WarpX::load_balance_costs_update_algo == LoadBalanceCostsUpdateAlgo::Timers)
             {
