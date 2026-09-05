@@ -341,6 +341,20 @@ public:
     void resample (
         const amrex::Vector<amrex::Geometry>& geom, int timestep, bool verbose=true) final;
 
+    /**
+     * Cutoff on the quantum parameter above which the classical radiation reaction
+     * term must not be applied, because the discrete quantum synchrotron module
+     * accounts for the radiated energy instead.
+     *
+     * The value is returned as `(chi_max*E_s)^2`, with `E_s` the Schwinger field, so
+     * that the pusher can apply the cutoff without evaluating a square root. If the
+     * quantum synchrotron process is not enabled for this species (or WarpX is built
+     * without QED), the largest representable value is returned, i.e. no cutoff.
+     *
+     * @return the squared, Schwinger-scaled cutoff on the quantum parameter
+     */
+    [[nodiscard]] amrex::ParticleReal getQedChiMaxCoeff () const;
+
 #ifdef WARPX_QED
     //Functions decleared in WarpXParticleContainer.H
     //containers for which QED processes could be relevant

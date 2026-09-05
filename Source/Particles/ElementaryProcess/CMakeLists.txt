@@ -8,6 +8,7 @@ foreach(D IN LISTS WarpX_DIMS)
     if(WarpX_QED)
         target_sources(lib_${SD}
           PRIVATE
+            QEDEvolveOpticalDepth.cpp
             QEDPairGeneration.cpp
             QEDPhotonEmission.cpp
         )

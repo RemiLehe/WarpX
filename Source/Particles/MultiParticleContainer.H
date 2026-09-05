@@ -382,7 +382,8 @@ public:
                       const amrex::MultiFab& Ez,
                       const amrex::MultiFab& Bx,
                       const amrex::MultiFab& By,
-                      const amrex::MultiFab& Bz);
+                      const amrex::MultiFab& Bz,
+                      amrex::Real dt);
 #endif
 
     [[nodiscard]] int getSpeciesID (const std::string& product_str) const;
@@ -413,7 +414,8 @@ protected:
                            const amrex::MultiFab& Ez,
                            const amrex::MultiFab& Bx,
                            const amrex::MultiFab& By,
-                           const amrex::MultiFab& Bz);
+                           const amrex::MultiFab& Bz,
+                           amrex::Real dt);
 #endif
 
     // Particle container types

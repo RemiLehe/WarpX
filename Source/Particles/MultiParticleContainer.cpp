@@ -17,6 +17,7 @@
 #   include "Particles/ElementaryProcess/QEDInternals/BreitWheelerEngineWrapper.H"
 #   include "Particles/ElementaryProcess/QEDInternals/QuantumSyncEngineWrapper.H"
 #   include "Particles/ElementaryProcess/QEDSchwingerProcess.H"
+#   include "Particles/ElementaryProcess/QEDEvolveOpticalDepth.H"
 #   include "Particles/ElementaryProcess/QEDPairGeneration.H"
 #   include "Particles/ElementaryProcess/QEDPhotonEmission.H"
 #endif
@@ -1781,12 +1782,13 @@ void MultiParticleContainer::doQedEvents (int lev,
                                           const MultiFab& Ez,
                                           const MultiFab& Bx,
                                           const MultiFab& By,
-                                          const MultiFab& Bz)
+                                          const MultiFab& Bz,
+                                          amrex::Real dt)
 {
     ABLASTR_PROFILE("MultiParticleContainer::doQedEvents()");
 
     doQedBreitWheeler(lev, Ex, Ey, Ez, Bx, By, Bz);
-    doQedQuantumSync(lev, Ex, Ey, Ez, Bx, By, Bz);
+    doQedQuantumSync(lev, Ex, Ey, Ez, Bx, By, Bz, dt);
 }
 
 void MultiParticleContainer::doQedBreitWheeler (int lev,
@@ -1878,7 +1880,8 @@ void MultiParticleContainer::doQedQuantumSync (int lev,
                                                const MultiFab& Ez,
                                                const MultiFab& Bx,
                                                const MultiFab& By,
-                                               const MultiFab& Bz)
+                                               const MultiFab& Bz,
+                                               amrex::Real dt)
 {
     ABLASTR_PROFILE("MultiParticleContainer::doQedQuantumSync()");
 
@@ -1917,6 +1920,34 @@ void MultiParticleContainer::doQedQuantumSync (int lev,
                 amrex::Gpu::synchronize();
             }
             auto wt = static_cast<amrex::Real>(amrex::second());
+
+            // Advance the optical depth of every particle of the source species over one
+            // time step. This has to happen before the emission filter below, which selects
+            // the particles whose optical depth has just become negative. The fields are
+            // gathered here rather than reused from the particle pusher, so that neither
+            // the explicit nor the implicit momentum push has to carry a compile-time QED
+            // option, and so that the optical depth stays out of the nonlinear iteration.
+            {
+                auto& attribs = pti.GetAttribs();
+                const auto np = pti.numParticles();
+
+                auto EvolveOpticalDepth = QuantumSyncEvolveOpticalDepthFunc(
+                      m_shr_p_qs_engine->build_evolve_functor(),
+                      attribs[PIdx::ux].dataPtr(),
+                      attribs[PIdx::uy].dataPtr(),
+                      attribs[PIdx::uz].dataPtr(),
+                      pti.GetAttribs("opticalDepthQSR").dataPtr(),
+                      dt,
+                      pti, lev, Ex.nGrowVect(),
+                      Ex[pti], Ey[pti], Ez[pti],
+                      Bx[pti], By[pti], Bz[pti],
+                      phys_pc_ptr->m_E_external_particle,
+                      phys_pc_ptr->m_B_external_particle);
+
+                // The functor is passed directly rather than wrapped in a lambda: nvcc does
+                // not allow an extended __device__ lambda inside a protected member function.
+                amrex::ParallelFor(np, EvolveOpticalDepth);
+            }
 
             auto Transform = PhotonEmissionTransformFunc(
                   m_shr_p_qs_engine->build_optical_depth_functor(),

@@ -11,18 +11,30 @@
 
 #include <AMReX_REAL.H>
 
+#include <limits>
+
 /**
  * Push the particle's positions over one timestep,
  * given the value of its momenta `ux`, `uy`, `uz`.
  * Includes Radiation Reaction according to
  * https://doi.org/10.1088/1367-2630/12/12/123005
+ *
+ * \param chi_max_coeff  Squared quantum parameter cutoff, expressed as
+ *                       `(chi_max*E_s)^2` with `E_s` the Schwinger field, i.e. in the
+ *                       same units as the auxiliary quantity `coeff` computed below.
+ *                       Above this value the classical friction term is *not* applied:
+ *                       the discrete quantum synchrotron module accounts for the
+ *                       radiated energy instead, and applying both would double-count
+ *                       it. Defaults to "no cutoff" (always apply the classical term),
+ *                       which is the correct behaviour when quantum synchrotron is off.
  */
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void UpdateMomentumBorisWithRadiationReaction(
     amrex::ParticleReal& ux, amrex::ParticleReal& uy, amrex::ParticleReal& uz,
     const amrex::ParticleReal Ex, const amrex::ParticleReal Ey, const amrex::ParticleReal Ez,
     const amrex::ParticleReal Bx, const amrex::ParticleReal By, const amrex::ParticleReal Bz,
-    const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt, MomentumPushType momentum_push_type)
+    const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt, MomentumPushType momentum_push_type,
+    const amrex::ParticleReal chi_max_coeff = std::numeric_limits<amrex::ParticleReal>::max())
 
 {
     using namespace amrex::literals;
@@ -70,6 +82,14 @@ void UpdateMomentumBorisWithRadiationReaction(
     const amrex::ParticleReal bdotE = (bx_n*Ex + by_n*Ey + bz_n*Ez);
     const amrex::ParticleReal bdotE2 = bdotE*bdotE;
     const amrex::ParticleReal coeff = gamma_n*gamma_n*(fl_q2-bdotE2);
+
+    // `coeff` is exactly the squared quantum parameter scaled by the Schwinger field:
+    // chi = gamma*sqrt(|E+v x B|^2 - (v.E/c)^2)/E_s = sqrt(coeff)/E_s.
+    // Comparing squares avoids a sqrt and keeps the cutoff test essentially free,
+    // since `coeff` is needed by the radiation reaction force anyway.
+    // Above the cutoff, leave the plain Boris result in place: the discrete quantum
+    // synchrotron module is responsible for the energy loss in that regime.
+    if (coeff >= chi_max_coeff) { return; }
 
     //Radiation reaction constant
     const amrex::ParticleReal q_over_mc = q/(m*PhysConst::c);
