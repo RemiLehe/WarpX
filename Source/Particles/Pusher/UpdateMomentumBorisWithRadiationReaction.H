@@ -14,19 +14,27 @@
 #include <limits>
 
 /**
- * Push the particle's positions over one timestep,
+ * Push the particle's momenta over one timestep,
  * given the value of its momenta `ux`, `uy`, `uz`.
  * Includes Radiation Reaction according to
  * https://doi.org/10.1088/1367-2630/12/12/123005
  *
- * \param chi_max_coeff  Squared quantum parameter cutoff, expressed as
- *                       `(chi_max*E_s)^2` with `E_s` the Schwinger field, i.e. in the
- *                       same units as the auxiliary quantity `coeff` computed below.
- *                       Above this value the classical friction term is *not* applied:
- *                       the discrete quantum synchrotron module accounts for the
- *                       radiated energy instead, and applying both would double-count
- *                       it. Defaults to "no cutoff" (always apply the classical term),
- *                       which is the correct behaviour when quantum synchrotron is off.
+ * \param ux, uy, uz            Particle momentum, updated in place
+ * \param Ex, Ey, Ez            Electric field on the particle
+ * \param Bx, By, Bz            Magnetic field on the particle
+ * \param q                     Charge of the particle
+ * \param m                     Mass of the particle
+ * \param dt                    Time step size
+ * \param momentum_push_type    Type of momentum push: FirstHalf, SecondHalf, Full, None
+ * \param chi_max_coeff         Squared quantum parameter cutoff, expressed as
+ *                              `(chi_max*E_s)^2` with `E_s` the Schwinger field, i.e. in
+ *                              the same units as the auxiliary quantity `coeff` computed
+ *                              below. Above this value the classical friction term is
+ *                              *not* applied: the discrete quantum synchrotron module
+ *                              accounts for the radiated energy instead, and applying
+ *                              both would double-count it. Defaults to "no cutoff"
+ *                              (always apply the classical term), which is the correct
+ *                              behaviour when quantum synchrotron is off.
  */
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void UpdateMomentumBorisWithRadiationReaction(
