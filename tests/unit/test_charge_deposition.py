@@ -8,7 +8,7 @@
 import numpy as np
 import pytest
 from conftest import rtol
-from helpers import make_sim, uniform_particles
+from helpers import N_AXES, add_uniform_particles, make_sim
 
 import pywarpx
 from pywarpx import picmi
@@ -35,9 +35,19 @@ def test_charge_deposition_conserves_total_charge(particle_shape):
     """
     sim = make_sim(particle_shape=particle_shape)
 
+    sim.add_species(
+        picmi.Species(particle_type="electron", name="electrons"), layout=None
+    )
+
+    sim.initialize_inputs()
+    sim.initialize_warpx()
+
+    n_per_dim = 4
     weight = 1.0e6
-    electrons, p = uniform_particles(sim, weight=weight)
-    n_part = p["w"].size
+    add_uniform_particles(sim, "electrons", n_per_dim=n_per_dim, weight=weight)
+
+    n_part = n_per_dim ** N_AXES[pywarpx.libwarpx.geometry_dim]
+    electrons = sim.particles.get("electrons")
 
     assert electrons.size == n_part
 
@@ -74,8 +84,16 @@ def test_charge_deposition_conserves_total_charge(particle_shape):
 def test_charge_deposition_is_negative_for_electrons():
     """Electrons must deposit a negative charge density everywhere."""
     sim = make_sim()
-    electrons, _ = uniform_particles(sim)
+    sim.add_species(
+        picmi.Species(particle_type="electron", name="electrons"), layout=None
+    )
 
+    sim.initialize_inputs()
+    sim.initialize_warpx()
+
+    add_uniform_particles(sim, "electrons")
+
+    electrons = sim.particles.get("electrons")
     rho = electrons.get_charge_density(lev=0, local=False)
 
     assert rho.max(0) <= 0.0
