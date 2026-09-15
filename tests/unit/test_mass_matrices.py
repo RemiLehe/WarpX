@@ -12,8 +12,7 @@ density to the electric field, ``dJ = S dE``, which the implicit solvers use
 in place of pushing and depositing the particles at every linear iteration.
 They are deposited in ``Source/Particles/Deposition/MassMatricesDeposition.H``
 and applied in ``ImplicitSolver::ApplyMassMatrices``. The tests below check
-them against the thing they stand in for: the current that WarpX itself
-deposits after pushing the particles in that same electric field.
+them against the result of pushing the particles and depositing the current.
 """
 
 import numpy as np
@@ -28,10 +27,7 @@ constants = picmi.constants
 
 # RZ deposits with an inverse volume scaling and rotates the mass matrices
 # into cylindrical components; make_sim does not build that geometry yet.
-# In 3D only the diagonal preconditioner mass matrices are deposited: the
-# full_mass_matrices branch of doDirectJandSigmaDepositionKernel is empty
-# there, and ImplicitSolver::InitializeMassMatrices asserts against
-# use_mass_matrices_jacobian. Add "3d" once it is implemented.
+# In 3D, the mass matrix deposition is not yet implemented.
 pytestmark = pytest.mark.skipif(
     pywarpx.libwarpx.geometry_dim not in ("1d", "2d"),
     reason="full mass matrices are only implemented in Cartesian 1D and 2D",
@@ -84,25 +80,18 @@ def _fill_periodic_random(mf, n_cell, rng, amplitude):
 def test_mass_matrices_match_push_and_deposit(particle_shape):
     """``S dE`` must equal the current deposited after a push in ``dE``.
 
-    The particles start at rest, which makes this an exact identity rather
-    than a linearization: with ``u = 0`` the Lorentz factor is exactly one on
-    both sides, and the current does not depend on the positions to first
-    order, so the response of the deposited current to the electric field is
-    the Boris rotation matrix that the mass matrices are built from.
-
-    Both sides use WarpX's own kernels: ``push_p`` gathers ``dE`` and ``B``
-    at the particles and rotates their momentum, ``deposit_current`` puts the
-    result back on the grid. What the test pins down is that the mass
-    matrices, deposited and applied as banded stencils, reproduce that
-    gather-push-deposit chain: kernel, shape factors, staggering of every
-    (J, E) pair, guard cell exchange between boxes and periodic wrapping.
-
+    The particles start at rest (``u^n=0``), and ``dE`` is chosen low enough 
+    that they remain non-relativistic over one timestep. This so that ``u^{n+1}``
+    from the Boris pusher remains linear in ``dE`` (relativistic effects introduce
+    non-linearities in ``dE``) but also because WarpX's implementation of 
+    the mass matrix does not yet fully take into account all relativistic effects.
+    
     The mass matrices give the response of the time-centered current
     ``(u^n + u^{n+1}) / 2``, whereas the push from rest leaves ``u^{n+1}`` on
     the particles, hence the factor 1/2 on the reference.
     """
     n_axes = N_AXES[pywarpx.libwarpx.geometry_dim]
-    # 8 cells and 4 cells per box: two boxes per axis, so that contributions
+    # 8 cells and 4 cells per box (two boxes per axis), so that contributions
     # crossing a box boundary and the periodic boundary are both exercised.
     # The direct deposition also makes WarpX gather with plain shape factors
     # (no Galerkin correction), which is what the mass matrices assume.
@@ -138,28 +127,20 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
     electrons = sim.particles.get("electrons")
 
     # A uniform magnetic field with all three components, strong enough that
-    # the normalized gyration ``b = q dt B / (2 m)`` is of order one: the
-    # off-diagonal blocks of the mass matrices and their ``1 / (1 + b^2)``
-    # denominator only matter for a magnetized push.
+    # the normalized gyration ``b = q dt B / (2 m)`` is of order one: 
+    # This ensures that the terms associated with the magnetic field in the 
+    # mass matrix have a significant impact in this test.
     b_unit = 2.0 * constants.m_e / (constants.q_e * dt)
     for direction, b in zip(("x", "y", "z"), (0.6, -0.8, 1.1)):
         fields.get("Bfield_fp", direction, 0).set_val(b * b_unit)
 
-    # The deposit reads the state saved at the start of an implicit step: the
-    # u_n attributes, which set the Lorentz factor of the kernel, and the
-    # suborbit count. The evolve schemes fill these at the top of every step;
-    # driving the routines directly, this test has to do it itself, or they
-    # read uninitialized attributes. With the particles at rest, u_n = 0.
+    # Initialize the saved momentum at time n (read by the implicit deposition routine)
     warpx.save_particles_at_implicit_step_start()
 
-    # Deposit the mass matrices the way the Darwin solver does: the deposit
-    # leaves the contributions of particles near a box edge in the guard
-    # cells, so sum those into the valid cells before mirroring the symmetric
-    # half of the diagonal blocks. The valid cells are then complete.
     solver = warpx.implicit_solver()
     warpx.deposit_mass_matrices()
-    warpx.sync_mass_matrices()
-    solver.finish_mass_matrices()
+    warpx.sync_mass_matrices() # Sum the guard cells of the mass matrices into the valid cells
+    solver.finish_mass_matrices() # Fill the second half of the diagonal mass matrices by symmetry
 
     # ApplyMassMatrices reads ``dE`` as far as the band of each (J, E) pair
     # reaches, and silently truncates the band at the guard cells of ``dE``.
