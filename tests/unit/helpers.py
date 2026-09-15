@@ -86,6 +86,7 @@ def make_sim(
     # Turn on options to catch unexpected behavior
     pywarpx.amrex.init_snan = 1
     pywarpx.amrex.fpe_trap_invalid = 1
+    pywarpx.amrex.fpe_trap_overflow = 1
     pywarpx.amrex.fpe_trap_zero = 1
     # AMReX runtime parameters, mirroring the ones ImpactX and pyAMReX use
     # in their pytest suites
