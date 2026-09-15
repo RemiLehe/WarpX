@@ -194,10 +194,7 @@ void init_MultiFabRegister (py::module & m)
              >(&MultiFabRegister::get_mr_levels_alldirs<std::string>),
              py::arg("name"),
              py::arg("finest_level"),
-             py::arg("skip_level_0") = false,
-             "Return a vector field on all MR levels, as the implicit solver's "
-             "operators take it: one entry per level, each holding the three "
-             "MultiFabs of the field"
+             py::arg("skip_level_0") = false
         )
 
         .def("list",
