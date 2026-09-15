@@ -165,7 +165,11 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
         _fill_periodic_random(fields.get("dE", direction, 0), n_cell, rng, 1.0)
 
     # mass matrices: dJ = S dE
-    solver.apply_mass_matrices("dJ", "dE", zero_out_first=True)
+    solver.apply_mass_matrices(
+        fields.mr_levels_alldirs("dJ", 0),
+        fields.mr_levels_alldirs("dE", 0),
+        zero_out_first=True,
+    )
 
     # reference: push from rest in (dE, B), then deposit the current into the
     # (so far unused) current_fp
