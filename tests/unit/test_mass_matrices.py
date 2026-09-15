@@ -192,10 +192,6 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
 
         scale = np.max(np.abs(dj_reference))
         assert scale > 0.0
-
-        # relative to the current that is actually flowing, so that the
-        # entries that happen to be small are held to the same accuracy as
-        # the large ones
         error = np.max(np.abs(dj_mass_matrices - dj_reference)) / scale
         assert error <= rtol(), (
             f"J{direction}: max |dJ_mm - dJ_ref| / max |dJ_ref| = {error}"
