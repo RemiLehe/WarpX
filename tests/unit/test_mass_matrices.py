@@ -184,9 +184,9 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
     electrons.deposit_current("current_fp", 0, dt, 0.0)
 
     for direction in ("x", "y", "z"):
-        # "[...]" is the valid region, as opposed to "[()]" which would also
-        # include the guard cells; that is where both sides are complete.
-        # For the factor 1/2, see the docstring.
+        # ``dJ`` contains the time-centered current ``(u^n + u^{n+1}) / 2`` (with u^n = 0 here) 
+        # whereas ``current_fp`` contains the current for `u^{n+1}`` (result of push+deposit)
+        # Hence the multiplication by 0.5 when comparing ``dJ`` and ``current_fp``.
         dj_mass_matrices = fields.get("dJ", direction, 0)[...]
         dj_reference = 0.5 * fields.get("current_fp", direction, 0)[...]
 
