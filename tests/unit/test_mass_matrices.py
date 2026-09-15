@@ -80,12 +80,12 @@ def _fill_periodic_random(mf, n_cell, rng, amplitude):
 def test_mass_matrices_match_push_and_deposit(particle_shape):
     """``S dE`` must equal the current deposited after a push in ``dE``.
 
-    The particles start at rest (``u^n=0``), and ``dE`` is chosen low enough 
+    The particles start at rest (``u^n=0``), and ``dE`` is chosen low enough
     that they remain non-relativistic over one timestep. This so that ``u^{n+1}``
     from the Boris pusher remains linear in ``dE`` (relativistic effects introduce
-    non-linearities in ``dE``) but also because WarpX's implementation of 
+    non-linearities in ``dE``) but also because WarpX's implementation of
     the mass matrix does not yet fully take into account all relativistic effects.
-    
+
     The mass matrices give the response of the time-centered current
     ``(u^n + u^{n+1}) / 2``, whereas the push from rest leaves ``u^{n+1}`` on
     the particles, hence the factor 1/2 on the reference.
@@ -127,8 +127,8 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
     electrons = sim.particles.get("electrons")
 
     # A uniform magnetic field with all three components, strong enough that
-    # the normalized gyration ``b = q dt B / (2 m)`` is of order one: 
-    # This ensures that the terms associated with the magnetic field in the 
+    # the normalized gyration ``b = q dt B / (2 m)`` is of order one:
+    # This ensures that the terms associated with the magnetic field in the
     # mass matrix have a significant impact in this test.
     b_unit = 2.0 * constants.m_e / (constants.q_e * dt)
     for direction, b in zip(("x", "y", "z"), (0.6, -0.8, 1.1)):
@@ -139,8 +139,8 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
 
     solver = warpx.implicit_solver()
     warpx.deposit_mass_matrices()
-    warpx.sync_mass_matrices() # Sum the guard cells of the mass matrices into the valid cells
-    solver.finish_mass_matrices() # Fill the second half of the diagonal mass matrices by symmetry
+    warpx.sync_mass_matrices()  # Sum the guard cells of the mass matrices into the valid cells
+    solver.finish_mass_matrices()  # Fill the second half of the diagonal mass matrices by symmetry
 
     # ApplyMassMatrices reads ``dE`` as far as the band of each (J, E) pair
     # reaches, and silently truncates the band at the guard cells of ``dE``.
