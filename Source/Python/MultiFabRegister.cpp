@@ -54,8 +54,7 @@ void init_MultiFabRegister (py::module & m)
     py::implicitly_convertible<std::string, ablastr::fields::Direction>();
 
     // A vector field on all MR levels: one entry per level, each holding the
-    // three MultiFabs of the field. This is what the implicit solver's
-    // operators take, see ImplicitSolver::ApplyMassMatrices.
+    // three MultiFabs of the field.
     py::bind_vector<ablastr::fields::MultiLevelVectorField>(m, "MultiLevelVectorField");
 
     py::class_<ablastr::fields::MultiFabRegister>(m, "MultiFabRegister")
