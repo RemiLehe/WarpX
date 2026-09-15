@@ -198,21 +198,11 @@ void init_WarpX (py::module& m)
         )
         .def("save_particles_at_implicit_step_start",
             [](WarpX& wx){ wx.SaveParticlesAtImplicitStepStart(); },
-            R"pbdoc(Save the particle positions and velocities at the start of the step
-
-The implicit advance needs the state at time n to form the time-centered
-position and velocity of its stencil, so it copies x and u into the x_n and
-u_n attributes and resets the suborbit count. The implicit evolve schemes
-call this at the top of every step; a test that drives the implicit routines
-directly has to call it before them, or they read uninitialized attributes.)pbdoc"
+            R"pbdoc(Save the particle positions and velocities at the start of the step)pbdoc"
         )
         .def("deposit_mass_matrices",
             [](WarpX& wx){ wx.DepositMassMatrices(); },
-            R"pbdoc(Zero and deposit the mass matrices from all species
-
-The mass matrices are the linear response of the deposited current density to
-the electric field. They are only allocated by the implicit evolve schemes that
-use them (e.g. ``implicit_evolve.use_mass_matrices_jacobian = 1``).)pbdoc"
+            R"pbdoc(Zero and deposit the mass matrices from all species)pbdoc"
         )
         .def("sync_mass_matrices",
             [](WarpX& wx){ wx.SyncMassMatrices(); },

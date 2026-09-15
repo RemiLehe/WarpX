@@ -62,22 +62,7 @@ strength_E, strength_B: floats
             py::arg("lev"), py::arg("dt"),
             py::arg("Ex"), py::arg("Ey"), py::arg("Ez"),
             py::arg("Bx"), py::arg("By"), py::arg("Bz"),
-            R"pbdoc(Push the momentum of the particles of all species by a full step
-
-The positions are left unchanged. The fields are gathered from the given
-MultiFabs, which must have their guard cells filled, with the field gathering
-settings of the simulation.
-
-Parameters
-----------
-lev: int
-  Mesh refinement level of the particles to push
-dt: float
-  Time step over which to push the momentum
-Ex, Ey, Ez: MultiFab
-  Components of the electric field, with the staggering of ``Efield_fp``
-Bx, By, Bz: MultiFab
-  Components of the magnetic field, with the staggering of ``Bfield_fp``)pbdoc"
+            R"pbdoc(Push the momentum of the particles of all species by a full step)pbdoc"
         )
     ;
 }

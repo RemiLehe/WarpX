@@ -19,10 +19,7 @@ void init_ImplicitSolver (py::module& m)
     // delete it: py::nodelete makes the returned pointer non-owning.
     py::class_<ImplicitSolver, std::unique_ptr<ImplicitSolver, py::nodelete>>(m, "ImplicitSolver")
         .def("finish_mass_matrices", &ImplicitSolver::FinishMassMatrices,
-            R"pbdoc(Fill the second half of the symmetric diagonal mass matrices
-
-The deposition only fills half of the band of the diagonal blocks (``Sxx``,
-``Syy``, ``Szz``), exploiting their symmetry. This mirrors the other half.)pbdoc"
+            R"pbdoc(Fill the second half of the symmetric diagonal mass matrices)pbdoc"
         )
         .def("apply_mass_matrices", &ImplicitSolver::ApplyMassMatrices,
             py::arg("out"), py::arg("in"),
@@ -30,15 +27,7 @@ The deposition only fills half of the band of the diagonal blocks (``Sxx``,
             py::arg("baseline").none(true) = nullptr,
             py::arg("scale") = 1.0,
             py::arg("zero_out_first") = false,
-            R"pbdoc(Apply the mass matrices to a vector field
-
-Computes ``out += scale * S * (in - in_ref) [+ baseline]``, where ``S`` are the
-mass matrices, the linear response of the deposited current density to the
-electric field (``dJ = S dE``). ``in`` must have its guard cells filled: the
-stencil reads the neighbors of every point it writes.
-
-Every field is a MultiLevelVectorField, i.e. a list with one entry per mesh
-refinement level, each a list of the three MultiFabs of that field.)pbdoc"
+            R"pbdoc(Apply the mass matrices to a vector field)pbdoc"
         )
     ;
 }
