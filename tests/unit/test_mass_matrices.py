@@ -187,7 +187,6 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
         dj_mass_matrices = fields.get("dJ", direction, 0)[...]
         dj_reference = 0.5 * fields.get("current_fp", direction, 0)[...]
 
-        # a magnetized push from rest in a random field drives all components
         scale = np.max(np.abs(dj_reference))
         assert scale > 0.0
 
