@@ -159,7 +159,7 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
     _alloc_like(sim, "dJ", "current_fp")
 
     # The amplitude keeps the push non-relativistic: q dE dt / m is a fraction
-    # of a meter per second, so gamma is one to far better than the tolerance.
+    # of a meter per second
     rng = np.random.default_rng(seed=42)
     for direction in ("x", "y", "z"):
         _fill_periodic_random(fields.get("dE", direction, 0), n_cell, rng, 1.0)
