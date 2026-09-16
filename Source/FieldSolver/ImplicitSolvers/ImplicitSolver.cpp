@@ -275,8 +275,6 @@ void ImplicitSolver::ApplyMassMatrices (
         const amrex::IntVect inz_nodal = a_in[lev][2]->ixType().toIntVect();
 
         // Compute the component offset in each direction (careful with staggering)
-        // S_ab maps the b component of a_in onto the a component of a_out, so each
-        // stencil is centered from the staggering of that (a_out, a_in) pair.
         amrex::IntVect offset_xx, offset_xy, offset_xz;
         amrex::IntVect offset_yx, offset_yy, offset_yz;
         amrex::IntVect offset_zx, offset_zy, offset_zz;
