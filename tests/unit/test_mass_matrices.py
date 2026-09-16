@@ -34,12 +34,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _alloc_like(sim, name, template, n_grow_extra=0):
+def _alloc_like(sim, name, template):
     """Register a zeroed vector field with the layout of vector field ``template``.
 
-    Same box arrays, staggering and guard cells (plus ``n_grow_extra``) for
-    each of the three components, so that the new field can stand in for
-    ``template`` wherever the C++ side expects that staggering.
+    Same box arrays, staggering and guard cells for each of the three
+    components, so that the new field can stand in for ``template`` wherever
+    the C++ side expects that staggering.
     """
     fields = sim.fields
     for direction in ("x", "y", "z"):
@@ -51,7 +51,7 @@ def _alloc_like(sim, name, template, n_grow_extra=0):
             mf.box_array(),
             mf.dm(),
             mf.n_comp,
-            mf.n_grow_vect + n_grow_extra,
+            mf.n_grow_vect,
             0.0,
             redistribute=False,
             redistribute_on_remake=False,
@@ -142,20 +142,11 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
     warpx.sync_mass_matrices()  # Sum the guard cells of the mass matrices into the valid cells
     solver.finish_mass_matrices()  # Fill the second half of the diagonal mass matrices by symmetry
 
-    # ApplyMassMatrices reads ``dE`` as far as the band of each (J, E) pair
-    # reaches, and silently truncates the band at the guard cells of ``dE``.
-    # Along a direction where J is nodal and E is cell-centered (or the other
-    # way round) the band is one component wider, so it reaches nox + 1 cells:
-    # one more than the guard cells of J and, for the quadratic shape, also one
-    # more than ``Efield_fp`` has. Give ``dE`` enough guard cells for the full
-    # band, so that this test checks the mass matrices themselves and not the
-    # guard cells of ``Efield_fp``.
-    n_grow_j = fields.get("current_fp", "x", 0).n_grow_vect
-    n_grow_e = fields.get("Efield_fp", "x", 0).n_grow_vect
-    n_grow_extra = max(
-        0, max(n_grow_j[idir] + 1 - n_grow_e[idir] for idir in range(n_axes))
-    )
-    _alloc_like(sim, "dE", "Efield_fp", n_grow_extra=n_grow_extra)
+    # ``dE`` gets the layout of ``Efield_fp``, guard cells included: the band of
+    # each (J, E) pair reaches nox + 1 cells, so this also checks that WarpX gives
+    # E one more guard cell than J, without which ApplyMassMatrices would silently
+    # truncate the band and drop its outermost terms.
+    _alloc_like(sim, "dE", "Efield_fp")
     _alloc_like(sim, "dJ", "current_fp")
 
     # The amplitude keeps the push non-relativistic: q dE dt / m is a fraction
