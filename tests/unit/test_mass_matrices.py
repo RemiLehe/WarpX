@@ -76,8 +76,9 @@ def _fill_periodic_random(mf, n_cell, rng, amplitude):
     mf[()] = table[np.ix_(*wrapped)]
 
 
+@pytest.mark.parametrize("sync_scheme", ["sync_massmatrix", "sync_current"])
 @pytest.mark.parametrize("particle_shape", ["linear", "quadratic", "cubic"])
-def test_mass_matrices_match_push_and_deposit(particle_shape):
+def test_mass_matrices_match_push_and_deposit(particle_shape, sync_scheme):
     """``S dE`` must equal the current deposited after a push in ``dE``.
 
     The particles start at rest (``u^n=0``), and ``dE`` is chosen low enough
@@ -89,6 +90,10 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
     The mass matrices give the response of the time-centered current
     ``(u^n + u^{n+1}) / 2``, whereas the push from rest leaves ``u^{n+1}`` on
     the particles, hence the factor 1/2 on the reference.
+
+    After the deposit, a box holds the mass matrix entries of its own particles
+    only. ``sync_scheme`` selects which of the two exchanges that the implicit
+    solvers use reconciles this, see where it is used below.
     """
     n_axes = N_AXES[pywarpx.libwarpx.geometry_dim]
     # 8 cells and 4 cells per box (two boxes per axis), so that contributions
@@ -103,7 +108,11 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
         current_deposition_algo="direct",
     )
 
-    # the mass matrices are only allocated by an evolve scheme that uses them
+    # Boilerplate: the mass matrices are only allocated by an evolve scheme that
+    # uses them, and this is the one that allocates them from PICMI input alone.
+    # Nothing below is specific to the theta-implicit scheme, though: the mass
+    # matrix routines that the test drives directly are shared by the implicit
+    # solvers, and `sync_scheme` covers what does differ between them.
     sim.evolve_scheme = picmi.ThetaImplicitEMEvolveScheme(
         nonlinear_solver=picmi.NewtonNonlinearSolver(
             linear_solver=picmi.GMRESLinearSolver(),
@@ -139,7 +148,12 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
 
     solver = warpx.implicit_solver()
     warpx.deposit_mass_matrices()
-    warpx.sync_mass_matrices()  # Sum the guard cells of the mass matrices into the valid cells
+    if sync_scheme == "sync_massmatrix":
+        # Sum the guard cells of the mass matrices into the valid cells, before
+        # applying them below; this is what the semi-implicit Darwin scheme
+        # does, since there the mass matrices are a coefficient of the field
+        # operator that the linear solver applies on every iteration.
+        warpx.sync_mass_matrices()
     solver.finish_mass_matrices()  # Fill the second half of the diagonal mass matrices by symmetry
 
     # Allocate `dE` with enough guard cells, so that the stencil of the mass matrix
@@ -164,6 +178,14 @@ def test_mass_matrices_match_push_and_deposit(particle_shape):
         fields.mr_levels_alldirs("dE", 0),
         zero_out_first=True,
     )
+    if sync_scheme == "sync_current":
+        # The mass matrices were left unsummed above, so each box applied the
+        # entries of its own particles only, and wrote the response into its
+        # valid cells and its guard cells. Sum the guard cells of that current
+        # instead, exactly as the deposited current is summed; this is what the
+        # theta-implicit scheme does, where the mass matrices only ever appear
+        # through the current they produce.
+        warpx.sync_current("dJ")
 
     # reference: push from rest in (dE, B), then deposit the current into the
     # (so far unused) current_fp
