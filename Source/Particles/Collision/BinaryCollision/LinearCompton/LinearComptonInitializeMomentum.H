@@ -120,19 +120,21 @@ namespace {
         amrex::ParticleReal const c0 = 2._prt * (2._prt*k*k + 2._prt*k + 1._prt) / amrex::Math::powi<3>(2._prt*k + 1._prt);
         amrex::ParticleReal const b = (2._prt + c0) / (2._prt - c0);
         amrex::ParticleReal const a = 2._prt*( b - 1._prt );
-        // Use rejection method to draw x
+        // Use rejection method to draw cos_theta_s, the cosine of the scattering angle
         bool reject = true;
-        amrex::ParticleReal x = 0;
+        amrex::ParticleReal cos_theta_s = 0;
         while (reject) {
-            // - Draw x with an approximate probability distribution
+            // - Draw cos_theta_s with an approximate probability distribution
             amrex::ParticleReal const r1 = amrex::Random(engine);
-            x = b - (b + 1._prt)*std::pow(0.5_prt*c0, r1);
+            cos_theta_s = b - (b + 1._prt)*std::pow(0.5_prt*c0, r1);
             // - Calculate approximate probability distribution h
-            amrex::ParticleReal const h = a/(b-x);
+            amrex::ParticleReal const h = a/(b-cos_theta_s);
             // - Calculate expected (exact) probability distribution f
-            amrex::ParticleReal const factor = 1._prt + k*(1._prt-x);
-            amrex::ParticleReal const f = ( (1._prt+x*x)*factor + k*k*(1._prt-x)*(1._prt-x) )/(factor*factor*factor);
-            // - Keep x according to rejection rule
+            amrex::ParticleReal const factor = 1._prt + k*(1._prt-cos_theta_s);
+            amrex::ParticleReal const f = ( (1._prt+cos_theta_s*cos_theta_s)*factor
+                                          + k*k*(1._prt-cos_theta_s)*(1._prt-cos_theta_s) )
+                                          /(factor*factor*factor);
+            // - Keep cos_theta_s according to rejection rule
             amrex::ParticleReal const r2 = amrex::Random(engine);
             if (r2 < f/h) {
                 reject = false;
@@ -141,16 +143,17 @@ namespace {
 
         // Get scattered momentum in the rest frame
         // - Scale the incoming photon momentum to the scattered momentum magnitude
-        amrex::ParticleReal const new_photon_u_rest = photon_u_rest/( 1._prt + k*(1._prt-x) );
+        amrex::ParticleReal const new_photon_u_rest =
+            photon_u_rest/( 1._prt + k*(1._prt-cos_theta_s) );
         amrex::ParticleReal const u_ratio = new_photon_u_rest / photon_u_rest;
         amrex::ParticleReal new_photon_ux_rest = photon_ux_rest * u_ratio;
         amrex::ParticleReal new_photon_uy_rest = photon_uy_rest * u_ratio;
         amrex::ParticleReal new_photon_uz_rest = photon_uz_rest * u_ratio;
-        // - Then rotate it by the scattering angle (cos(theta_s) = x)
-        //   and a random azimuthal angle phi_s around the incoming photon direction
+        // - Then rotate it by the scattering angle theta_s and a random azimuthal
+        //   angle phi_s around the incoming photon direction
         amrex::ParticleReal const phi_s = 2._prt*MathConst::pi*amrex::Random(engine);
         ParticleUtils::rotateVector(new_photon_ux_rest, new_photon_uy_rest, new_photon_uz_rest,
-                                    phi_s, x);
+                                    phi_s, cos_theta_s);
 
         // Transform the momentum of the scattered photon back to the lab frame
         amrex::ParticleReal new_photon_u, new_photon_ux, new_photon_uy, new_photon_uz;
