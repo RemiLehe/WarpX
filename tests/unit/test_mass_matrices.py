@@ -111,8 +111,9 @@ def test_mass_matrices_match_push_and_deposit(particle_shape, sync_scheme):
     # Boilerplate: the mass matrices are only allocated by an evolve scheme that
     # uses them, and this is the one that allocates them from PICMI input alone.
     # Nothing below is specific to the theta-implicit scheme, though: the mass
-    # matrix routines that the test drives directly are shared by the implicit
-    # solvers, and `sync_scheme` covers what does differ between them.
+    # matrix routines that the test calls directly below are shared by different
+    # implicit solvers (e.g. theta-implicit, semi-implicit Darwin), and 
+    # `sync_scheme` covers what does differ between them.
     sim.evolve_scheme = picmi.ThetaImplicitEMEvolveScheme(
         nonlinear_solver=picmi.NewtonNonlinearSolver(
             linear_solver=picmi.GMRESLinearSolver(),
