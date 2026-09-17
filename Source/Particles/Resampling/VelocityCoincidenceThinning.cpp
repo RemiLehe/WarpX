@@ -247,42 +247,46 @@ void VelocityCoincidenceThinning::operator() (
                         cluster_uz /= total_weight;
 
                         // perform merging of momentum bin particles
-                        auto u_perp2 = cluster_ux*cluster_ux + cluster_uy*cluster_uy;
-                        auto u_perp = std::sqrt(u_perp2);
-                        auto cluster_u_mag2 = u_perp2 + cluster_uz*cluster_uz;
+                        auto cluster_u_mag2 = cluster_ux*cluster_ux + cluster_uy*cluster_uy
+                                            + cluster_uz*cluster_uz;
                         auto cluster_u_mag = std::sqrt(cluster_u_mag2);
 
                         // calculate required velocity magnitude to achieve
-                        // energy conservation
+                        // energy conservation (it cannot be smaller than the
+                        // magnitude of the mean cluster velocity)
                         auto v_mag2 = total_energy / total_weight * (
                             (total_energy / total_weight + 2._prt * mass * c2 )
                             / (mass * mass * c2)
                         );
-                        auto v_perp = (v_mag2 > cluster_u_mag2) ? std::sqrt(v_mag2 - cluster_u_mag2) : 0_prt;
+                        auto v_mag = std::sqrt(amrex::max(v_mag2, cluster_u_mag2));
 
                         // choose random angle for new velocity vector
                         auto phi = amrex::Random(engine) * MathConst::pi;
 
-                        // set new velocity components based on chosen phi
-                        auto vx = v_perp * std::cos(phi);
-                        auto vy = v_perp * std::sin(phi);
-
-                        // calculate rotation angles to parallel coord. frame
-                        auto cos_theta = (cluster_u_mag > 0._prt) ? cluster_uz / cluster_u_mag : 0._prt;
-                        auto sin_theta = (cluster_u_mag > 0._prt) ? u_perp / cluster_u_mag : 0._prt;
-                        auto cos_phi = (u_perp > 0._prt) ? cluster_ux / u_perp : 0._prt;
-                        auto sin_phi = (u_perp > 0._prt) ? cluster_uy / u_perp : 0._prt;
-
-                        // rotate new velocity vector to labframe
-                        auto ux_new = (
-                            vx * cos_theta * cos_phi - vy * sin_phi
-                            + cluster_u_mag * sin_theta * cos_phi
-                        );
-                        auto uy_new = (
-                            vx * cos_theta * sin_phi + vy * cos_phi
-                            + cluster_u_mag * sin_theta * sin_phi
-                        );
-                        auto uz_new = -vx * sin_theta + cluster_u_mag * cos_theta;
+                        // The new velocity vector has magnitude v_mag and the same
+                        // component along the mean cluster velocity as the mean
+                        // cluster velocity itself (so that momentum is conserved
+                        // when the second particle is set to the mirror velocity).
+                        // It is obtained by scaling the mean cluster velocity to
+                        // v_mag and rotating it by the polar angle theta (measured
+                        // from the mean cluster velocity direction) and the
+                        // azimuthal angle phi.
+                        amrex::ParticleReal ux_new, uy_new, uz_new, cos_theta;
+                        if (cluster_u_mag > 0._prt) {
+                            auto const scale = v_mag / cluster_u_mag;
+                            ux_new = cluster_ux * scale;
+                            uy_new = cluster_uy * scale;
+                            uz_new = cluster_uz * scale;
+                            cos_theta = cluster_u_mag / v_mag;
+                        } else {
+                            // The mean cluster velocity is zero: any direction in
+                            // the plane perpendicular to z is valid.
+                            ux_new = 0._prt;
+                            uy_new = 0._prt;
+                            uz_new = v_mag;
+                            cos_theta = 0._prt;
+                        }
+                        ParticleUtils::rotateVector(ux_new, uy_new, uz_new, phi, cos_theta);
 
                         // set the last two particles' attributes according to
                         // the bin's aggregate values
