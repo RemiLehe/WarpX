@@ -142,10 +142,10 @@ namespace {
         }
 
         // Get the magnitude of the scattered momentum in the rest frame
-        // - Scale the incoming photon momentum to the scattered momentum magnitude
-        //    and then rotate it by the randomly-sampled scattering angles theta_s and phi_s.
         amrex::ParticleReal const new_photon_u_rest =
             photon_u_rest/( 1._prt + k*(1._prt-cos_theta_s) );
+        // - Scale the incoming photon momentum to the scattered momentum magnitude
+        //    and then rotate it by the randomly-sampled scattering angles theta_s and phi_s.
         amrex::ParticleReal const u_ratio = new_photon_u_rest / photon_u_rest;
         amrex::ParticleReal new_photon_ux_rest = photon_ux_rest * u_ratio;
         amrex::ParticleReal new_photon_uy_rest = photon_uy_rest * u_ratio;
