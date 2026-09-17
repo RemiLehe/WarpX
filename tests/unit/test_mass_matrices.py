@@ -157,22 +157,24 @@ def test_mass_matrices_match_push_and_deposit(particle_shape, sync_scheme):
         warpx.sync_mass_matrices()
     solver.finish_mass_matrices()  # Fill the second half of the diagonal mass matrices by symmetry
 
-    # Allocate `dE` with enough guard cells, so that the stencil of the mass matrix
-    # does not get clipped. Only the summed mass matrices need more than `dE`
-    # already has: a valid cell then also carries the entries of the particles of
-    # the neighboring box, whose shape function extends outward, and the band
-    # reaches one cell beyond the guard cells of `J`. Applying the unsummed mass
-    # matrices, on the other hand, only ever reads `dE` within the support of the
-    # shape function of a particle of this box, i.e. within the guard cells that
-    # `dE` has; the entries that would reach further out are zero there.
-    n_grow_j = fields.get("current_fp", "x", 0).n_grow_vect
-    n_grow_e = fields.get("Efield_fp", "x", 0).n_grow_vect
-    n_grow_extra = 0
     if sync_scheme == "sync_massmatrix":
+        # Allocate `dE` with enough guard cells, so that the stencil of the mass matrix
+        # does not get clipped. Only the summed mass matrices need more than `dE`
+        # already has: a valid cell then also carries the entries of the particles of
+        # the neighboring box, whose shape function extends outward, and the stencil
+        # reaches one cell beyond the guard cells of `J`. Applying the unsummed mass
+        # matrices, on the other hand, only ever reads `dE` within the support of the
+        # shape function of a particle of this box, i.e. within the guard cells that
+        # `dE` has; the entries that would reach further out are zero there.
+        n_grow_j = fields.get("current_fp", "x", 0).n_grow_vect
+        n_grow_e = fields.get("Efield_fp", "x", 0).n_grow_vect
+        n_grow_extra = 0
         n_grow_extra = max(
             0, max(n_grow_j[idir] + 1 - n_grow_e[idir] for idir in range(n_axes))
         )
-    _alloc_like(sim, "dE", "Efield_fp", n_grow_extra=n_grow_extra)
+        _alloc_like(sim, "dE", "Efield_fp", n_grow_extra=n_grow_extra)
+    else:
+        _alloc_like(sim, "dE", "Efield_fp")
     _alloc_like(sim, "dJ", "current_fp")
 
     # The amplitude keeps the push non-relativistic: q dE dt / m is a fraction
