@@ -18,7 +18,7 @@ void init_ImplicitSolver (py::module& m)
     // destroyed with it in WarpX::Finalize, so the Python object must never
     // delete it: py::nodelete makes the returned pointer non-owning.
     py::class_<ImplicitSolver, std::unique_ptr<ImplicitSolver, py::nodelete>>(m, "ImplicitSolver")
-        .def("finish_mass_matrices", &ImplicitSolver::FinishMassMatrices,
+        .def("finish_mass_matrices_deposit", &ImplicitSolver::FinishMassMatricesDeposition,
             R"pbdoc(Fill the second half of the symmetric diagonal mass matrices)pbdoc"
         )
         .def("apply_mass_matrices", &ImplicitSolver::ApplyMassMatrices,

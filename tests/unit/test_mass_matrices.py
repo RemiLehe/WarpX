@@ -149,15 +149,17 @@ def test_mass_matrices_match_push_and_deposit(particle_shape, sync_scheme):
 
     solver = warpx.implicit_solver()
     warpx.deposit_mass_matrices()
+    # Fill the second half of the diagonal mass matrices by symmetry: the
+    # deposition is not complete until this is done
+    solver.finish_mass_matrices_deposit()
+
     if sync_scheme == "sync_massmatrix":
         # Sum the guard cells of the mass matrices into the valid cells, before
         # applying them below; this is what the semi-implicit Darwin scheme
         # does, since there the mass matrices are a coefficient of the field
         # operator that the linear solver applies on every iteration.
         warpx.sync_mass_matrices()
-    solver.finish_mass_matrices()  # Fill the second half of the diagonal mass matrices by symmetry
 
-    if sync_scheme == "sync_massmatrix":
         # Allocate `dE` with enough guard cells, so that the stencil of the mass matrix
         # does not get clipped. Only the summed mass matrices need more than `dE`
         # already has: a valid cell then also carries the entries of the particles of
