@@ -209,8 +209,13 @@ void init_WarpX (py::module& m)
             R"pbdoc(Sum the guard cells of the mass matrices into the valid cells)pbdoc"
         )
 
-        // Expose functions used to sync the charge density multifab
+        // Expose functions used to sync the current and charge density multifabs
         // accross tiles and apply appropriate boundary conditions
+        .def("sync_current",
+            [](WarpX& wx, const std::string& current_fp_string){ wx.SyncCurrent(current_fp_string); },
+            py::arg("current_fp_string"),
+            R"pbdoc(Sum the guard cells of a current-like vector field into the valid cells)pbdoc"
+        )
         .def("sync_rho",
             [](WarpX& wx){ wx.SyncRho(); }
         )
