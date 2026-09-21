@@ -1038,8 +1038,6 @@ void ImplicitSolver::SyncMassMatricesPCAndApplyBCs ()
         const amrex::MultiFab* MM_zz = m_WarpX->m_fields.get(FieldType::MassMatrices_Z, Direction{2}, lev);
         ablastr::fields::VectorField MM_PC = m_WarpX->m_fields.get_alldirs(FieldType::MassMatrices_PC, lev);
 
-        // Copy contiguous runs along dir 0, looping over the dir-1 and dir-2
-        // stencil offsets of the reduced (PC) matrices.
 
         const int diag_comp_pc_xx = (MM_PC[0]->nComp() - 1)/2;
         for (int comp2 = 0; comp2 < MM_PC_ncomp_xx[2]; comp2++) {
