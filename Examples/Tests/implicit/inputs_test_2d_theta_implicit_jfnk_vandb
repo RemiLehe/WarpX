@@ -1,5 +1,5 @@
 # base input parameters
-FILE = inputs_base_vandb
+FILE = inputs_base_implicit_jfnk
 
 # test input parameters
 my_constants.nppcz = 10          # number of particles/cell in each dim
