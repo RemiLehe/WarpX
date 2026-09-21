@@ -9,7 +9,7 @@
 #
 # This is a script that analyses the simulation results from the scripts
 # `inputs_test_2d_theta_implicit_jfnk_vandb` and
-# `inputs_test_3d_theta_implicit_jfnk_vandb`.
+# `inputs_test_3d_theta_implicit_jfnk_direct`.
 # These simulate a periodic uniform plasma using the theta-implicit solver
 # with shape factor 2. The dimensionality and the relevant algorithm options
 # (deposition type, use of the mass matrices for the Jacobian) are read from

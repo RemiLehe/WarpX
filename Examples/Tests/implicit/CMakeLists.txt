@@ -134,10 +134,10 @@ add_warpx_test(
 )
 
 add_warpx_test(
-    test_3d_theta_implicit_jfnk_vandb  # name
+    test_3d_theta_implicit_jfnk_direct  # name
     3  # dims
     2  # nprocs
-    inputs_test_3d_theta_implicit_jfnk_vandb  # inputs
+    inputs_test_3d_theta_implicit_jfnk_direct  # inputs
     "analysis_vandb_jfnk.py diags/diag1000010"  # analysis
     "analysis_default_regression.py --path diags/diag1000010"  # checksum
     OFF  # dependency
