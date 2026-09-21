@@ -640,9 +640,6 @@ void ImplicitSolver::parseNonlinearSolverParams ( const amrex::ParmParse&  pp )
             !m_use_mass_matrices,
             "Using mass matrices is not setup for DIM = RSPHERE!");
 #endif
-        // Note: the restriction to direct deposition for the mass matrices of the
-        // Jacobian in 3D is enforced in `InitializeMassMatrices`, which is also
-        // called by solvers that do not call this function (e.g. SemiImplicitDarwin).
         if ( (WarpX::current_deposition_algo == CurrentDepositionAlgo::Villasenor ||
               WarpX::current_deposition_algo == CurrentDepositionAlgo::Esirkepov) &&
              (WarpX::nox < 2) ) {
