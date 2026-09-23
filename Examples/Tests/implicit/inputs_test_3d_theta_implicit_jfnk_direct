@@ -15,8 +15,6 @@ boundary.field_hi = periodic periodic periodic
 
 newton.diagnostic_interval = 10
 
-gmres.relative_tolerance = 1.0e-6
-
 implicit_evolve.use_mass_matrices_jacobian = true
 implicit_evolve.use_mass_matrices_pc = true
 jacobian.pc_type = "pc_curl_curl_mlmg"

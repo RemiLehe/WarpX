@@ -13,8 +13,6 @@ geometry.prob_hi = 10.0*de0  10.0*de0
 boundary.field_lo = periodic periodic
 boundary.field_hi = periodic periodic
 
-gmres.relative_tolerance = 1.0e-8
-
 algo.current_deposition = "villasenor"
 
 electrons.num_particles_per_cell_each_dim = nppcz nppcz

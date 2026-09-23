@@ -42,6 +42,7 @@ newton.diagnostic_file = "diags/newton_solver.txt"
 
 gmres.verbose_int = 2
 gmres.max_iterations = 1000
+gmres.relative_tolerance = 1.0e-8
 gmres.absolute_tolerance = 0.0
 
 algo.particle_pusher = "boris"
