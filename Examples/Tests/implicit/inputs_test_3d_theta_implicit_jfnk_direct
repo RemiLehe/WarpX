@@ -22,7 +22,6 @@ implicit_evolve.use_mass_matrices_pc = true
 jacobian.pc_type = "pc_curl_curl_mlmg"
 pc_curl_curl_mlmg.verbose = true
 pc_curl_curl_mlmg.max_iter = 1
-pc_curl_curl_mlmg.relative_tolerance = 1e-4
 
 algo.current_deposition = "direct"
 
