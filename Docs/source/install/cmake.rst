@@ -125,6 +125,10 @@ For Nvidia CUDA GPU support, you will need to have `a recent CUDA driver install
 
    mamba install -c nvidia -c conda-forge cuda cuda-nvtx-dev cupy
 
+.. note::
+
+   This does not work for RZ PSATD (``-DWarpX_DIMS=RZ -DWarpX_FFT=ON``), because the versions of ``blaspp`` and ``lapackpp`` available on conda-forge are too old: in this case, do not install ``blaspp`` and ``lapackpp`` from conda and instead compile them from source.
+
 More info for `CUDA-enabled ML packages <https://twitter.com/jeremyphoward/status/1697435241152127369>`__.
 
 
