@@ -581,6 +581,12 @@ void SemiImplicitDarwin::ApplyScaledMassMatrices (
 
     const amrex::Real scale = 2._prt * PhysConst::mu0 / m_dt;
 
+    // The mass matrices were summed over their guard cells (SyncMassMatrices),
+    // so that the stencil of a valid cell reaches one cell beyond the guard
+    // cells of J (see guardCellManager::Init). Check that dA has enough guard
+    // cells for the valid cells of rhs not to be clipped.
+    AssertMassMatricesStencilNotClipped(rhs, dA);
+
     // No guard-cell exchange is needed on the result: ApplyMassMatrices()
     // already fills as many guard cells of `rhs` as `rhs` and the mass matrices
     // have in common, computing them from the same wide-stencil read of `dA`
