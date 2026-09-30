@@ -1608,11 +1608,19 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
                      CompileTimeOptions<0>, CompileTimeOptions<0>>{},
             {has_exteb, qed_runtime_flag, 0, 0},
             np_to_push, push_particle);
-    } else {
+    } else if (galerkin_interpolation) {
         amrex::ParallelFor(
             TypeList<CompileTimeOptions<no_exteb>, CompileTimeOptions<no_qed, has_qed>,
-                     CompileTimeOptions<1,2,3,4>, CompileTimeOptions<0,1>>{},
-            {no_exteb, qed_runtime_flag, nox, int(galerkin_interpolation)},
+                     CompileTimeOptions<1,2,3,4>, CompileTimeOptions<1>>{},
+            {no_exteb, qed_runtime_flag, nox, 1},
+            np_to_push, push_particle);
+    } else {
+        // Without Galerkin interpolation, the kernels use more registers:
+        // smaller blocks give a finer granularity of the occupancy
+        amrex::ParallelFor<128>(
+            TypeList<CompileTimeOptions<no_exteb>, CompileTimeOptions<no_qed, has_qed>,
+                     CompileTimeOptions<1,2,3,4>, CompileTimeOptions<0>>{},
+            {no_exteb, qed_runtime_flag, nox, 0},
             np_to_push, push_particle);
     }
 }
