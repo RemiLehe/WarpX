@@ -1504,10 +1504,12 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
     // improves performance when qed or external EB are not used by reducing
     // register pressure.
     amrex::ParallelFor(
-        TypeList<CompileTimeOptions<no_exteb,has_exteb>, CompileTimeOptions<no_qed  ,has_qed>>{},
-        {exteb_runtime_flag, qed_runtime_flag},
+        TypeList<CompileTimeOptions<no_exteb,has_exteb>, CompileTimeOptions<no_qed  ,has_qed>,
+                 CompileTimeOptions<1,2,3,4>, CompileTimeOptions<0,1>>{},
+        {exteb_runtime_flag, qed_runtime_flag, nox, int(galerkin_interpolation)},
         np_to_push,
-        [=] AMREX_GPU_DEVICE (long ip, auto exteb_control, auto qed_control)
+        [=] AMREX_GPU_DEVICE (long ip, auto exteb_control, auto qed_control,
+                              auto nox_control, auto galerkin_control)
     {
         amrex::ParticleReal xp, yp, zp;
         getPosition(ip, xp, yp, zp);
@@ -1533,11 +1535,11 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 
         if (gather_fields) {
             // first gather E and B to the particle positions
-            doGatherShapeN(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+            doGatherShapeN<nox_control, galerkin_control>(
+                           xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                            ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
                            ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
-                           dinv, xyzmin, lo, n_rz_azimuthal_modes,
-                           nox, galerkin_interpolation);
+                           dinv, xyzmin, lo, n_rz_azimuthal_modes);
         }
 
         [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
