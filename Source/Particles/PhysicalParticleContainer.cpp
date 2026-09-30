@@ -1499,17 +1499,13 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
     int qed_runtime_flag = no_qed;
 #endif
 
-    // Loop over the particles and update their momentum.
-    // Using this version of ParallelFor with compile time options
-    // improves performance when qed or external EB are not used by reducing
-    // register pressure.
-    amrex::ParallelFor(
-        TypeList<CompileTimeOptions<no_exteb,has_exteb>, CompileTimeOptions<no_qed  ,has_qed>,
-                 CompileTimeOptions<1,2,3,4>, CompileTimeOptions<0,1>>{},
-        {exteb_runtime_flag, qed_runtime_flag, nox, int(galerkin_interpolation)},
-        np_to_push,
-        [=] AMREX_GPU_DEVICE (long ip, auto exteb_control, auto qed_control,
-                              auto nox_control, auto galerkin_control)
+    // Push of a single particle. It is used below with compile time options, which
+    // improves performance by reducing register pressure: the kernels without qed
+    // or external fields do not hold the corresponding variables, and the kernels
+    // without external fields only contain the field gather for one particle shape.
+    // (shape_control == 0 means that the particle shape is selected at runtime.)
+    auto push_particle = [=] AMREX_GPU_DEVICE (long ip, auto exteb_control, auto qed_control,
+                                               auto shape_control, auto galerkin_control)
     {
         amrex::ParticleReal xp, yp, zp;
         getPosition(ip, xp, yp, zp);
@@ -1535,11 +1531,12 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 
         if (gather_fields) {
             // first gather E and B to the particle positions
-            doGatherShapeN<nox_control, galerkin_control>(
+            doGatherShapeNCompileTimeOrRuntime<shape_control, galerkin_control>(
                            xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                            ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
                            ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
-                           dinv, xyzmin, lo, n_rz_azimuthal_modes);
+                           dinv, xyzmin, lo, n_rz_azimuthal_modes,
+                           nox, galerkin_interpolation);
         }
 
         [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
@@ -1600,7 +1597,24 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 #else
             amrex::ignore_unused(qed_control);
 #endif
-    });
+    };
+
+    if (exteb_runtime_flag == has_exteb) {
+        // The external fields may involve function calls (e.g. in the parser), which
+        // restrict the register usage of the kernel: in that case, select the particle
+        // shape at runtime, which keeps the shape factors in local memory.
+        amrex::ParallelFor(
+            TypeList<CompileTimeOptions<has_exteb>, CompileTimeOptions<no_qed, has_qed>,
+                     CompileTimeOptions<0>, CompileTimeOptions<0>>{},
+            {has_exteb, qed_runtime_flag, 0, 0},
+            np_to_push, push_particle);
+    } else {
+        amrex::ParallelFor(
+            TypeList<CompileTimeOptions<no_exteb>, CompileTimeOptions<no_qed, has_qed>,
+                     CompileTimeOptions<1,2,3,4>, CompileTimeOptions<0,1>>{},
+            {no_exteb, qed_runtime_flag, nox, int(galerkin_interpolation)},
+            np_to_push, push_particle);
+    }
 }
 
 void
