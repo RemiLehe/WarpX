@@ -328,6 +328,22 @@ void doDirectGatherVectorField (
 }
 
 /**
+ * \brief Copy the node- or cell-centered shape factors into dst, depending on is_node.
+ *
+ * Selecting values (rather than a reference to one of the two arrays) lets the
+ * compiler keep the shape factors in registers instead of local memory.
+ */
+template <int N>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void selectShapeFactor (amrex::Real (&dst)[N], const bool is_node,
+                        const amrex::Real (&node)[N], const amrex::Real (&cell)[N])
+{
+    for (int i = 0; i < N; ++i) {
+        dst[i] = is_node ? node[i] : cell[i];
+    }
+}
+
+/**
  * \brief Field gather for a single particle
  *
  * \tparam depos_order              Particle shape order
@@ -425,12 +441,18 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     if ((ex_type[0] == CELL) || (by_type[0] == CELL) || (bz_type[0] == CELL)) {
         j_cell_v = compute_shape_factor_galerkin(sx_cell_galerkin, x - 0.5_rt);
     }
-    const amrex::Real (&sx_ex)[depos_order + 1 - galerkin_interpolation] = ((ex_type[0] == NODE) ? sx_node_galerkin : sx_cell_galerkin);
-    const amrex::Real (&sx_ey)[depos_order + 1             ] = ((ey_type[0] == NODE) ? sx_node   : sx_cell  );
-    const amrex::Real (&sx_ez)[depos_order + 1             ] = ((ez_type[0] == NODE) ? sx_node   : sx_cell  );
-    const amrex::Real (&sx_bx)[depos_order + 1             ] = ((bx_type[0] == NODE) ? sx_node   : sx_cell  );
-    const amrex::Real (&sx_by)[depos_order + 1 - galerkin_interpolation] = ((by_type[0] == NODE) ? sx_node_galerkin : sx_cell_galerkin);
-    const amrex::Real (&sx_bz)[depos_order + 1 - galerkin_interpolation] = ((bz_type[0] == NODE) ? sx_node_galerkin : sx_cell_galerkin);
+    amrex::Real sx_ex[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sx_ex, ex_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
+    amrex::Real sx_ey[depos_order + 1];
+    selectShapeFactor(sx_ey, ey_type[0] == NODE, sx_node, sx_cell);
+    amrex::Real sx_ez[depos_order + 1];
+    selectShapeFactor(sx_ez, ez_type[0] == NODE, sx_node, sx_cell);
+    amrex::Real sx_bx[depos_order + 1];
+    selectShapeFactor(sx_bx, bx_type[0] == NODE, sx_node, sx_cell);
+    amrex::Real sx_by[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sx_by, by_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
+    amrex::Real sx_bz[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sx_bz, bz_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
     int const j_ex = ((ex_type[0] == NODE) ? j_node_v : j_cell_v);
     int const j_ey = ((ey_type[0] == NODE) ? j_node   : j_cell  );
     int const j_ez = ((ez_type[0] == NODE) ? j_node   : j_cell  );
@@ -462,12 +484,18 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     if ((ey_type[1] == CELL) || (bx_type[1] == CELL) || (bz_type[1] == CELL)) {
         k_cell_v = compute_shape_factor_galerkin(sy_cell_v, y - 0.5_rt);
     }
-    const amrex::Real (&sy_ex)[depos_order + 1             ] = ((ex_type[1] == NODE) ? sy_node   : sy_cell  );
-    const amrex::Real (&sy_ey)[depos_order + 1 - galerkin_interpolation] = ((ey_type[1] == NODE) ? sy_node_v : sy_cell_v);
-    const amrex::Real (&sy_ez)[depos_order + 1             ] = ((ez_type[1] == NODE) ? sy_node   : sy_cell  );
-    const amrex::Real (&sy_bx)[depos_order + 1 - galerkin_interpolation] = ((bx_type[1] == NODE) ? sy_node_v : sy_cell_v);
-    const amrex::Real (&sy_by)[depos_order + 1             ] = ((by_type[1] == NODE) ? sy_node   : sy_cell  );
-    const amrex::Real (&sy_bz)[depos_order + 1 - galerkin_interpolation] = ((bz_type[1] == NODE) ? sy_node_v : sy_cell_v);
+    amrex::Real sy_ex[depos_order + 1];
+    selectShapeFactor(sy_ex, ex_type[1] == NODE, sy_node, sy_cell);
+    amrex::Real sy_ey[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sy_ey, ey_type[1] == NODE, sy_node_v, sy_cell_v);
+    amrex::Real sy_ez[depos_order + 1];
+    selectShapeFactor(sy_ez, ez_type[1] == NODE, sy_node, sy_cell);
+    amrex::Real sy_bx[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sy_bx, bx_type[1] == NODE, sy_node_v, sy_cell_v);
+    amrex::Real sy_by[depos_order + 1];
+    selectShapeFactor(sy_by, by_type[1] == NODE, sy_node, sy_cell);
+    amrex::Real sy_bz[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sy_bz, bz_type[1] == NODE, sy_node_v, sy_cell_v);
     int const k_ex = ((ex_type[1] == NODE) ? k_node   : k_cell  );
     int const k_ey = ((ey_type[1] == NODE) ? k_node_v : k_cell_v);
     int const k_ez = ((ez_type[1] == NODE) ? k_node   : k_cell  );
@@ -500,12 +528,18 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     if ((ez_type[zdir] == CELL) || (bx_type[zdir] == CELL) || (by_type[zdir] == CELL)) {
         l_cell_v = compute_shape_factor_galerkin(sz_cell_v, z - 0.5_rt);
     }
-    const amrex::Real (&sz_ex)[depos_order + 1             ] = ((ex_type[zdir] == NODE) ? sz_node   : sz_cell  );
-    const amrex::Real (&sz_ey)[depos_order + 1             ] = ((ey_type[zdir] == NODE) ? sz_node   : sz_cell  );
-    const amrex::Real (&sz_ez)[depos_order + 1 - galerkin_interpolation] = ((ez_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
-    const amrex::Real (&sz_bx)[depos_order + 1 - galerkin_interpolation] = ((bx_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
-    const amrex::Real (&sz_by)[depos_order + 1 - galerkin_interpolation] = ((by_type[zdir] == NODE) ? sz_node_v : sz_cell_v);
-    const amrex::Real (&sz_bz)[depos_order + 1             ] = ((bz_type[zdir] == NODE) ? sz_node   : sz_cell  );
+    amrex::Real sz_ex[depos_order + 1];
+    selectShapeFactor(sz_ex, ex_type[zdir] == NODE, sz_node, sz_cell);
+    amrex::Real sz_ey[depos_order + 1];
+    selectShapeFactor(sz_ey, ey_type[zdir] == NODE, sz_node, sz_cell);
+    amrex::Real sz_ez[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sz_ez, ez_type[zdir] == NODE, sz_node_v, sz_cell_v);
+    amrex::Real sz_bx[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sz_bx, bx_type[zdir] == NODE, sz_node_v, sz_cell_v);
+    amrex::Real sz_by[depos_order + 1 - galerkin_interpolation];
+    selectShapeFactor(sz_by, by_type[zdir] == NODE, sz_node_v, sz_cell_v);
+    amrex::Real sz_bz[depos_order + 1];
+    selectShapeFactor(sz_bz, bz_type[zdir] == NODE, sz_node, sz_cell);
     int const l_ex = ((ex_type[zdir] == NODE) ? l_node   : l_cell  );
     int const l_ey = ((ey_type[zdir] == NODE) ? l_node   : l_cell  );
     int const l_ez = ((ez_type[zdir] == NODE) ? l_node_v : l_cell_v);
