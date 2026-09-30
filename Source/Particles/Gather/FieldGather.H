@@ -2242,59 +2242,6 @@ void doGatherShapeN (const amrex::ParticleReal xp,
     }
 }
 
-/**
- * \brief Field gather for a single particle, with the particle shape order either known
- *        at compile time (compile_time_order > 0), in which case the shape factors are
- *        selected by value (see selectShapeFactor), or selected at runtime from nox
- *        (compile_time_order == 0)
- *
- * The arguments are the same as for doGatherShapeN.
- */
-template <int compile_time_order, int galerkin_interpolation>
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void doGatherShapeNCompileTimeOrRuntime (const amrex::ParticleReal xp,
-                                         const amrex::ParticleReal yp,
-                                         const amrex::ParticleReal zp,
-                                         amrex::ParticleReal& Exp,
-                                         amrex::ParticleReal& Eyp,
-                                         amrex::ParticleReal& Ezp,
-                                         amrex::ParticleReal& Bxp,
-                                         amrex::ParticleReal& Byp,
-                                         amrex::ParticleReal& Bzp,
-                                         amrex::Array4<amrex::Real const> const& ex_arr,
-                                         amrex::Array4<amrex::Real const> const& ey_arr,
-                                         amrex::Array4<amrex::Real const> const& ez_arr,
-                                         amrex::Array4<amrex::Real const> const& bx_arr,
-                                         amrex::Array4<amrex::Real const> const& by_arr,
-                                         amrex::Array4<amrex::Real const> const& bz_arr,
-                                         const amrex::IndexType ex_type,
-                                         const amrex::IndexType ey_type,
-                                         const amrex::IndexType ez_type,
-                                         const amrex::IndexType bx_type,
-                                         const amrex::IndexType by_type,
-                                         const amrex::IndexType bz_type,
-                                         const amrex::XDim3 & dinv,
-                                         const amrex::XDim3 & xyzmin,
-                                         const amrex::Dim3& lo,
-                                         const int n_rz_azimuthal_modes,
-                                         [[maybe_unused]] const int nox,
-                                         [[maybe_unused]] const bool galerkin_runtime)
-{
-    if constexpr (compile_time_order == 0) {
-        doGatherShapeN(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
-                       ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
-                       ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
-                       dinv, xyzmin, lo, n_rz_azimuthal_modes,
-                       nox, galerkin_runtime);
-    } else {
-        doGatherShapeN<compile_time_order, galerkin_interpolation, true>(
-                       xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
-                       ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
-                       ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
-                       dinv, xyzmin, lo, n_rz_azimuthal_modes);
-    }
-}
-
 
 /**
  * \brief Field gather for a single particle

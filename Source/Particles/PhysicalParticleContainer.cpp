@@ -1501,9 +1501,9 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 
     // Push of a single particle. It is used below with compile time options, which
     // improves performance by reducing register pressure: the kernels without qed
-    // or external fields do not hold the corresponding variables, and the kernels
-    // without external fields only contain the field gather for one particle shape.
-    // (shape_control == 0 means that the particle shape is selected at runtime.)
+    // or external fields do not hold the corresponding variables, and each kernel
+    // only contains the field gather for one particle shape, with the shape factors
+    // kept in registers (select_by_value in doGatherShapeN).
     auto push_particle = [=] AMREX_GPU_DEVICE (long ip, auto exteb_control, auto qed_control,
                                                auto shape_control, auto galerkin_control)
     {
@@ -1531,12 +1531,11 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 
         if (gather_fields) {
             // first gather E and B to the particle positions
-            doGatherShapeNCompileTimeOrRuntime<shape_control, galerkin_control>(
+            doGatherShapeN<shape_control, galerkin_control, true>(
                            xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                            ex_arr, ey_arr, ez_arr, bx_arr, by_arr, bz_arr,
                            ex_type, ey_type, ez_type, bx_type, by_type, bz_type,
-                           dinv, xyzmin, lo, n_rz_azimuthal_modes,
-                           nox, galerkin_interpolation);
+                           dinv, xyzmin, lo, n_rz_azimuthal_modes);
         }
 
         [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
@@ -1599,28 +1598,19 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 #endif
     };
 
-    if (exteb_runtime_flag == has_exteb) {
-        // The external fields may involve function calls (e.g. in the parser), which
-        // restrict the register usage of the kernel: in that case, select the particle
-        // shape at runtime, which keeps the shape factors in local memory.
+    if (galerkin_interpolation) {
         amrex::ParallelFor(
-            TypeList<CompileTimeOptions<has_exteb>, CompileTimeOptions<no_qed, has_qed>,
-                     CompileTimeOptions<0>, CompileTimeOptions<0>>{},
-            {has_exteb, qed_runtime_flag, 0, 0},
-            np_to_push, push_particle);
-    } else if (galerkin_interpolation) {
-        amrex::ParallelFor(
-            TypeList<CompileTimeOptions<no_exteb>, CompileTimeOptions<no_qed, has_qed>,
+            TypeList<CompileTimeOptions<no_exteb, has_exteb>, CompileTimeOptions<no_qed, has_qed>,
                      CompileTimeOptions<1,2,3,4>, CompileTimeOptions<1>>{},
-            {no_exteb, qed_runtime_flag, nox, 1},
+            {exteb_runtime_flag, qed_runtime_flag, nox, 1},
             np_to_push, push_particle);
     } else {
         // Without Galerkin interpolation, the kernels use more registers:
         // smaller blocks give a finer granularity of the occupancy
         amrex::ParallelFor<128>(
-            TypeList<CompileTimeOptions<no_exteb>, CompileTimeOptions<no_qed, has_qed>,
+            TypeList<CompileTimeOptions<no_exteb, has_exteb>, CompileTimeOptions<no_qed, has_qed>,
                      CompileTimeOptions<1,2,3,4>, CompileTimeOptions<0>>{},
-            {no_exteb, qed_runtime_flag, nox, 0},
+            {exteb_runtime_flag, qed_runtime_flag, nox, 0},
             np_to_push, push_particle);
     }
 }
