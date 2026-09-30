@@ -465,12 +465,15 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     if ((ex_type[0] == CELL) || (by_type[0] == CELL) || (bz_type[0] == CELL)) {
         j_cell_v = compute_shape_factor_galerkin(sx_cell_galerkin, x - 0.5_rt);
     }
-    decltype(auto) sx_ex = selectShapeFactor<select_by_value>(ex_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
+    decltype(auto) sx_ex = selectShapeFactor<select_by_value>(
+        ex_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
     decltype(auto) sx_ey = selectShapeFactor<select_by_value>(ey_type[0] == NODE, sx_node, sx_cell);
     decltype(auto) sx_ez = selectShapeFactor<select_by_value>(ez_type[0] == NODE, sx_node, sx_cell);
     decltype(auto) sx_bx = selectShapeFactor<select_by_value>(bx_type[0] == NODE, sx_node, sx_cell);
-    decltype(auto) sx_by = selectShapeFactor<select_by_value>(by_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
-    decltype(auto) sx_bz = selectShapeFactor<select_by_value>(bz_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
+    decltype(auto) sx_by = selectShapeFactor<select_by_value>(
+        by_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
+    decltype(auto) sx_bz = selectShapeFactor<select_by_value>(
+        bz_type[0] == NODE, sx_node_galerkin, sx_cell_galerkin);
     int const j_ex = ((ex_type[0] == NODE) ? j_node_v : j_cell_v);
     int const j_ey = ((ey_type[0] == NODE) ? j_node   : j_cell  );
     int const j_ez = ((ez_type[0] == NODE) ? j_node   : j_cell  );
@@ -503,11 +506,14 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
         k_cell_v = compute_shape_factor_galerkin(sy_cell_v, y - 0.5_rt);
     }
     decltype(auto) sy_ex = selectShapeFactor<select_by_value>(ex_type[1] == NODE, sy_node, sy_cell);
-    decltype(auto) sy_ey = selectShapeFactor<select_by_value>(ey_type[1] == NODE, sy_node_v, sy_cell_v);
+    decltype(auto) sy_ey = selectShapeFactor<select_by_value>(
+        ey_type[1] == NODE, sy_node_v, sy_cell_v);
     decltype(auto) sy_ez = selectShapeFactor<select_by_value>(ez_type[1] == NODE, sy_node, sy_cell);
-    decltype(auto) sy_bx = selectShapeFactor<select_by_value>(bx_type[1] == NODE, sy_node_v, sy_cell_v);
+    decltype(auto) sy_bx = selectShapeFactor<select_by_value>(
+        bx_type[1] == NODE, sy_node_v, sy_cell_v);
     decltype(auto) sy_by = selectShapeFactor<select_by_value>(by_type[1] == NODE, sy_node, sy_cell);
-    decltype(auto) sy_bz = selectShapeFactor<select_by_value>(bz_type[1] == NODE, sy_node_v, sy_cell_v);
+    decltype(auto) sy_bz = selectShapeFactor<select_by_value>(
+        bz_type[1] == NODE, sy_node_v, sy_cell_v);
     int const k_ex = ((ex_type[1] == NODE) ? k_node   : k_cell  );
     int const k_ey = ((ey_type[1] == NODE) ? k_node_v : k_cell_v);
     int const k_ez = ((ez_type[1] == NODE) ? k_node   : k_cell  );
@@ -540,12 +546,18 @@ void doGatherShapeN ([[maybe_unused]] const amrex::ParticleReal xp,
     if ((ez_type[zdir] == CELL) || (bx_type[zdir] == CELL) || (by_type[zdir] == CELL)) {
         l_cell_v = compute_shape_factor_galerkin(sz_cell_v, z - 0.5_rt);
     }
-    decltype(auto) sz_ex = selectShapeFactor<select_by_value>(ex_type[zdir] == NODE, sz_node, sz_cell);
-    decltype(auto) sz_ey = selectShapeFactor<select_by_value>(ey_type[zdir] == NODE, sz_node, sz_cell);
-    decltype(auto) sz_ez = selectShapeFactor<select_by_value>(ez_type[zdir] == NODE, sz_node_v, sz_cell_v);
-    decltype(auto) sz_bx = selectShapeFactor<select_by_value>(bx_type[zdir] == NODE, sz_node_v, sz_cell_v);
-    decltype(auto) sz_by = selectShapeFactor<select_by_value>(by_type[zdir] == NODE, sz_node_v, sz_cell_v);
-    decltype(auto) sz_bz = selectShapeFactor<select_by_value>(bz_type[zdir] == NODE, sz_node, sz_cell);
+    decltype(auto) sz_ex = selectShapeFactor<select_by_value>(
+        ex_type[zdir] == NODE, sz_node, sz_cell);
+    decltype(auto) sz_ey = selectShapeFactor<select_by_value>(
+        ey_type[zdir] == NODE, sz_node, sz_cell);
+    decltype(auto) sz_ez = selectShapeFactor<select_by_value>(
+        ez_type[zdir] == NODE, sz_node_v, sz_cell_v);
+    decltype(auto) sz_bx = selectShapeFactor<select_by_value>(
+        bx_type[zdir] == NODE, sz_node_v, sz_cell_v);
+    decltype(auto) sz_by = selectShapeFactor<select_by_value>(
+        by_type[zdir] == NODE, sz_node_v, sz_cell_v);
+    decltype(auto) sz_bz = selectShapeFactor<select_by_value>(
+        bz_type[zdir] == NODE, sz_node, sz_cell);
     int const l_ex = ((ex_type[zdir] == NODE) ? l_node   : l_cell  );
     int const l_ey = ((ey_type[zdir] == NODE) ? l_node   : l_cell  );
     int const l_ez = ((ez_type[zdir] == NODE) ? l_node_v : l_cell_v);
