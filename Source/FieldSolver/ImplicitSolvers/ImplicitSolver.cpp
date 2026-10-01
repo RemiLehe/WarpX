@@ -1125,13 +1125,17 @@ void ImplicitSolver::SyncMassMatricesPCAndApplyBCs ()
     // Do addOp Exchange on MassMatrices_PC
     m_WarpX->SyncMassMatricesPC();
 
-    // Apply BCs to MassMatrices_PC
+    // Apply BCs to MassMatrices_PC.
+    // The mass matrices do not have the parity of a current density across the
+    // axis (they are symmetric), and have already been folded on the axis in
+    // ApplyInverseVolumeScalingToMassMatricesPC: do not fold them again here.
+    const bool fold_on_axis = false;
     for (int lev = 0; lev < m_num_amr_levels; ++lev) {
         m_WarpX->ApplyJfieldBoundary(lev,
             m_WarpX->m_fields.get(FieldType::MassMatrices_PC, Direction{0}, lev),
             m_WarpX->m_fields.get(FieldType::MassMatrices_PC, Direction{1}, lev),
             m_WarpX->m_fields.get(FieldType::MassMatrices_PC, Direction{2}, lev),
-            PatchType::fine);
+            PatchType::fine, fold_on_axis);
     }
 }
 
