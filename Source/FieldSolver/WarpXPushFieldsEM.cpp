@@ -1553,10 +1553,12 @@ WarpX::ApplyInverseVolumeScalingToCurrentDensity (amrex::MultiFab* Jx, amrex::Mu
     }
 }
 
-// This scales the mass matrices used in the PC by the inverse volume and
-// wraps around the deposition at negative radius.
+// This scales the mass matrices used in the PC by the inverse volume.
 // It is faster to apply this on the grid than to do it particle by particle.
 // It is put here since there isn't another nice place for it.
+// The mass matrices deposited in the guard cells at negative radius are scaled
+// too (with the absolute value of the radius), so that they can later be folded
+// onto the cells above the axis (see FoldMassMatricesOnAxis).
 void
 WarpX::ApplyInverseVolumeScalingToMassMatricesPC (amrex::MultiFab* Sxx, amrex::MultiFab* Syy, amrex::MultiFab* Szz, int lev) const
 {
@@ -1591,28 +1593,17 @@ WarpX::ApplyInverseVolumeScalingToMassMatricesPC (amrex::MultiFab* Sxx, amrex::M
         // Note that this is done before the tilebox.grow so that
         // these do not include the guard cells.
         const amrex::XDim3 xyzmin = WarpX::LowerCorner(tilebox, lev, 0._rt);
-        const amrex::Real rmin  = xyzmin.x;
         const amrex::Real rminr = xyzmin.x + (tbr.type(0) == NODE ? 0._rt : 0.5_rt*dx[0]);
         const amrex::Real rmint = xyzmin.x + (tbt.type(0) == NODE ? 0._rt : 0.5_rt*dx[0]);
         const amrex::Real rminz = xyzmin.x + (tbz.type(0) == NODE ? 0._rt : 0.5_rt*dx[0]);
         const amrex::Dim3 lo = lbound(tilebox);
         const int irmin = lo.x;
 
-        // For ishift, 1 means cell centered, 0 means node centered
-        int const ishift_r = (rminr > rmin ? 1 : 0);
-        int const ishift_t = (rmint > rmin ? 1 : 0);
-        int const ishift_z = (rminz > rmin ? 1 : 0);
-
-        // Grow the tileboxes to include the guard cells, except for the
-        // guard cells at negative radius.
-        if (rmin > 0._rt) {
-           tbr.growLo(0, ngS[0]);
-           tbt.growLo(0, ngS[0]);
-           tbz.growLo(0, ngS[0]);
-        }
-        tbr.growHi(0, ngS[0]);
-        tbt.growHi(0, ngS[0]);
-        tbz.growHi(0, ngS[0]);
+        // Grow the tileboxes to include the guard cells
+        // (including the guard cells at negative radius).
+        tbr.grow(0, ngS[0]);
+        tbt.grow(0, ngS[0]);
+        tbz.grow(0, ngS[0]);
 #if defined(WARPX_DIM_RZ)
         tbr.grow(1, ngS[1]);
         tbt.grow(1, ngS[1]);
@@ -1624,13 +1615,6 @@ WarpX::ApplyInverseVolumeScalingToMassMatricesPC (amrex::MultiFab* Sxx, amrex::M
         amrex::ParallelFor(tbr, ncomp_rr,
         [=] AMREX_GPU_DEVICE (int i, int j, int /*k*/, int icomp)
         {
-            // Wrap the mass matrices deposited in the guard cells around
-            // to the cells above the axis.
-            // If Srr is node centered, Srr[0] is located on the boundary.
-            // If Srr is cell centered, Srr[0] is at 1/2 dr.
-            if (rmin == 0. && 1-ishift_r <= i && i <= ngS[0]-ishift_r) {
-                Srr_arr(i,j,0,icomp) += Srr_arr(-ishift_r-i,j,0,icomp);
-            }
             // Apply the inverse volume scaling
             // Srr is forced to zero on axis
             const amrex::Real r = amrex::Math::abs(rminr + (i - irmin)*dr);
@@ -1650,14 +1634,6 @@ WarpX::ApplyInverseVolumeScalingToMassMatricesPC (amrex::MultiFab* Sxx, amrex::M
         amrex::ParallelFor(tbt, ncomp_tt,
         [=] AMREX_GPU_DEVICE (int i, int j, int /*k*/, int icomp)
         {
-            // Wrap the mass matrices deposited in the guard cells around
-            // to the cells above the axis.
-            // If Stt is node centered, Stt[0] is located on the boundary.
-            // If Stt is cell centered, Stt[0] is at 1/2 dr.
-            if (rmin == 0._rt && 1-ishift_t <= i && i <= ngS[0]-ishift_t) {
-                Stt_arr(i,j,0,icomp) += Stt_arr(-ishift_t-i,j,0,icomp);
-            }
-
             // Apply the inverse volume scaling
             // Stt is forced to zero on axis.
             const amrex::Real r = amrex::Math::abs(rmint + (i - irmin)*dr);
@@ -1677,14 +1653,6 @@ WarpX::ApplyInverseVolumeScalingToMassMatricesPC (amrex::MultiFab* Sxx, amrex::M
         amrex::ParallelFor(tbz, ncomp_zz,
         [=] AMREX_GPU_DEVICE (int i, int j, int /*k*/, int icomp)
         {
-            // Wrap the mass matrices deposited in the guard cells around
-            // to the cells above the axis.
-            // If Szz is node centered, Szz[0] is located on the boundary.
-            // If Szz is cell centered, Szz[0] is at 1/2 dr.
-            if (rmin == 0._rt && 1-ishift_z <= i && i <= ngS[0]-ishift_z) {
-                Szz_arr(i,j,0,icomp) += Szz_arr(-ishift_z-i,j,0,icomp);
-            }
-
             // Apply the inverse volume scaling
             const amrex::Real r = amrex::Math::abs(rminz + (i - irmin)*dr);
             if (r == 0._rt) {

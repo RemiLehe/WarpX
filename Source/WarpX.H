@@ -609,16 +609,21 @@ public:
      * geometry) and beyond PEC, PMC and reflecting boundaries is folded back
      * into the simulation domain, and the guard cells are then filled with the
      * corresponding (anti)symmetric image.
-     *
-     * \param[in] fold_on_axis whether to fold the guard cells beyond the axis
-     *            (cylindrical and spherical geometry). Set to false for fields
-     *            that have already been folded on the axis, or that do not have
-     *            the parity of a current density (e.g. the mass matrices).
      */
     void ApplyJfieldBoundary (int lev, amrex::MultiFab* Jx,
                               amrex::MultiFab* Jy, amrex::MultiFab* Jz,
-                              PatchType patch_type,
-                              bool fold_on_axis = true);
+                              PatchType patch_type);
+
+    /**
+     * \brief Same as ApplyJfieldBoundary, but only for the PEC, PMC and
+     * reflecting boundaries (i.e. without the folding on the axis in
+     * cylindrical and spherical geometry). Used for current-like fields whose
+     * parity across the axis differs from that of the current density
+     * (e.g. the mass matrices).
+     */
+    void ApplyJfieldBoundaryOnWalls (int lev, amrex::MultiFab* Jx,
+                                     amrex::MultiFab* Jy, amrex::MultiFab* Jz,
+                                     PatchType patch_type);
 
     void ApplyEfieldBoundary (int lev, PatchType patch_type, amrex::Real cur_time);
     void ApplyBfieldBoundary (int lev, PatchType patch_type, SubcyclingHalf subcycling_half, amrex::Real cur_time);
@@ -647,6 +652,17 @@ public:
      * guard cells at negative radius.
      */
     void FoldCurrentDensityOnAxis (amrex::MultiFab* Jr, amrex::MultiFab* Jt, amrex::MultiFab* Jz, int lev) const;
+
+    /**
+     * \brief Fold the mass matrices deposited in the guard cells at negative
+     * radius onto the cells above the axis (the mass matrices are symmetric
+     * across the axis), and then fill these guard cells with the
+     * corresponding image.
+     * The mass matrices must already be scaled by the inverse volume
+     * (see ApplyInverseVolumeScalingToMassMatricesPC), including in the
+     * guard cells at negative radius.
+     */
+    void FoldMassMatricesOnAxis (amrex::MultiFab* Sxx, amrex::MultiFab* Syy, amrex::MultiFab* Szz, int lev) const;
 #endif
 
     /**
