@@ -710,18 +710,23 @@ PEC::ApplyPECtoBfield (
 
 /**
  * \brief Step 1: Reflect the Rho field values deposited to the guard cells to
- *                their mirror locations inside the domain at PEC and PMC boundaries.
+ *                their mirror locations inside the domain at reflective boundaries.
  *        Step 2: Set the Rho field values in the guard cells consistent with the
- *                assumed symmetries associated with PEC and PMC boundaries.
+ *                assumed symmetries associated with these boundaries.
  *
- *        PEC: This is an anti-symmetry boundary. Rho deposited to guard cells is
- *             subtracted from its mirror location inside the domain, which is
- *             equivalent to depositing Rho associated with the image charge of the
- *             opposite sign on the other side of the PEC boundary.
- *        PMC: This is a symmetry boundary. Rho deposited to guard cells is
- *             Added to its mirror location inside the domain, which is
- *             equivalent to depositing Rho associated with the image charge of the
- *             same sign on the other side of the PMC boundary.
+ *        A boundary is reflective if its field boundary is PEC, PEC_Insulator or PMC,
+ *        or if its particle boundary is Reflecting or Thermal.
+ *
+ *        Symmetric boundaries (Reflecting or Thermal particle boundary, or PMC field
+ *             boundary): Rho deposited to guard cells is added to its mirror location
+ *             inside the domain, which is equivalent to depositing Rho associated with
+ *             the image charge of the same sign on the other side of the boundary.
+ *        Anti-symmetric boundaries (otherwise, i.e. PEC or PEC_Insulator field boundary):
+ *             Rho deposited to guard cells is subtracted from its mirror location inside
+ *             the domain, which is equivalent to depositing Rho associated with the image
+ *             charge of the opposite sign on the other side of the boundary.
+ *             For PEC_Insulator, the nodal Rho on the boundary is instead incremented
+ *             by twice the sum of the values in the guard cells.
  *
  **/
 void
@@ -817,7 +822,7 @@ PEC::ApplyReflectiveBoundarytoRhofield (
 
             // Get Rho box and grow to include guard cells in directions transverse
             // to this boundary. This is required to correctly reflect Rho at domain
-            // corners that touch multiple PEC/PMC boundaries.
+            // corners that touch multiple reflective boundaries.
             amrex::Box rho_box = amrex::convert(mfi.validbox(),rho_nodal);
             for (int jdim = 0; jdim < AMREX_SPACEDIM; ++jdim) {
                 if (jdim==idim) { continue; }
@@ -884,18 +889,25 @@ PEC::ApplyReflectiveBoundarytoRhofield (
 
 /**
  * \brief Step 1: Reflect the J field values deposited to the guard cells to
- *                their mirror locations inside the domain at PEC and PMC boundaries.
+ *                their mirror locations inside the domain at reflective boundaries.
  *        Step 2: Set the J field values in the guard cells consistent with the
- *                assumed symmetries associated with PEC and PMC boundaries.
+ *                assumed symmetries associated with these boundaries.
  *
- *        PEC: This is an anti-symmetry boundary. Jparallel/Jperp to a boundary deposited
- *             to guard cells is subtracted/added from/to its mirror location inside the
- *             domain, which is equivalent to depositing J associated with the image
- *             charge of the opposite sign on the other side of the PEC boundary.
- *        PMC: This is a symmetry boundary. Jparallel/Jperp to a boundary deposited
- *             to guard cells is added/subtracted to/from its mirror location inside the
- *             domain, which is equivalent to depositing J associated with the image
- *             charge of the opposite sign on the other side of the PEC boundary.
+ *        A boundary is reflective if its field boundary is PEC, PEC_Insulator or PMC,
+ *        or if its particle boundary is Reflecting or Thermal.
+ *
+ *        Symmetric boundaries (Reflecting or Thermal particle boundary, or PMC field
+ *             boundary): Jparallel/Jperp to a boundary deposited to guard cells is
+ *             added/subtracted to/from its mirror location inside the domain, which is
+ *             equivalent to depositing J associated with the image charge of the same
+ *             sign on the other side of the boundary.
+ *        Anti-symmetric boundaries (otherwise, i.e. PEC or PEC_Insulator field boundary):
+ *             Jparallel/Jperp to a boundary deposited to guard cells is subtracted/added
+ *             from/to its mirror location inside the domain, which is equivalent to
+ *             depositing J associated with the image charge of the opposite sign on the
+ *             other side of the boundary.
+ *             For PEC_Insulator, the nodal Jparallel on the boundary is instead
+ *             incremented by twice the sum of the values in the guard cells.
  *
  **/
 void
@@ -1019,7 +1031,7 @@ PEC::ApplyReflectiveBoundarytoJfield (
 
             // Get J boxes and grow to include guard cells in directions transverse
             // to this boundary. This is required to correctly reflect J at domain
-            // corners that touch multiple PEC/PMC boundaries.
+            // corners that touch multiple reflective boundaries.
             amrex::Box Jx_box = amrex::convert(mfi.validbox(),Jx_nodal);
             amrex::Box Jy_box = amrex::convert(mfi.validbox(),Jy_nodal);
             amrex::Box Jz_box = amrex::convert(mfi.validbox(),Jz_nodal);
