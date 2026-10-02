@@ -343,18 +343,25 @@ namespace
 
     /**
      * \brief Reflect the J or Rho field values deposited to the guard cells to their
-     *        mirror location inside the domain at PEC or PMC boundaries.
+     *        mirror location inside the domain at reflective boundaries (PEC, PEC_Insulator
+     *        or PMC field boundary, or Reflecting or Thermal particle boundary).
      *
-     *        PMC: -Rho/J_parallel deposited to guard region is added to its mirror location.
-     *             -J_perpindicular deposited to guard region is subtracted from its mirror location.
-     *             -This is a symmetry boundary. Reflecting Rho/J as described above is
-     *              equivalent to capturing Rho/J of the mirror charge of the same sign
-     *              on the other side of the symmetry plane.
-     *        PEC: -Rho/J_parallel deposited to guard region is subtracted from its mirror location.
-     *             -J_perpindicular deposited to guard region is added to its mirror location.
-     *             -This is an anti-symmetry boundary. Reflecting Rho/J as described above is
-     *              equivalent to capturing Rho/J of the mirror charge of the opposite sign
-     *              on the other side of the anti-symmetry plane.
+     *        Symmetric boundaries (Reflecting or Thermal particle boundary, or PMC field boundary):
+     *             -Rho/J_parallel deposited to guard region is added to its mirror location.
+     *             -J_perpendicular deposited to guard region is subtracted from its mirror
+     *              location.
+     *             -Reflecting Rho/J as described above is equivalent to capturing Rho/J
+     *              of the mirror charge of the same sign on the other side of the symmetry plane.
+     *        Anti-symmetric boundaries (otherwise, i.e. PEC or PEC_Insulator field boundary):
+     *             -Rho/J_parallel deposited to guard region is subtracted from its mirror location.
+     *             -J_perpendicular deposited to guard region is added to its mirror location.
+     *             -Reflecting Rho/J as described above is equivalent to capturing Rho/J
+     *              of the mirror charge of the opposite sign on the other side of the
+     *              anti-symmetry plane.
+     *             -For PEC_Insulator (sum_on_boundary), the nodal Rho/J_parallel on the
+     *              boundary is instead incremented by twice the sum of the guard cell values.
+     *
+     *        Which case applies is encoded in psign.
      *
      * \param[in] n                 index of the MultiFab component being updated
      * \param[in] ijk_vec           indices along the x(i), y(j), z(k) of the Rho/J Array4
@@ -362,7 +369,8 @@ namespace
      * \param[in] mirrorfac         mirror cell indices given by mirrorfac - ijk_vec
      * \param[in] is_reflective     whether the given boundary is reflective
      * \param[in] psign             sign for reflecting the field value across the boundary
-     * \param[in] sum_on_boundary   whether the guards are summed on the boundary (for J|| and PECInsulator)
+     * \param[in] sum_on_boundary   whether the guards are summed on the boundary
+     *                              (for Rho/J|| and PECInsulator)
      * \param[in] nguards           number of guard cells to sum over
      * \param[in] idim              boundary direction
      * \param[in] is_nodal_r        whether data is nodal along r
@@ -407,9 +415,9 @@ namespace
                 }
 #endif
                 if (ijk_vec == ijk_mirror && sum_on_boundary[iside] && psign[iside] < 0._rt) {
-                    // For J-parallel in PECInsulator boundaries, sum the values in the guard
-                    // cells and add it to the J on the boundary.
-                    // (Note that J-parallel is nodal which has psign < 0.)
+                    // For Rho and J-parallel in PECInsulator boundaries, sum the values in
+                    // the guard cells and add it to the Rho/J on the boundary.
+                    // (Note that Rho/J-parallel is nodal and has psign < 0.)
                     int const isign = (iside == 0 ? -1 : +1);
                     amrex::IntVect ijk_guard = ijk_vec;
                     for (int ig = 0 ; ig < nguards ; ig++) {
@@ -434,22 +442,26 @@ namespace
 
     /**
      * \brief Set the J or Rho field values in the guard cells consistent with the
-     *        assumed symmetries associated with PEC or PMC boundaries.
+     *        assumed symmetries associated with reflective boundaries (PEC, PEC_Insulator
+     *        or PMC field boundary, or Reflecting or Thermal particle boundary).
      *
-     *        PMC: -Rho/J_parallel in guard region is equal to Rho/J_parallel at
+     *        Symmetric boundaries (Reflecting or Thermal particle boundary, or PMC field boundary):
+     *             -Rho/J_parallel in guard region is equal to Rho/J_parallel at
      *              its mirror location inside the domain.
-     *             -J_perpindicular in guard region is equal and opposite to
-     *              J_perpinducular at its mirror location inside the domain.
-     *             -This is a symmetry boundary. Setting the BCs for Rho/J in this way is
-     *              equivalent to the Rho/J of the mirror charge of the same sign
-     *              on the other side of the symmetry plane.
-     *        PEC: -Rho/J_parallel in guard region is equal and opposite to Rho/J_paralle
+     *             -J_perpendicular in guard region is equal and opposite to
+     *              J_perpendicular at its mirror location inside the domain.
+     *             -Setting the BCs for Rho/J in this way is equivalent to the Rho/J of
+     *              the mirror charge of the same sign on the other side of the symmetry plane.
+     *        Anti-symmetric boundaries (otherwise, i.e. PEC or PEC_Insulator field boundary):
+     *             -Rho/J_parallel in guard region is equal and opposite to Rho/J_parallel
      *              at its mirror location inside the domain.
-     *             -J_perpindicular in the guard region is equal to
-     *              J_perpindicular at its mirror location inside the domain.
-     *             -This is an anti-symmetry boundary. Setting the BCs for Rho/J in this
-     *              way is equivalent to the Rho/J of the mirror charge of the opposite sign
-     *              on the other side of the anti-symmetry plane.
+     *             -J_perpendicular in the guard region is equal to
+     *              J_perpendicular at its mirror location inside the domain.
+     *             -Setting the BCs for Rho/J in this way is equivalent to the Rho/J of
+     *              the mirror charge of the opposite sign on the other side of the
+     *              anti-symmetry plane.
+     *
+     *        Which case applies is encoded in psign.
      *
      * \param[in] n                 index of the MultiFab component being updated
      * \param[in] ijk_vec           indices along the x(i), y(j), z(k) of the Rho/J Array4
