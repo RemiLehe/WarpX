@@ -4,7 +4,7 @@ Models & Algorithms
 ===================
 
 WarpX supports different types of field equations, which determine how the fields are updated on the grid and which
-algorithms are used in the core PIC loop (see :ref:`theory-pic`).
+algorithms are used in the core PIC loop (see the :ref:`overview of the PIC algorithm <theory-pic>`).
 
 .. toctree::
    :maxdepth: 1
