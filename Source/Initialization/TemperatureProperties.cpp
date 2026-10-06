@@ -8,7 +8,6 @@
 #include "TemperatureProperties.H"
 
 #include "ExternalField.H"
-#include "Particles/SpeciesPhysicalProperties.H"
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/TextMsg.H"
 #include "Utils/WarpXConst.H"
@@ -27,7 +26,7 @@
  *  for `maxwellian` distribution, and `theta` for `maxwell_juttner`.
  */
 TemperatureProperties::TemperatureProperties (const amrex::ParmParse& pp, std::string const& source_name,
-                                              amrex::Geometry const& geom)
+                                              amrex::Geometry const& geom, amrex::Real species_mass)
 {
     amrex::ignore_unused(geom);
 
@@ -83,18 +82,9 @@ TemperatureProperties::TemperatureProperties (const amrex::ParmParse& pp, std::s
             "maxwellian_temperature_in_eV_distribution_type.");
 
         if (use_temperature_in_eV) {
-            amrex::Real mass = 0.0;
-            std::string physical_species_s;
-            const bool species_is_specified = pp.query("species_type", physical_species_s);
-            if (species_is_specified) {
-                const auto physical_species_from_string = species::from_string(physical_species_s);
-                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(physical_species_from_string,
-                    physical_species_s + " does not exist!");
-                mass = species::get_mass(physical_species_from_string.value());
-            }
-            utils::parser::queryWithParser(pp, "mass", mass);
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(mass > 0.0,
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(species_mass > 0.0,
                 "Need to specify species_type or mass > 0.0 for the Maxwellian temperature in eV initialization");
+            m_q_e_over_mc2 = PhysConst::q_e / (species_mass * PhysConst::c * PhysConst::c);
 
             std::string temperature_in_eV_dist_s = "constant";
             utils::parser::query(pp, source_name, "maxwellian_temperature_in_eV_distribution_type",
@@ -110,8 +100,6 @@ TemperatureProperties::TemperatureProperties (const amrex::ParmParse& pp, std::s
                     "temperature_in_eV = " + std::to_string(temperature_in_eV) +
                     " is less than zero, which is not allowed");
                 m_temperature = temperature_in_eV;
-                m_q_e_over_mc2 =
-                    PhysConst::q_e / (mass * PhysConst::c * PhysConst::c);
                 m_type = TempConstantValue;
             }
             else if (temperature_in_eV_dist_s == "parser") {
@@ -122,8 +110,6 @@ TemperatureProperties::TemperatureProperties (const amrex::ParmParse& pp, std::s
                     str_temperature_in_eV_function);
                 m_ptr_temperature_parser = std::make_unique<amrex::Parser>(
                     utils::parser::makeParser(str_temperature_in_eV_function, {"x", "y", "z"}));
-                m_q_e_over_mc2 =
-                    PhysConst::q_e / (mass * PhysConst::c * PhysConst::c);
                 m_type = TempParserFunction;
             }
             else if (temperature_in_eV_dist_s == "read_from_file") {
@@ -148,7 +134,6 @@ TemperatureProperties::TemperatureProperties (const amrex::ParmParse& pp, std::s
                 amrex::BoxArray const grids;
                 amrex::DistributionMapping const dmap;
                 m_temperature_in_eV_reader->prepare(grids, dmap, amrex::IntVect(0));
-                m_q_e_over_mc2 = PhysConst::q_e / (mass * PhysConst::c * PhysConst::c);
                 m_type = TempFromFileValue;
 #else
                 WARPX_ABORT_WITH_MESSAGE(

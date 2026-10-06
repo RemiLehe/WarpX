@@ -147,26 +147,8 @@ struct GetTemperatureVector
             }
             case (TempFromFileValue):
             {
-#if (AMREX_SPACEDIM < 3)
-                amrex::ignore_unused(x,y,z);
-#endif
-#if (AMREX_SPACEDIM == 1)
-                amrex::RealVect const pos{z};
-#elif defined(WARPX_DIM_XZ)
-                amrex::RealVect const pos{x,z};
-#else
-                amrex::RealVect const pos{x,y,z};
-#endif
-#if defined(AMREX_USE_GPU)
-                AMREX_IF_ON_HOST((amrex::Abort(
-                    "For GPU builds, TempFromFileValue only works on device.");))
-                AMREX_IF_ON_DEVICE((return ConvertTemperatureInEvToUStd(
-                    m_temperature_in_eV_from_file(pos), m_q_e_over_mc2);))
-                return amrex::XDim3{0.0, 0.0, 0.0};
-#else
                 return ConvertTemperatureInEvToUStd(
-                    m_temperature_in_eV_from_file(pos), m_q_e_over_mc2);
-#endif
+                    m_temperature_in_eV_from_file.getValue(x,y,z), m_q_e_over_mc2);
             }
 #endif
             default:

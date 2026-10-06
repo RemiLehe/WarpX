@@ -31,7 +31,7 @@ namespace SpeciesUtils {
         std::unique_ptr<InjectorMomentum,InjectorMomentumDeleter>& h_inj_mom,
         std::unique_ptr<TemperatureProperties>& h_mom_temp,
         std::unique_ptr<VelocityProperties>& h_mom_vel,
-        amrex::Geometry const& geom,
+        amrex::Geometry const& geom, amrex::Real species_mass,
         int flux_normal_axis=0, int flux_direction=0);
 
 }

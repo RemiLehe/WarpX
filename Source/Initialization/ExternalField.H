@@ -160,6 +160,36 @@ struct ExternalFieldView
 #endif
     }
 
+    //! Return the value of the field, linearly interpolated at the WarpX
+    //! coordinates (x,y,z). The coordinates that are not part of the
+    //! simulation geometry are ignored.
+    [[nodiscard]]
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    amrex::Real
+    getValue (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    {
+#if (AMREX_SPACEDIM < 3)
+        amrex::ignore_unused(x,y,z);
+#endif
+#if (AMREX_SPACEDIM == 1)
+        amrex::RealVect const pos{z};
+#elif defined(WARPX_DIM_XZ)
+        amrex::RealVect const pos{x,z};
+#else
+        amrex::RealVect const pos{x,y,z};
+#endif
+#if defined(AMREX_USE_GPU)
+        // The view can only be evaluated on device: operator() calls
+        // the interpolation routines of ablastr::math, which are device-only.
+        AMREX_IF_ON_HOST((amrex::Abort(
+            "For GPU builds, ExternalFieldView only works on device.");))
+        AMREX_IF_ON_DEVICE((return (*this)(pos);))
+        return 0.0;
+#else
+        return (*this)(pos);
+#endif
+    }
+
     amrex::RealVect dx;     //! mesh spacing of the data
     amrex::RealVect offset; //! data's physical location at (0,0,0)
 #if (AMREX_SPACEDIM == 1)
@@ -288,26 +318,9 @@ struct ExternalFieldVectorView
     amrex::XDim3
     getValue (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
     {
-#if (AMREX_SPACEDIM < 3)
-        amrex::ignore_unused(x,y,z);
-#endif
-#if (AMREX_SPACEDIM == 1)
-        amrex::RealVect const pos{z};
-#elif defined(WARPX_DIM_XZ)
-        amrex::RealVect const pos{x,z};
-#else
-        amrex::RealVect const pos{x,y,z};
-#endif
-#if defined(AMREX_USE_GPU)
-        // The views can only be evaluated on device: ExternalFieldView calls
-        // the interpolation routines of ablastr::math, which are device-only.
-        AMREX_IF_ON_HOST((amrex::Abort(
-            "For GPU builds, ExternalFieldVectorView only works on device.");))
-        AMREX_IF_ON_DEVICE((return amrex::XDim3{m_x_view(pos), m_y_view(pos), m_z_view(pos)};))
-        return amrex::XDim3{0.0, 0.0, 0.0};
-#else
-        return amrex::XDim3{m_x_view(pos), m_y_view(pos), m_z_view(pos)};
-#endif
+        return amrex::XDim3{m_x_view.getValue(x,y,z),
+                            m_y_view.getValue(x,y,z),
+                            m_z_view.getValue(x,y,z)};
     }
 
 private:

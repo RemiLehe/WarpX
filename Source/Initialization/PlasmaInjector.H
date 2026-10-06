@@ -43,8 +43,16 @@ public:
     /** Default constructor*/
     PlasmaInjector () = default;
 
+    /**
+     * \param[in] ispecies index of the species
+     * \param[in] name name of the species
+     * \param[in] geom domain geometry
+     * \param[in] species_mass mass of the species, as set by `species_type` or `mass`
+     *                         (used by momentum distributions defined by a temperature)
+     * \param[in] src_name optional name of the injection source
+     */
     PlasmaInjector (int ispecies, const std::string& name, const amrex::Geometry& geom,
-                    const std::string& src_name="");
+                    amrex::Real species_mass, const std::string& src_name="");
 
     // Default move and copy operations
     PlasmaInjector(const PlasmaInjector&) = delete;
@@ -169,6 +177,8 @@ protected:
     bool mass_from_source = false;
     bool charge_from_source = false;
     amrex::ParticleReal mass, charge;
+    // Mass of the species as set by `species_type` or `mass`, passed to the momentum parsing
+    amrex::Real m_species_mass = 0.0;
 
     PhysicalSpecies physical_species = PhysicalSpecies::unspecified;
 

@@ -45,9 +45,11 @@ struct TemperatureProperties
      * \param[in] pp: Reference to the parameter parser object for the species being initialized
      * \param[in] source_name: Optional group name of the input parameters
      * \param[in] geom: Domain geometry (for openPMD external fields when used)
+     * \param[in] species_mass: Mass of the species (used to convert a temperature in eV
+     *                          into a normalized momentum spread)
      */
     TemperatureProperties (const amrex::ParmParse& pp, std::string const& source_name,
-                           amrex::Geometry const& geom);
+                           amrex::Geometry const& geom, amrex::Real species_mass);
 
     /* Type of temperature initialization */
     TemperatureInitType m_type;

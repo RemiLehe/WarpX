@@ -123,35 +123,12 @@ PhysicalParticleContainer::PhysicalParticleContainer (AmrCore* amr_core, int isp
 
     const ParmParse pp_species_name(species_name);
 
-    std::string injection_style = "none";
-    pp_species_name.query("injection_style", injection_style);
-    if (injection_style != "none") {
-        // The base plasma injector, whose input parameters have no source prefix.
-        // Only created if needed
-        plasma_injectors.push_back(std::make_unique<PlasmaInjector>(species_id, species_name, amr_core->Geom(0)));
-    }
-
-    std::vector<std::string> injection_sources;
-    pp_species_name.queryarr("injection_sources", injection_sources);
-    for (auto &source_name : injection_sources) {
-        plasma_injectors.push_back(std::make_unique<PlasmaInjector>(species_id, species_name, amr_core->Geom(0),
-                                                                    source_name));
-    }
-
     // Setup the charge and mass. There are multiple ways that they can be specified, so checks are needed to
     // ensure that a value is specified and warnings given if multiple values are specified.
     // The ordering is that species.charge and species.mass take precedence over all other values.
     // Next is charge and mass determined from species_type.
-    // Last is charge and mass from the plasma injector setup
-    bool charge_from_source = false;
-    bool mass_from_source = false;
-    for (auto const& plasma_injector : plasma_injectors) {
-        // For now, use the last value for charge and mass that is found.
-        // A check could be added for consistency of multiple values, but it'll probably never be needed
-        charge_from_source |= plasma_injector->queryCharge(m_charge);
-        mass_from_source |= plasma_injector->queryMass(m_mass);
-    }
-
+    // Last is charge and mass from the plasma injector setup (done below, after the
+    // plasma injectors are created).
     std::string physical_species_s;
     const bool species_is_specified = pp_species_name.query("species_type", physical_species_s);
     if (species_is_specified) {
@@ -184,6 +161,40 @@ PhysicalParticleContainer::PhysicalParticleContainer (AmrCore* amr_core, int isp
             "Both '" + species_name +  ".mass' and " +
                 species_name + ".species_type' are specified.\n" +
                 species_name + ".mass' will take precedence.\n");
+    }
+
+    std::string injection_style = "none";
+    pp_species_name.query("injection_style", injection_style);
+    if (injection_style != "none") {
+        // The base plasma injector, whose input parameters have no source prefix.
+        // Only created if needed
+        plasma_injectors.push_back(std::make_unique<PlasmaInjector>(species_id, species_name, amr_core->Geom(0),
+                                                                    m_mass));
+    }
+
+    std::vector<std::string> injection_sources;
+    pp_species_name.queryarr("injection_sources", injection_sources);
+    for (auto &source_name : injection_sources) {
+        plasma_injectors.push_back(std::make_unique<PlasmaInjector>(species_id, species_name, amr_core->Geom(0),
+                                                                    m_mass, source_name));
+    }
+
+    // Charge and mass from the plasma injector setup (e.g. read from an external file):
+    // used only if neither species.charge/species.mass nor species_type is specified.
+    bool charge_from_source = false;
+    bool mass_from_source = false;
+    for (auto const& plasma_injector : plasma_injectors) {
+        // For now, use the last value for charge and mass that is found.
+        // A check could be added for consistency of multiple values, but it'll probably never be needed
+        amrex::ParticleReal charge_src, mass_src;
+        if (plasma_injector->queryCharge(charge_src)) {
+            charge_from_source = true;
+            if (!charge_is_specified && !species_is_specified) { m_charge = charge_src; }
+        }
+        if (plasma_injector->queryMass(mass_src)) {
+            mass_from_source = true;
+            if (!mass_is_specified && !species_is_specified) { m_mass = mass_src; }
+        }
     }
 
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(

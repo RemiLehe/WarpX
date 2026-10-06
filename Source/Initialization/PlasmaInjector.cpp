@@ -51,7 +51,7 @@
 using namespace amrex::literals;
 
 PlasmaInjector::PlasmaInjector (int ispecies, const std::string& name,
-    const amrex::Geometry& geom, const std::string& src_name):
+    const amrex::Geometry& geom, amrex::Real species_mass, const std::string& src_name):
 #if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
     // Default radial_numpercell_power is uniform number of particles per cell
     radial_numpercell_power{0._rt},
@@ -63,6 +63,7 @@ PlasmaInjector::PlasmaInjector (int ispecies, const std::string& name,
     ymax{std::numeric_limits<amrex::Real>::max()},
     zmin{std::numeric_limits<amrex::Real>::lowest()},
     zmax{std::numeric_limits<amrex::Real>::max()},
+    m_species_mass{species_mass},
     species_id{ispecies}, species_name{name}, source_name{src_name}, m_geom(geom)
 {
 
@@ -271,7 +272,7 @@ void PlasmaInjector::setupGaussianBeam (amrex::ParmParse const& pp_species)
         "Error: Symmetrization only supported to orders 4 or 8 ");
     gaussian_beam = true;
     SpeciesUtils::parseMomentum(species_name, source_name, "gaussian_beam", h_inj_mom,
-                                h_mom_temp, h_mom_vel, m_geom);
+                                h_mom_temp, h_mom_vel, m_geom, m_species_mass);
 
 #if defined(WARPX_DIM_XZ)
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE( y_rms > 0._rt,
@@ -324,7 +325,7 @@ void PlasmaInjector::setupNRandomPerCell (amrex::ParmParse const& pp_species)
 
     SpeciesUtils::parseDensity(species_name, source_name, h_inj_rho, density_parser, m_geom);
     SpeciesUtils::parseMomentum(species_name, source_name, "nrandompercell", h_inj_mom,
-                                h_mom_temp, h_mom_vel, m_geom);
+                                h_mom_temp, h_mom_vel, m_geom, m_species_mass);
 }
 
 void PlasmaInjector::setupNFluxPerCell (amrex::ParmParse const& pp_species)
@@ -419,7 +420,7 @@ void PlasmaInjector::setupNFluxPerCell (amrex::ParmParse const& pp_species)
     parseFlux(pp_species);
     SpeciesUtils::parseMomentum(species_name, source_name, "nfluxpercell", h_inj_mom,
                                 h_mom_temp, h_mom_vel,
-                                m_geom, flux_normal_axis, flux_direction);
+                                m_geom, m_species_mass, flux_normal_axis, flux_direction);
 }
 
 void PlasmaInjector::setupNuniformPerCell (amrex::ParmParse const& pp_species)
@@ -476,7 +477,7 @@ void PlasmaInjector::setupNuniformPerCell (amrex::ParmParse const& pp_species)
                              num_particles_per_cell_each_dim[2];
     SpeciesUtils::parseDensity(species_name, source_name, h_inj_rho, density_parser, m_geom);
     SpeciesUtils::parseMomentum(species_name, source_name, "nuniformpercell", h_inj_mom,
-                                h_mom_temp, h_mom_vel, m_geom);
+                                h_mom_temp, h_mom_vel, m_geom, m_species_mass);
 }
 
 void PlasmaInjector::setupExternalFile (amrex::ParmParse const& pp_species)
