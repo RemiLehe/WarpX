@@ -66,8 +66,14 @@ TemperatureProperties::TemperatureProperties (const amrex::ParmParse& pp, std::s
     }
     else if (mom_dist_s == "maxwellian") {
         // ``maxwellian`` distribution uses ``u_std_*``
-        std::string u_std_dist_s = "constant";
-        utils::parser::query(pp, source_name, "maxwellian_u_std_distribution_type", u_std_dist_s);
+        // (no default type, so that the thermal spread is never silently set to zero)
+        std::string u_std_dist_s;
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            utils::parser::query(pp, source_name, "maxwellian_u_std_distribution_type", u_std_dist_s),
+            "momentum_distribution_type = maxwellian requires "
+            "maxwellian_u_std_distribution_type to be specified "
+            "('constant', 'parser' or 'read_from_file'). "
+            "For a cold distribution, use 'constant' with ux_std = uy_std = uz_std = 0.");
 
         if (u_std_dist_s == "constant") {
             utils::parser::queryWithParser(pp, source_name, "ux_std", m_ux_std);

@@ -1832,7 +1832,7 @@ Particle initialization
           `this file <https://github.com/BLAST-WarpX/warpx/blob/development/Examples/Tests/initial_distribution/inputs_test_3d_initial_distribution_prepare.py>`__
           for an example of how to prepare the openPMD data file.
 
-      * ``<species_name>.maxwellian_u_std_distribution_type`` (`string`, default ``constant``):
+      * ``<species_name>.maxwellian_u_std_distribution_type`` (`string`, required):
         Specifies the distribution type for the thermal spread (standard deviation) of the
         particle momentum. Here, ``u_std`` is a 3D vector (with components ``ux_std``,
         ``uy_std``, ``uz_std``) representing the standard deviation of the normalized momentum
