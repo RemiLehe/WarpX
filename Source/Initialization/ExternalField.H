@@ -164,15 +164,20 @@ struct ExternalFieldView
     //! Return the value of the field, linearly interpolated at the position
     //! given in Cartesian coordinates (x,y,z), as used by the particle injectors.
     //! The position is converted to the coordinates of the data, i.e. (z) in 1D,
-    //! (x,z) in 2D Cartesian and (r,z) in RZ.
+    //! (x,z) in 2D Cartesian, (r,z) in RZ and (r) in RCYLINDER and RSPHERE.
     [[nodiscard]]
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     amrex::Real
     getValue (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
     {
-#if (AMREX_SPACEDIM == 1)
+#if defined(WARPX_DIM_1D_Z)
         amrex::ignore_unused(x,y);
         amrex::RealVect const pos{z};
+#elif defined(WARPX_DIM_RCYLINDER)
+        amrex::ignore_unused(z);
+        amrex::RealVect const pos{std::sqrt(x*x + y*y)};
+#elif defined(WARPX_DIM_RSPHERE)
+        amrex::RealVect const pos{std::sqrt(x*x + y*y + z*z)};
 #elif defined(WARPX_DIM_XZ)
         amrex::ignore_unused(y);
         amrex::RealVect const pos{x,z};
