@@ -58,8 +58,6 @@ void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
     //    input, so curl(Z) must be valid that much further out again;
     //  - curl(Z) reads Z at i-1..i, so Z is needed one cell beyond that;
     //  - independently, the direct nabla^4 stencil reads Z at i-2..i+2.
-    // This is the same trick the hybrid-PIC solver uses to avoid communicating
-    // after its curl (see GuardCellManager).
     const amrex::IntVect mm_half_width = m_ops->MassMatricesStencilHalfWidth();
     const amrex::IntVect chidA_ng    = amrex::IntVect(1);
     const amrex::IntVect dA_ng       = chidA_ng + mm_half_width;
@@ -92,9 +90,8 @@ void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
     m_chidA_z.define(Efield[2]->boxArray(), Efield[2]->DistributionMap(), 1, chidA_ng);
 
     // ApplyMassMatrices() only fills as many guard cells of its output as the
-    // mass matrices themselves hold valid data for (they are summed out into
-    // their guard region by SumBoundaryJ), so those have to cover the one cell
-    // that the final curl reads.
+    // mass matrices themselves hold valid data for, so those have to cover 
+    // the one cell that the final curl reads.
     const ablastr::fields::VectorField SX =
         warpx_ptr->m_fields.get_alldirs(FieldType::MassMatrices_X, lev);
     const ablastr::fields::VectorField SY =
@@ -141,7 +138,7 @@ void DarwinLinearFieldOperator::apply ( WarpXSolverVec& a_Ax, const WarpXSolverV
     // SemiImplicitDarwin::ApplyScaledMassMatrices).
     //
     // Every stage of that expression is a short, local stencil, so the whole
-    // operator is one banded stencil on Z. Rather than exchanging guard cells
+    // operator is one stencil on Z. Rather than exchanging guard cells
     // between the stages, each intermediate is evaluated over enough of its own
     // guard region to feed the next one (widths are set in define()), and the
     // only communication is the single exchange on Zscratch below.
