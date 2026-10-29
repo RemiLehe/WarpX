@@ -61,10 +61,9 @@ void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
     // This is the same trick the hybrid-PIC solver uses to avoid communicating
     // after its curl (see GuardCellManager).
     const amrex::IntVect mm_half_width = m_ops->MassMatricesStencilHalfWidth();
-    const amrex::IntVect chidA_ng = amrex::IntVect(1);
-    const amrex::IntVect dA_ng    = chidA_ng + mm_half_width;
-    // (These are the scratch's own widths; Z's is always zero.)
-    const amrex::IntVect Z_ng     = amrex::elemwiseMax(amrex::IntVect(2), dA_ng + 1);
+    const amrex::IntVect chidA_ng    = amrex::IntVect(1);
+    const amrex::IntVect dA_ng       = chidA_ng + mm_half_width;
+    const amrex::IntVect Zscratch_ng = amrex::elemwiseMax(amrex::IntVect(2), dA_ng + 1);
 
     m_lapZ_x.define(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
                     Zvec[lev][0]->nComp(), Zvec[lev][0]->nGrowVect());
@@ -74,11 +73,11 @@ void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
                     Zvec[lev][2]->nComp(), Zvec[lev][2]->nGrowVect());
 
     m_Zscratch_x.define(Zvec[lev][0]->boxArray(), Zvec[lev][0]->DistributionMap(),
-                        Zvec[lev][0]->nComp(), Z_ng);
+                        Zvec[lev][0]->nComp(), Zscratch_ng);
     m_Zscratch_y.define(Zvec[lev][1]->boxArray(), Zvec[lev][1]->DistributionMap(),
-                        Zvec[lev][1]->nComp(), Z_ng);
+                        Zvec[lev][1]->nComp(), Zscratch_ng);
     m_Zscratch_z.define(Zvec[lev][2]->boxArray(), Zvec[lev][2]->DistributionMap(),
-                        Zvec[lev][2]->nComp(), Z_ng);
+                        Zvec[lev][2]->nComp(), Zscratch_ng);
 
     // curl(Z) and chi curl(Z) live on the E/A/J staggering
     WarpX* const warpx_ptr = m_ops->GetWarpX();
