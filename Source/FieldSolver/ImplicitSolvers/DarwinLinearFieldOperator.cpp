@@ -90,7 +90,7 @@ void DarwinLinearFieldOperator::define ( const WarpXSolverVec& a_U,
     m_chidA_z.define(Efield[2]->boxArray(), Efield[2]->DistributionMap(), 1, chidA_ng);
 
     // ApplyMassMatrices() only fills as many guard cells of its output as the
-    // mass matrices themselves hold valid data for, so those have to cover 
+    // mass matrices themselves hold valid data for, so those have to cover
     // the one cell that the final curl reads.
     const ablastr::fields::VectorField SX =
         warpx_ptr->m_fields.get_alldirs(FieldType::MassMatrices_X, lev);
