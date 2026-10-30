@@ -342,7 +342,7 @@ void WarpX::HybridPICDepositRhoAndJ ()
                 }
                 // Apply boundary conditions to rho_spec, and then apply volume scaling
                 FinalizeRhoOnLevel(lev, rho_spec[lev], PatchType::fine);
-                // Apply boundary conditions to J_spec
+                // Apply boundary conditions to J_spec, and then apply volume scaling
                 FinalizeJOnLevel(lev, J_spec[lev][0], J_spec[lev][1],
                                  J_spec[lev][2], PatchType::fine);
             }
@@ -369,8 +369,9 @@ void WarpX::HybridPICDepositRhoAndJ ()
     } else {
         // Single-pass deposition (rho at t_{n+1}, J at t_{n-1/2}): no active
         // feature consumes the per-species fields, so skip the per-species
-        // deposits and guard-cell sums entirely. Zeroing and the RZ inverse
-        // volume scaling (for J, not rho) are handled inside.
+        // deposits and guard-cell sums entirely. Zeroing is handled inside;
+        // boundary conditions and radial volume scaling are applied below,
+        // in FinalizeRho() and FinalizeJ().
         mypc->DepositCharge(rho_fp, 0._rt);
         mypc->DepositCurrent(current_fp, dt[0], -0.5_rt * dt[0]);
     }

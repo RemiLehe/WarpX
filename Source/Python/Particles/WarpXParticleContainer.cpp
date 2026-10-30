@@ -144,7 +144,10 @@ void init_WarpXParticleContainer (py::module& m)
                 warpx.FinalizeJOnLevel(lev, current[0], current[1], current[2], PatchType::fine);
             },
             py::arg("mf_name"), py::arg("lev"), py::arg("dt"), py::arg("relative_time"),
-            R"pbdoc(Deposit current density, sum guard values, and apply boundary conditions
+            R"pbdoc(Deposit current density, sum guard values, and apply boundary conditions.
+In cylindrical and spherical geometries, also fold the current deposited at negative
+radius and apply the inverse radial volume scaling, so that the result on level ``lev``
+is a physical current density.
 
 Parameters
 ----------

@@ -218,7 +218,11 @@ void init_WarpX (py::module& m)
         .def("sync_current",
             [](WarpX& wx, const std::string& current_fp_string){ wx.SyncCurrent(current_fp_string); },
             py::arg("current_fp_string"),
-            R"pbdoc(Sum the guard cells of a current-like vector field into the valid cells)pbdoc"
+            R"pbdoc(Sum the guard cells of a current-like vector field into the valid cells.
+This does not apply boundary conditions. In cylindrical and spherical geometries,
+it also does not apply the inverse radial volume scaling: if the field was filled
+with raw particle deposits, the result is the current density multiplied by the
+radial volume factor, not a physical current density.)pbdoc"
         )
         .def("sync_rho",
             [](WarpX& wx){ wx.SyncRho(); }
