@@ -13,6 +13,7 @@
 #include "FieldSolver/ImplicitSolvers/SparseJacobianMatrix.H"
 
 #include "FieldSolver/ImplicitSolvers/WarpXSolverVec.H"
+#include "NonlinearSolvers/MatrixSolverOps.H"
 #include "NonlinearSolvers/NonlinearSolverLibrary.H"
 
 #include <AMReX_Array.H>
@@ -134,6 +135,11 @@ public:
     }
 
     /**
+     * \brief Create the matrix ops for the assembled preconditioner matrix of a_ops
+     */
+    [[nodiscard]] static std::unique_ptr<MatrixSolverOps<WarpXSolverVec>> MakePCMatrixOps (ImplicitSolver* a_ops);
+
+    /**
      * \brief Return reference to the multifabs for curl curl mask
      */
     [[nodiscard]] virtual const amrex::MultiFab* GetCurl2BCmask (const int lev, const int dir) const
@@ -191,6 +197,15 @@ public:
         const ablastr::fields::MultiLevelVectorField* a_baseline = nullptr,
         amrex::Real a_scale = 1.0,
         bool a_zero_out_first = false );
+
+    /**
+     * \brief Half-width, in cells and per direction, of the stencil that
+     *  ApplyMassMatrices() gathers over: evaluating the mass matrices at a cell
+     *  reads the input field no further than this many cells away.
+     *
+     *  Only valid after InitializeMassMatrices() has run.
+     */
+    [[nodiscard]] amrex::IntVect MassMatricesStencilHalfWidth () const;
 
     /**
      * \brief Assert that ApplyMassMatrices(a_out, a_in, ...) reads a_in over the
@@ -374,8 +389,11 @@ protected:
 
     /**
      * \brief Initialize the Mass Matrices used for plasma response in nonlinear Newton solver
+     *
+     * \param[in] particle_shape order of the particle shape factors used to deposit the
+     *            current and the mass matrices; this sets the width of the mass matrices stencil
      */
-    void InitializeMassMatrices ();
+    void InitializeMassMatrices (int particle_shape);
 
     void InitializeImplicitOptions ();
 
