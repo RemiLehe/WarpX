@@ -56,28 +56,17 @@ using warpx::fields::FieldType;
 namespace
 {
     /** Transfer unsummed fine-level deposits to a parent with the same staggering.
+     *  The parent must not have been filtered or guard-summed yet: it receives
+     *  one owned copy of each contribution, and its subsequent filtering and
+     *  guard-cell sum treat these contributions like its own deposits.
      *  Physical guards remain available for boundary folding at the destination.
-     *  An unsummed parent receives one owned copy of each contribution; a parent
-     *  already summed during subcycling receives consistent valid and guard copies.
      */
     void AddFineLevelDeposits (
         amrex::MultiFab& dst, const amrex::MultiFab& src,
         const amrex::Geometry& geom, const amrex::IntVect& src_ng,
-        const int scomp, const int dcomp, const int ncomp, const bool dst_is_summed)
+        const int scomp, const int dcomp, const int ncomp)
     {
         const auto& period = geom.periodicity();
-        if (dst_is_summed) {
-            // No later parent guard sum: sum the source deposits directly into
-            // every destination copy, including physical and internal guards.
-            const amrex::IntVect dst_ng = dst.nGrowVect();
-            amrex::MultiFab incoming(dst.boxArray(), dst.DistributionMap(), ncomp, dst_ng);
-            incoming.setVal(0.0);
-            ablastr::utils::communication::ParallelAdd(
-                incoming, src, scomp, 0, ncomp, src_ng, dst_ng,
-                WarpX::do_single_precision_comms, period);
-            amrex::MultiFab::Add(dst, incoming, 0, dcomp, ncomp, dst_ng);
-            return;
-        }
 
         // Extend the transfer's valid boxes only through nonperiodic domain
         // faces. OwnerMask then covers physical guards as well as valid nodes.
@@ -1304,7 +1293,7 @@ WarpX::SyncCurrent (const std::string& current_fp_string)
                 // coarse patch of the fine level. They are unfiltered and uncommunicated.
                 // We need to add it to the fine patch of the current level.
                 AddFineLevelDeposits(*J_fp[lev][Direction{idim}], *mf_comm,
-                    Geom(lev), mf_comm->nGrowVect(), 0, 0, ncomp, /*dst_is_summed=*/false);
+                    Geom(lev), mf_comm->nGrowVect(), 0, 0, ncomp);
                 // Now it's safe to apply filter and sumboundary on J_cp
                 ablastr::fields::MultiLevelVectorField const& J_cp = m_fields.get_mr_levels_alldirs(FieldType::current_cp, finest_level, skip_lev0_coarse_patch);
                 if (use_filter)
@@ -1422,7 +1411,7 @@ WarpX::SyncRho (
             // coarse patch of the fine level. They are unfiltered and uncommunicated.
             // We need to add it to the fine patch of the current level.
             AddFineLevelDeposits(*charge_fp[lev], *mf_comm,
-                Geom(lev), mf_comm->nGrowVect(), 0, 0, ncomp, /*dst_is_summed=*/false);
+                Geom(lev), mf_comm->nGrowVect(), 0, 0, ncomp);
             // Now it's safe to apply filter and sumboundary on charge_cp
             ApplyFilterandSumBoundaryRho(lev+1, lev, *charge_cp[lev+1], 0, ncomp);
         }
@@ -1775,15 +1764,14 @@ void WarpX::SumBoundaryJ (
  * \brief Update the currents of `lev` by adding the currents from particles
  *         that are in the mesh refinement patches at `lev+1`
  *
- * More precisely, apply filter and sum boundaries for the current of:
- * - the fine patch of `lev`
- * - the coarse patch of `lev+1` (same resolution)
- * - the buffer regions of the coarse patch of `lev+1` (i.e. for particules
- * that are within the mesh refinement patch, but do not deposit on the
- * mesh refinement patch because they are too close to the boundary)
- *
- * Then update the fine patch of `lev` by adding the currents for the coarse
- * patch (and buffer region) of `lev+1`
+ * More precisely, as in SyncCurrent():
+ * - add the unfiltered, unsummed current of the coarse patch of `lev+1`
+ *   (same resolution) and of its buffer regions (i.e. for particles
+ *   that are within the mesh refinement patch, but do not deposit on the
+ *   mesh refinement patch because they are too close to the boundary)
+ *   to the fine patch of `lev`
+ * - apply filter and sum boundaries for the current of the fine patch of `lev`
+ * - apply filter and sum boundaries for the current of the coarse patch of `lev+1`
  */
 void WarpX::AddCurrentFromFineLevelandSumBoundary (
     const ablastr::fields::MultiLevelVectorField& J_fp,
@@ -1793,6 +1781,27 @@ void WarpX::AddCurrentFromFineLevelandSumBoundary (
 {
     const amrex::Periodicity& period = Geom(lev).periodicity();
 
+    if (lev < finest_level)
+    {
+        for (int idim=0; idim<3; ++idim)
+        {
+            // When there are current buffers, unlike coarse patch,
+            // we don't care about their final state: add the coarse patch
+            // to the buffer and transfer the sum.
+            amrex::MultiFab* src = J_cp[lev+1][idim];
+            if (J_buffer[lev+1][idim])
+            {
+                const IntVect& ng = J_cp[lev+1][idim]->nGrowVect();
+                AMREX_ASSERT(ng.allLE(J_buffer[lev+1][idim]->nGrowVect()));
+                MultiFab::Add(*J_buffer[lev+1][idim], *J_cp[lev+1][idim],
+                              0, 0, J_cp[lev+1][idim]->nComp(), ng);
+                src = J_buffer[lev+1][idim];
+            }
+            AddFineLevelDeposits(*J_fp[lev][idim], *src, Geom(lev),
+                src->nGrowVect(), 0, 0, src->nComp());
+        }
+    }
+
     if (use_filter)
     {
         ApplyFilterJ(J_fp, lev);
@@ -1801,49 +1810,11 @@ void WarpX::AddCurrentFromFineLevelandSumBoundary (
 
     if (lev < finest_level)
     {
-        // When there are current buffers, unlike coarse patch,
-        // we don't care about the final state of them.
-
         for (int idim=0; idim<3; ++idim)
         {
-            const IntVect ng = J_cp[lev+1][idim]->nGrowVect();
-
-            if (use_filter && J_buffer[lev+1][idim])
+            if (use_filter)
             {
                 ApplyFilterJ(J_cp, lev+1, idim);
-                ApplyFilterJ(J_buffer, lev+1, idim);
-
-                MultiFab::Add(
-                    *J_buffer[lev+1][idim], *J_cp[lev+1][idim],
-                    0, 0, J_buffer[lev+1][idim]->nComp(), ng);
-
-                AddFineLevelDeposits(*J_fp[lev][idim], *J_buffer[lev+1][idim],
-                    Geom(lev), ng, 0, 0, J_buffer[lev+1][idim]->nComp(),
-                    /*dst_is_summed=*/true);
-            }
-            else if (use_filter) // but no buffer
-            {
-                ApplyFilterJ(J_cp, lev+1, idim);
-
-                AddFineLevelDeposits(*J_fp[lev][idim], *J_cp[lev+1][idim],
-                    Geom(lev), ng, 0, 0, J_cp[lev+1][idim]->nComp(),
-                    /*dst_is_summed=*/true);
-            }
-            else if (J_buffer[lev+1][idim]) // but no filter
-            {
-                MultiFab::Add(
-                    *J_buffer[lev+1][idim], *J_cp[lev+1][idim],
-                    0, 0, J_buffer[lev+1][idim]->nComp(), ng);
-
-                AddFineLevelDeposits(*J_fp[lev][idim], *J_buffer[lev+1][idim],
-                    Geom(lev), ng, 0, 0, J_buffer[lev+1][idim]->nComp(),
-                    /*dst_is_summed=*/true);
-            }
-            else // no filter, no buffer
-            {
-                AddFineLevelDeposits(*J_fp[lev][idim], *J_cp[lev+1][idim],
-                    Geom(lev), ng, 0, 0, J_cp[lev+1][idim]->nComp(),
-                    /*dst_is_summed=*/true);
             }
             SumBoundaryJ(J_cp, lev+1, idim, period);
         }
@@ -1906,15 +1877,14 @@ void WarpX::ApplyFilterandSumBoundaryRho (int /*lev*/, int glev, amrex::MultiFab
  *  \brief Update the charge density of `lev` by adding the charge density from particles
  *         that are in the mesh refinement patches at `lev+1`
  *
- * More precisely, apply filter and sum boundaries for the charge density of:
- * - the fine patch of `lev`
- * - the coarse patch of `lev+1` (same resolution)
- * - the buffer regions of the coarse patch of `lev+1` (i.e. for particules
- * that are within the mesh refinement patch, but do not deposit on the
- * mesh refinement patch because they are too close to the boundary)
- *
- * Then update the fine patch of `lev` by adding the charge density for the coarse
- * patch (and buffer region) of `lev+1`
+ * More precisely, as in SyncRho():
+ * - add the unfiltered, unsummed charge density of the coarse patch of `lev+1`
+ *   (same resolution) and of its buffer regions (i.e. for particles
+ *   that are within the mesh refinement patch, but do not deposit on the
+ *   mesh refinement patch because they are too close to the boundary)
+ *   to the fine patch of `lev`
+ * - apply filter and sum boundaries for the charge density of the fine patch of `lev`
+ * - apply filter and sum boundaries for the charge density of the coarse patch of `lev+1`
  */
 void WarpX::AddRhoFromFineLevelandSumBoundary (
     const ablastr::fields::MultiLevelScalarField& charge_fp,
@@ -1926,65 +1896,26 @@ void WarpX::AddRhoFromFineLevelandSumBoundary (
 {
     if (!charge_fp[lev]) { return; }
 
+    if (lev < finest_level)
+    {
+        // As for the current, the final state of the buffer does not matter:
+        // add the coarse patch to the buffer and transfer the sum.
+        amrex::MultiFab* src = charge_cp[lev+1];
+        if (charge_buffer[lev+1])
+        {
+            const IntVect& ng = charge_cp[lev+1]->nGrowVect();
+            AMREX_ASSERT(ng.allLE(charge_buffer[lev+1]->nGrowVect()));
+            MultiFab::Add(*charge_buffer[lev+1], *charge_cp[lev+1], icomp, icomp, ncomp, ng);
+            src = charge_buffer[lev+1];
+        }
+        AddFineLevelDeposits(*charge_fp[lev], *src, Geom(lev),
+            src->nGrowVect(), icomp, icomp, ncomp);
+    }
+
     ApplyFilterandSumBoundaryRho(charge_fp, charge_cp, lev, PatchType::fine, icomp, ncomp);
 
-    if (lev < finest_level){
-
-        const amrex::Periodicity& period = Geom(lev).periodicity();
-        IntVect ng = charge_cp[lev+1]->nGrowVect();
-        IntVect ng_depos_rho = get_ng_depos_rho();
-        if (use_filter && charge_buffer[lev+1])
-        {
-            // coarse patch of fine level
-            ng += bilinear_filter.stencil_length_each_dir-1;
-            ng_depos_rho += bilinear_filter.stencil_length_each_dir-1;
-            ng_depos_rho.min(ng);
-            MultiFab rhofc(charge_cp[lev+1]->boxArray(),
-                           charge_cp[lev+1]->DistributionMap(), ncomp, ng);
-            bilinear_filter.ApplyStencil(rhofc, *charge_cp[lev+1], lev+1, icomp, 0, ncomp);
-
-            // buffer patch of fine level
-            MultiFab rhofb(charge_buffer[lev+1]->boxArray(),
-                           charge_buffer[lev+1]->DistributionMap(), ncomp, ng);
-            bilinear_filter.ApplyStencil(rhofb, *charge_buffer[lev+1], lev+1, icomp, 0, ncomp);
-
-            MultiFab::Add(rhofb, rhofc, 0, 0, ncomp, ng);
-
-            AddFineLevelDeposits(*charge_fp[lev], rhofb,
-                Geom(lev), ng, 0, icomp, ncomp, /*dst_is_summed=*/true);
-            WarpXSumGuardCells( *charge_cp[lev+1], rhofc, period, ng_depos_rho, icomp, ncomp );
-        }
-        else if (use_filter) // but no buffer
-        {
-            ng += bilinear_filter.stencil_length_each_dir-1;
-            ng_depos_rho += bilinear_filter.stencil_length_each_dir-1;
-            ng_depos_rho.min(ng);
-            MultiFab rf(charge_cp[lev+1]->boxArray(), charge_cp[lev+1]->DistributionMap(), ncomp, ng);
-            bilinear_filter.ApplyStencil(rf, *charge_cp[lev+1], lev+1, icomp, 0, ncomp);
-
-            AddFineLevelDeposits(*charge_fp[lev], rf,
-                Geom(lev), ng, 0, icomp, ncomp, /*dst_is_summed=*/true);
-            WarpXSumGuardCells( *charge_cp[lev+1], rf, period, ng_depos_rho, icomp, ncomp );
-        }
-        else if (charge_buffer[lev+1]) // but no filter
-        {
-            ng_depos_rho.min(ng);
-            MultiFab::Add(*charge_buffer[lev+1],
-                          *charge_cp[lev+1], icomp, icomp, ncomp,
-                           charge_cp[lev+1]->nGrowVect());
-
-            AddFineLevelDeposits(*charge_fp[lev], *charge_buffer[lev+1],
-                Geom(lev), charge_buffer[lev+1]->nGrowVect(), icomp, icomp, ncomp,
-                /*dst_is_summed=*/true);
-            WarpXSumGuardCells(*(charge_cp[lev+1]), period, ng_depos_rho, icomp, ncomp);
-        }
-        else // no filter, no buffer
-        {
-            ng_depos_rho.min(ng);
-            AddFineLevelDeposits(*charge_fp[lev], *charge_cp[lev+1],
-                Geom(lev), charge_cp[lev+1]->nGrowVect(), icomp, icomp, ncomp,
-                /*dst_is_summed=*/true);
-            WarpXSumGuardCells(*(charge_cp[lev+1]), period, ng_depos_rho, icomp, ncomp);
-        }
+    if (lev < finest_level)
+    {
+        ApplyFilterandSumBoundaryRho(lev+1, lev, *charge_cp[lev+1], icomp, ncomp);
     }
 }
