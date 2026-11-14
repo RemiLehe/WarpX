@@ -2619,7 +2619,7 @@ struct VillasenorParticleDeposit
 
 /**
  * \brief Villasenor and Buneman current deposition, for the explicit scheme, using shared
- *        memory buffers. Particles are binned into tiles of bin_size cells, and each tile
+ *        memory arrays. Particles are binned into tiles of bin_size cells, and each tile
  *        is processed by one GPU thread block, which accumulates the current in shared
  *        memory before adding it to the global arrays. Only available for CUDA and HIP.
  *
@@ -2680,14 +2680,13 @@ void doVillasenorDepositionSharedShapeN (
     !(defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE))
     using namespace amrex::literals;
 
-    // Like Esirkepov, Villasenor deposits each component of J on nodes or cell centers that
-    // span the old and new positions of the particle. With the CFL condition, a particle in
-    // a given cell touches points from depos_order cells below to depos_order+1 cells above
-    // that cell, so the buffers cover the tile grown by depos_order and made nodal (cell
-    // centers along a direction are within the range of the nodes).
+    // With the CFL condition, a particle in a given cell touches points from depos_order
+    // cells below to depos_order+1 cells above that cell, so the shared memory arrays cover
+    // the tile grown by depos_order.
     // The new position is the current position (used for binning) pushed by
     // relative_time + dt/2, which is 0 for the usual explicit deposition. Otherwise,
-    // grow the buffers by the number of cells that the particle can move in that time.
+    // grow the shared memory arrays by the number of cells that the particle can move in
+    // that time.
     const auto dxiarr = geom.InvCellSizeArray();
     const amrex::Real shift_time = std::abs(relative_time + 0.5_rt*dt);
     int ngrow = depos_order;
@@ -2701,8 +2700,8 @@ void doVillasenorDepositionSharedShapeN (
         domain_double, do_cropping, lo, q, dinv.x*dinv.y*dinv.z, n_rz_azimuthal_modes};
     const amrex::GpuArray<amrex::Array4<amrex::Real>, 3> J{
         jx_fab.array(), jy_fab.array(), jz_fab.array()};
-    const amrex::IntVect nodal = amrex::IntVect::TheNodeVector();
-    const amrex::GpuArray<amrex::IntVect, 3> types{nodal, nodal, nodal};
+    const amrex::GpuArray<amrex::IntVect, 3> types{
+        jx_fab.box().type(), jy_fab.box().type(), jz_fab.box().type()};
     doSharedDeposition<3>(deposit_particle, J, types, ngrow, a_bins, box, a_tbox_max_size,
                           threads_per_block, bin_size);
 #else
